@@ -25,6 +25,8 @@ $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $root = Split-Path $PSScriptRoot -Parent
+# data layer with fallbacks (Bybit is geo-blocked from GitHub Actions runners)
+. (Join-Path (Split-Path $root -Parent) 'tools\lib_engine.ps1')
 if (-not $PortfolioPath) { $PortfolioPath = Join-Path $root 'portfolio.json' }
 $outPath = Join-Path $root 'data\signal.json'
 
@@ -57,30 +59,18 @@ function Calc-ATR([double[]]$hi, [double[]]$lo, [double[]]$cl, [int]$n) {
     return $out
 }
 
-function Get-Klines([string]$sym, [string]$interval, [long]$stepMs) {
-    $bybitSym = $sym.Replace('-','')
+function Get-KlinesCh([string]$sym, [string]$interval, [long]$stepMs) {
+    # via lib_engine (Bybit -> bytick -> BingX): closed bars only, same row shape as before
     $nowMs = [long]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
-    $url = "https://api.bybit.com/v5/market/kline?category=linear&symbol=$bybitSym&interval=$interval&limit=1000"
-    $resp = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 30
-    if ($resp.retCode -ne 0) { throw "kline $sym retCode=$($resp.retCode)" }
-    $list = @($resp.result.list) | Sort-Object { [long]$_[0] }
+    $bars = Get-KlinesRange $sym $interval ($nowMs - 1010 * $stepMs) $nowMs $nowMs
     $rows = @()
-    foreach ($k in $list) {
-        $ts = [long]$k[0]
-        if (($ts + $stepMs) -le $nowMs) {
-            $rows += ,@([long]$k[0], [double]$k[1], [double]$k[2], [double]$k[3], [double]$k[4], [double]$k[5])
-        }
-    }
+    foreach ($b in $bars) { $rows += ,@([long]$b.t, [double]$b.o, [double]$b.h, [double]$b.l, [double]$b.c, [double]$b.v) }
     return ,$rows
 }
 
 function Get-FundingNow([string]$sym) {
-    $bybitSym = $sym.Replace('-','')
-    try {
-        $url = "https://api.bybit.com/v5/market/tickers?category=linear&symbol=$bybitSym"
-        $resp = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 20
-        if ($resp.retCode -eq 0 -and $resp.result.list.Count -gt 0) { return [double]$resp.result.list[0].fundingRate }
-    } catch {}
+    $f = Get-FundingLast8h $sym
+    if ($null -ne $f) { return $f }
     return 0.0001
 }
 
@@ -100,8 +90,8 @@ $scanUtc = [DateTimeOffset]::UtcNow.ToString('yyyy-MM-dd HH:mm')
 $cands = @(); $best = $null
 
 foreach ($sym in $Symbols) {
-    $k1 = Get-Klines $sym '60' $HOUR
-    $k4 = Get-Klines $sym '240' $H4
+    $k1 = Get-KlinesCh $sym '60' $HOUR
+    $k4 = Get-KlinesCh $sym '240' $H4
     Start-Sleep -Milliseconds 100
     $n1 = $k1.Count; $n4 = $k4.Count
     if ($n1 -lt ($BreakN + 20) -or $n1 -lt 80 -or $n4 -lt 170) { continue }

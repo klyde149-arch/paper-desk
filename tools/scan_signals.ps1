@@ -9,6 +9,7 @@ param(
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $ErrorActionPreference = 'Stop'
 $dir = Split-Path $PSScriptRoot -Parent   # корень проекта (портируемо: локально и в GitHub Actions)
+. (Join-Path $PSScriptRoot 'lib_engine.ps1')  # слой данных с фолбэками (Bybit заблокирован с раннеров Actions)
 
 function EMAseries([double[]]$v,[int]$p){ $n=$v.Count;$o=New-Object 'double[]' $n;$k=2.0/($p+1);$s=0.0
   for($i=0;$i -lt $n;$i++){ if($i -lt $p){$s+=$v[$i];$o[$i]=[double]::NaN;if($i -eq $p-1){$o[$i]=$s/$p}}else{$o[$i]=$v[$i]*$k+$o[$i-1]*(1-$k)} } ,$o }
@@ -22,30 +23,26 @@ function ATRseries([double[]]$h,[double[]]$l,[double[]]$c,[int]$p){ $n=$c.Count;
   $s=0.0;for($i=0;$i -lt $p;$i++){$s+=$tr[$i]};$o[$p-1]=$s/$p
   for($i=$p;$i -lt $n;$i++){$o[$i]=($o[$i-1]*($p-1)+$tr[$i])/$p} ,$o }
 
-function LoadKlines($bsym){
-  $u="https://api.bybit.com/v5/market/kline?category=linear&symbol=$bsym&interval=240&limit=400"
-  $r=Invoke-RestMethod -Uri $u -TimeoutSec 30
-  $rows=@($r.result.list) | Sort-Object { [long]$_[0] }
-  ,@($rows | ForEach-Object { [pscustomobject]@{ t=[long]$_[0]; o=[double]$_[1]; h=[double]$_[2]; l=[double]$_[3]; c=[double]$_[4]; v=[double]$_[5] } })
+function LoadKlines($sym){
+  # через lib_engine: Bybit -> bytick -> BingX; отдаёт ЗАКРЫТЫЕ бары + текущий формирующийся
+  # (решение принимается по bars.Count-2 = последний закрытый — семантика сканера не меняется)
+  $nowMs = UtcNowMs
+  $bars = Get-KlinesRange $sym '240' ($nowMs - [long]410*14400000) $nowMs ($nowMs + 14400000)
+  return ,@($bars | ForEach-Object { $_ })
 }
-function LoadFunding($bsym){
-  try{ $r=Invoke-RestMethod -Uri "https://api.bybit.com/v5/market/funding/history?category=linear&symbol=$bsym&limit=1" -TimeoutSec 20
-    if($r.result.list.Count){ return [double]$r.result.list[0].fundingRate } }catch{}
-  return $null
-}
+function LoadFunding($sym){ Get-FundingLast8h $sym }
 # current Fear&Greed
 $fng=$null; try{ $fj=Invoke-RestMethod -Uri "https://api.alternative.me/fng/?limit=1" -TimeoutSec 20; $fng=[int]$fj.data[0].value }catch{}
 
 # ---- load all, compute indicators ----
 $S=@{}
 foreach($sym in $Symbols){
-  $bs=$sym.Replace('-','')
-  $bars=LoadKlines $bs
+  $bars=LoadKlines $sym
   if($bars.Count -lt 210){ Write-Warning "$sym too few bars"; continue }
   $c=[double[]]($bars|ForEach-Object{$_.c}); $h=[double[]]($bars|ForEach-Object{$_.h}); $l=[double[]]($bars|ForEach-Object{$_.l}); $o=[double[]]($bars|ForEach-Object{$_.o}); $t=[long[]]($bars|ForEach-Object{$_.t})
   $S[$sym]=@{ bars=$bars;o=$o;h=$h;l=$l;c=$c;t=$t
     ema20=(EMAseries $c 20);ema50=(EMAseries $c 50);ema200=(EMAseries $c 200);rsi=(RSIseries $c 14);atr=(ATRseries $h $l $c 14)
-    funding=(LoadFunding $bs) }
+    funding=(LoadFunding $sym) }
   Start-Sleep -Milliseconds 80
 }
 

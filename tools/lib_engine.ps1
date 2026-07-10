@@ -1,4 +1,4 @@
-# lib_engine.ps1 - shared helpers for the autonomous tick engine (auto_trade.ps1).
+﻿# lib_engine.ps1 - shared helpers for the autonomous tick engine (auto_trade.ps1).
 # Dot-source this file. PS 5.1 compatible. ASCII only (no BOM needed).
 # Data layer: Bybit v5 primary, api.bytick.com mirror, BingX as last-resort fallback
 # (GitHub Actions runners sit on US Azure IPs which api.bybit.com may geo-block).
@@ -154,6 +154,26 @@ function Get-FundingRateAt([hashtable]$Map, [long]$SlotTs, [double]$Default = 0.
   foreach ($k in $Map.Keys) { if ([long]$k -le $SlotTs -and [long]$k -gt $best) { $best = [long]$k } }
   if ($best -ge 0) { return [double]$Map[$best] }
   return $Default
+}
+
+# alias for scanners whose local Get-Klines has a different signature
+function Get-KlinesRange([string]$Sym, [string]$Interval, [long]$StartMs, [long]$EndMs, [long]$NowMs) {
+  return ,(Get-Klines $Sym $Interval $StartMs $EndMs $NowMs)
+}
+
+# last known funding rate per 8h (fraction): Bybit tickers -> BingX premiumIndex fallback
+function Get-FundingLast8h([string]$Sym) {
+  $bs = $Sym.Replace('-', '')
+  try {
+    $r = Invoke-Bybit "/v5/market/tickers?category=linear&symbol=$bs"
+    $list = @($r.result.list)
+    if ($list.Count -gt 0 -and $null -ne $list[0].fundingRate -and "$($list[0].fundingRate)" -ne '') { return [double]$list[0].fundingRate }
+  } catch {}
+  try {
+    $r = Invoke-Http "https://open-api.bingx.com/openApi/swap/v2/quote/premiumIndex?symbol=$Sym"
+    if ([int]$r.code -eq 0 -and $null -ne $r.data.lastFundingRate) { return [double]$r.data.lastFundingRate }
+  } catch {}
+  return $null
 }
 
 # ---------- bulk tickers: sym -> lastPrice ----------

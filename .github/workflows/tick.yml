@@ -55,7 +55,7 @@ jobs:
           git config user.email 'bot@users.noreply.github.com'
           git add portfolio.json journal.md data challenge/portfolio.json
           if (Test-Path challenge/data/signal.json) { git add challenge/data/signal.json }
-          $st = git status --porcelain --cached
+          $st = git diff --cached --name-only
           if (-not $st) { Write-Host 'state unchanged - nothing to commit'; exit 0 }
           $stamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm')
           git commit -q -m "tick $stamp UTC"
