@@ -748,7 +748,7 @@ function renderTrades(ctx,i0,i1){
    const tw=ctx.measureText(lab).width+14;
    ctx.fillStyle=col;roundRect(ctx,plotW()-tw-6,y-19,tw,16,4);ctx.fill();
    ctx.fillStyle='#fff';ctx.textAlign='right';ctx.fillText(lab,plotW()-13,y-7);};
-  lv(p.tp1,C('--gain'),'TP1 '+fmtP(p.tp1));lv(p.entry,C('--accent'),'ВХОД '+fmtP(p.entry));lv(p.stop,C('--loss'),'СТОП '+fmtP(p.stop));
+  if(p.tp1!=null)lv(p.tp1,C('--gain'),'TP1 '+fmtP(p.tp1));lv(p.entry,C('--accent'),'ВХОД '+fmtP(p.entry));lv(p.stop,C('--loss'),'СТОП '+fmtP(p.stop));
   const ei=tToI(Date.parse(p.entryUtc.replace(' ','T')+':00Z'));
   if(ei>=i0&&ei<=i1){const x=X(ei),y=Ymain(p.entry);
    ctx.fillStyle=C('--accent');ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x-6,y-20);ctx.lineTo(x+6,y-20);ctx.closePath();ctx.fill();
