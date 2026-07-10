@@ -13,6 +13,7 @@ param(
   [string]$SimNow = '',    # 'yyyy-MM-dd HH:mm' UTC - подмена часов (тесты/реплей)
   [string]$Root = '',      # корень проекта (по умолчанию - родитель папки tools)
   [switch]$SkipChallenge,
+  [switch]$SkipRf,         # пропустить контур рынка РФ (C2/C3b)
   [switch]$SkipViz,
   [switch]$Force           # игнорировать lock-файл
 )
@@ -712,6 +713,18 @@ if (-not $SkipChallenge) {
   } catch {
     Write-TickLog $Root ("CHALLENGE ERROR: " + $_.Exception.Message)
     Write-Warning "челлендж-контур: пропущен: $($_.Exception.Message)"
+  }
+}
+
+# ================= РЫНОК РФ: живой форвард-тест C2/C3b (сбой не влияет на крипту) =================
+if (-not $SkipRf -and -not $DryRun) {
+  try {
+    $rfOut = (& (Join-Path $PSScriptRoot 'rf_engine.ps1') -Root $Root -NowMs $nowMs) | Out-String
+    if ($rfOut -and ($rfOut -notmatch 'события: -')) { $doViz = $true }   # были RF-события - обновить дашборд
+    if ($rfOut) { $rfOut.Trim() }
+  } catch {
+    Write-TickLog $Root ("RF SECTION ERROR: " + $_.Exception.Message)
+    Write-Warning "контур РФ: пропущен: $($_.Exception.Message)"
   }
 }
 

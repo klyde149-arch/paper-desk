@@ -319,7 +319,15 @@
 
   <!-- ============ FORTS FUTURES PANE ============ -->
   <section id="pane-fut" style="display:none">
-    <h2>Фьючерсы FORTS (бэктест): брейкаут прошёл walk-forward + перевход re-arm (принят 2026-07-10)</h2>
+    <h2>Рынок РФ — <span class="em">живой форвард-тест C2 / C3b</span></h2>
+    <p class="sec-note">Два виртуальных счёта по $10 000 торгуются ботом 24/7 по замороженным правилам: ядро Donchian-20+re-arm (риск C2 3% / C3b 5%), сателлит setup A (1% / 2%), momentum топ-4 акций (вес 30% / 50%). Решения по закрытым дневным барам MOEX, входы — по открытию следующей сессии, стопы — по касанию (часовые свечи ISS, задержка ~15 мин), роллы фронт-контрактов платные. Старт 2026-07-10 с чистого листа.</p>
+    <div id="rfStatus" class="callout" style="border-left-color:var(--accent)"></div>
+    <div class="kpis" id="rfKpis" style="grid-template-columns:repeat(2,1fr);gap:14px"></div>
+    <h2>Кривая эквити C2 / C3b — живая</h2>
+    <div class="card"><div class="legend" id="lgRf" style="position:static;margin-bottom:8px"></div><canvas id="rfEqChart" height="240"></canvas><p class="hint">Точка на каждый тик бота. Пунктир — старт $10 000.</p></div>
+    <div id="rfTradesWrap"></div>
+
+    <h2 style="margin-top:34px">Исследование · <span class="em">бэктесты</span>: брейкаут прошёл walk-forward + перевход re-arm (принят 2026-07-10)</h2>
     <div class="kpis">
       <div class="kpi"><p class="l">Ядро: Donchian-брейкаут + re-arm · риск 2%</p><div class="v pos">+389%</div><p class="s">2020→2026 · 2.05%/мес · PF 2.11 · DD 18.5%</p></div>
       <div class="kpi"><p class="l">Walk-forward PF (IS → OOS1 → OOS2)</p><div class="v pos">1.71 → 1.93 → 3.03</div><p class="s">re-arm 10×15 прошёл 3/3 (база: 1.45→1.86→3.02)</p></div>
@@ -434,7 +442,7 @@
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1783688603"></script>
+<script src="vizdata.js?v=1783695942"></script>
 <script>
 (function(){
   "use strict";
@@ -1429,13 +1437,88 @@
   }
   buildDaily();
 
+  // ---------- RF LIVE: форвард-тест C2/C3b (вкладка «Фьючерсы РФ») ----------
+  const RF = VIZ.rfLive || null;
+  function buildRfLive(){
+    if(!$("rfStatus")) return;
+    if(!RF){
+      $("rfStatus").innerHTML='Живой контур РФ запускается — данные появятся после первого тика бота.';
+      $("rfKpis").innerHTML='';
+      $("rfTradesWrap").innerHTML='';
+      return;
+    }
+    const fr = RF.fronts ? Object.keys(RF.fronts).map(a=>`${a}→${RF.fronts[a].secid}`).join(" · ") : "—";
+    $("rfStatus").innerHTML = `<b>Статус:</b> последний дневной проход — <b class="num">${RF.lastDailyDay||"—"}</b> · тик <b class="num">${RF.lastTickUtc||"—"}</b> UTC<br><span style="color:var(--muted);font-size:12px">фронт-контракты: ${fr}</span>`;
+    const sgn=v=>(v>=0?"+":"−")+"$"+Math.abs(v).toFixed(2);
+    let html="";
+    ["c2","c3b"].forEach(pid=>{
+      const P=RF.profiles?RF.profiles[pid]:null; if(!P) return;
+      const tot=P.eq-10000, day=P.eq-(P.dayStartEq||10000);
+      const rowSt='display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--hair2);font-size:12.5px';
+      const posRows=(P.positions||[]).map(x=>`<div style="${rowSt}"><span>${x.sleeve==="core"?"ядро":"сетап A"} · ${x.asset} <span style="color:var(--faint)">(${x.secid})</span> <b style="color:${x.side==="long"?"var(--gain)":"var(--loss)"}">${x.side==="long"?"ЛОНГ":"ШОРТ"}</b></span><b>вход ${x.entry} · стоп <span class="neg">${x.stop}</span></b></div>`).join("");
+      const holdRows=(P.holdings||[]).map(h=>`<div style="${rowSt}"><span>momentum · <b>${h.sym}</b></span><b>${h.qty} @ ${h.entry}</b></div>`).join("");
+      const pendRows=(P.pending||[]).map(x=>`<div style="${rowSt}"><span style="color:var(--faint)">⏳ ждёт открытия сессии · ${x.sleeve} ${x.asset||""} ${x.side||""}</span><b style="color:var(--faint)">${x.created}</b></div>`).join("");
+      html+=`<div class="kpi" style="padding:16px 18px">
+        <p class="l">${P.label} · ядро ${Math.round(P.coreRisk*100)}% + сетап A ${Math.round(P.setaRisk*100)}% + momentum ×${P.momWeight}</p>
+        <div class="v ${tot>=0?"pos":"neg"}" style="font-size:24px">$${P.eq.toLocaleString("en-US",{minimumFractionDigits:2})}</div>
+        <p class="s">всего: <span class="${tot>=0?"pos":"neg"}">${sgn(tot)}</span> · сегодня: <span class="${day>=0?"pos":"neg"}">${sgn(day)}</span> · сделок ${P.stats?P.stats.trades:0} (${P.stats?P.stats.wins:0}W/${P.stats?P.stats.losses:0}L)</p>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--hair);font-size:12px;color:var(--muted)">рукава: ядро $${P.coreEq.toFixed(0)} · сетап A $${P.setAEq.toFixed(0)} · momentum $${P.momEq.toFixed(0)} <span style="color:var(--faint)">(кэш $${P.momCash.toFixed(0)})</span></div>
+        ${(posRows||holdRows||pendRows)?`<div style="margin-top:8px">${posRows}${holdRows}${pendRows}</div>`:`<p class="s" style="margin-top:8px">позиций нет — бот ждёт сигналы по закрытым дневным барам</p>`}
+      </div>`;
+    });
+    $("rfKpis").innerHTML=html;
+    const wrap=$("rfTradesWrap"); const TR=RF?arr(RF.trades):[];
+    if(!TR.length){
+      wrap.innerHTML='<div class="card" style="margin-top:14px;color:var(--muted);font-size:13.5px">Закрытых сделок РФ ещё нет — каждая появится здесь автоматически: профиль, рукав, комиссии, чистый P&L.</div>';
+    } else {
+      let t=`<div class="card" style="margin-top:14px"><h3 style="font-family:var(--serif);margin:0 0 8px;font-size:16px">Закрытые сделки РФ (${TR.length})</h3><div class="tbl-scroll"><table style="min-width:780px"><thead><tr><th></th><th>Профиль</th><th>Рукав</th><th>Актив</th><th>Сторона</th><th>Вход</th><th>Выход</th><th>Причина</th><th>Комиссии</th><th>P&L чистый</th></tr></thead><tbody>`;
+      t+=TR.slice().reverse().map(x=>{const win=x.pnlUsd>0;
+        return `<tr><td><span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:${win?'var(--gain-soft)':'var(--loss-soft)'};color:${win?'var(--gain)':'var(--loss)'}">${win?"WIN":"LOSS"}</span></td>`+
+          `<td>${x.profile}</td><td style="color:var(--muted)">${x.sleeve}</td><td>${x.sym}</td>`+
+          `<td style="color:${x.side==="long"?"var(--gain)":"var(--loss)"};font-weight:600">${x.side==="long"?"ЛОНГ":"ШОРТ"}</td>`+
+          `<td>${x.entryDay} · $${fmtP(x.entry)}</td><td>${x.exitDay} · $${fmtP(x.exitPx)}</td>`+
+          `<td style="color:var(--muted);font-size:11.5px">${x.exitReason||""}</td>`+
+          `<td class="num">$${(x.fees||0).toFixed(2)}</td>`+
+          `<td style="color:${win?'var(--gain)':'var(--loss)'};font-weight:700">${win?"+":"−"}$${Math.abs(x.pnlUsd).toFixed(2)}</td></tr>`;
+      }).join("");
+      t+=`</tbody></table></div></div>`;
+      wrap.innerHTML=t;
+    }
+    drawRfEq();
+  }
+  function drawRfEq(){
+    const cv=$("rfEqChart"); if(!cv) return;
+    const {ctx,w,h}=setupCanvas(cv);
+    ctx.clearRect(0,0,w,h);
+    const curve=RF?arr(RF.curve):[];
+    if($("lgRf"))$("lgRf").innerHTML=`<span><i style="width:14px;height:2px;background:var(--accent);display:inline-block"></i> C2</span><span><i style="width:14px;height:2px;background:#d9a441;display:inline-block"></i> C3b</span>`;
+    if(curve.length<2){ ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("кривая появится после нескольких тиков бота",20,40); return; }
+    const m={t:14,r:70,b:26,l:10}, iw=w-m.l-m.r, ih=h-m.t-m.b;
+    const t0=curve[0][0], t1=curve[curve.length-1][0];
+    let lo=1e18, hi=-1e18;
+    curve.forEach(p=>{ lo=Math.min(lo,p[1],p[2]); hi=Math.max(hi,p[1],p[2]); });
+    lo=Math.min(lo,10000); hi=Math.max(hi,10000);
+    const pad=(hi-lo)*.1||50; lo-=pad; hi+=pad;
+    const X=ts=>m.l+(ts-t0)/Math.max(1,(t1-t0))*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
+    ctx.strokeStyle=C("--hair2"); ctx.fillStyle=C("--faint"); ctx.font=FONT(); ctx.textAlign="left"; ctx.lineWidth=1;
+    for(let i=0;i<=3;i++){ const v=lo+(hi-lo)*i/3, y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText("$"+v.toFixed(0), m.l+iw+6, y+4); }
+    ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(m.l,Y(10000)); ctx.lineTo(m.l+iw,Y(10000)); ctx.stroke(); ctx.setLineDash([]);
+    [[1,C("--accent")],[2,"#d9a441"]].forEach(([idx,col])=>{
+      ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath();
+      curve.forEach((p,i)=>{ const x=X(p[0]),y=Y(p[idx]); if(i)ctx.lineTo(x,y); else ctx.moveTo(x,y); });
+      ctx.stroke();
+    });
+    drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
+  }
+  buildRfLive();
+
   function redrawActive(){
     if(TAB==="crypto"){ liveCharts.forEach(f=>f()); if(exC)exC.draw(); drawEq(); }
     else if(TAB==="daily"){ drawDailyBars(); drawDailyIntra(); }
     else if(TAB==="compare"){ drawCompare(); }
     else if(TAB==="yearly"){ drawYearly(); }
     else if(TAB==="moex"){ if(exM)exM.draw(); if(MOMS)drawEqOn("eqMom",MOMS.equity); }
-    else if(TAB==="fut"&&exF){ exF.draw(); drawCombos(); drawEqOn("eqFut",FUT.equity); }
+    else if(TAB==="fut"){ drawRfEq(); if(exF){ exF.draw(); drawCombos(); drawEqOn("eqFut",FUT.equity); } }
   }
   setTab(TAB);
   addEventListener("resize", redrawActive);

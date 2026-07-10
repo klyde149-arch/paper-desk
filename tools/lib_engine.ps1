@@ -198,6 +198,65 @@ function Get-TickersAll([string[]]$Syms) {
   return $out
 }
 
+# ---------- MOEX ISS (no key; ~15 min delayed; timestamps stored MSK-as-UTC like the whole project) ----------
+function Invoke-Iss([string]$Url) {
+  for ($try = 1; $try -le 3; $try++) {
+    try { return Invoke-RestMethod -Uri $Url -TimeoutSec 30 }
+    catch { if ($try -eq 3) { throw }; Start-Sleep -Seconds (2 * $try) }
+  }
+}
+
+function Get-IssCandleBase([string]$Kind, [string]$Secid) {
+  switch ($Kind) {
+    'stock' { "https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/$Secid/candles.json" }
+    'index' { "https://iss.moex.com/iss/engines/stock/markets/index/boards/SNDX/securities/$Secid/candles.json" }
+    'fut'   { "https://iss.moex.com/iss/engines/futures/markets/forts/securities/$Secid/candles.json" }
+    default { throw "unknown ISS kind $Kind" }
+  }
+}
+
+# candles: interval 24 (daily) / 60 (hourly); rows {t,o,h,l,c,v,end}; t = MSK-as-UTC ms
+function Get-IssCandles([string]$Kind, [string]$Secid, [int]$Interval, [string]$From, [string]$Till = '') {
+  $base = Get-IssCandleBase $Kind $Secid
+  $rows = New-Object System.Collections.Generic.List[object]
+  $start = 0
+  while ($true) {
+    $u = "$base`?interval=$Interval&from=$From&start=$start"
+    if ($Till) { $u += "&till=$Till" }
+    $r = Invoke-Iss $u
+    $data = @($r.candles.data)
+    if (-not $data -or $data.Count -eq 0) { break }
+    foreach ($row in $data) {
+      # ISS columns: open, close, high, low, value, volume, begin, end
+      $t = [long]([DateTimeOffset]([datetime]::SpecifyKind([datetime]::Parse([string]$row[6]), 'Utc'))).ToUnixTimeMilliseconds()
+      $rows.Add([pscustomobject]@{ t = $t; o = [double]$row[0]; h = [double]$row[2]; l = [double]$row[3]; c = [double]$row[1]; v = [double]$row[5]; end = [string]$row[7] })
+    }
+    if ($data.Count -lt 500) { break }
+    $start += 500
+    Start-Sleep -Milliseconds 200
+  }
+  return ,$rows.ToArray()
+}
+
+# FORTS front contracts by ASSETCODE: one securities.json call -> asset -> ordered contract list
+# (front = [0], next = [1]); lasttrade 'yyyy-MM-dd'
+function Get-FutFronts([string[]]$Assets) {
+  $r = Invoke-Iss 'https://iss.moex.com/iss/engines/futures/markets/forts/securities.json?iss.only=securities&securities.columns=SECID,ASSETCODE,LASTTRADEDATE'
+  $mskToday = (Get-Date).ToUniversalTime().AddHours(3).ToString('yyyy-MM-dd')
+  $map = @{}
+  foreach ($row in @($r.securities.data)) {
+    $asset = [string]$row[1]
+    if ($Assets -notcontains $asset) { continue }
+    $ltd = [string]$row[2]
+    if (-not $ltd -or $ltd -lt $mskToday) { continue }
+    if (-not $map.ContainsKey($asset)) { $map[$asset] = New-Object System.Collections.Generic.List[object] }
+    $map[$asset].Add([pscustomobject]@{ secid = [string]$row[0]; lasttrade = $ltd })
+  }
+  $out = @{}
+  foreach ($a in @($map.Keys)) { $out[$a] = @($map[$a] | Sort-Object lasttrade) }
+  return $out
+}
+
 # ---------- indicators (EXACT copies of scan_signals.ps1 - trail must match the scanner) ----------
 function EMAseries([double[]]$v, [int]$p) {
   $n = $v.Count; $o = New-Object 'double[]' $n; $k = 2.0 / ($p + 1); $s = 0.0
@@ -216,8 +275,9 @@ function Read-JsonFile([string]$Path) {
 function ToArr($x) {
   # PS 5.1: return из функции разворачивает массив из 0/1 элементов в скаляр -
   # унарная запятая сохраняет форму массива (иначе legs/open_positions из 1 элемента
-  # сериализуются объектом вместо [..]).
-  $a = [object[]]@($x | ForEach-Object { $_ })
+  # сериализуются объектом вместо [..]). Null-элементы отфильтровываются:
+  # ConvertFrom-Json превращает пустой '[]' в $null, и @($null)+$x рождает фантомы.
+  $a = [object[]]@($x | ForEach-Object { $_ } | Where-Object { $null -ne $_ })
   return ,$a
 }
 function Write-JsonAtomic([string]$Path, $Obj, [int]$Depth = 10) {

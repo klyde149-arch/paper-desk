@@ -149,6 +149,56 @@ $liveActual = [ordered]@{
   curve = [object[]]@($leLog | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.eq) })
 }
 
+# ---- живой форвард-тест РФ: профили C2/C3b (data\rf\*, optional) ----
+$rfLive = $null
+$rfDir2 = Join-Path $dir 'data\rf'
+if (Test-Path (Join-Path $rfDir2 'c2_portfolio.json')) {
+  $rfProfiles = [ordered]@{}
+  foreach ($prof in 'c2', 'c3b') {
+    $pp = Get-Content (Join-Path $rfDir2 "$($prof)_portfolio.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+    $poss = @()
+    foreach ($slName in 'core', 'setA') {
+      foreach ($x in @($pp.sleeves.$slName.positions)) {
+        if ($null -eq $x) { continue }
+        $poss += [ordered]@{ sleeve = $slName; id = $x.id; asset = $x.asset; secid = $x.secid; side = $x.side
+          qty = $x.qty; entry = $x.entry; stop = $x.stop; tp1 = $x.tp1; entryDay = $x.entry_day; risk = $x.risk_usd }
+      }
+    }
+    $hold = @()
+    foreach ($h in @($pp.sleeves.mom.holdings)) { if ($null -ne $h) { $hold += [ordered]@{ sym = $h.sym; qty = $h.qty; entry = $h.entry; entryDay = $h.entry_day } } }
+    $pend = @()
+    foreach ($slName in 'core', 'setA') {
+      foreach ($x in @($pp.sleeves.$slName.pending)) { if ($null -ne $x) { $pend += [ordered]@{ sleeve = $slName; kind = $x.kind; asset = $x.asset; side = $x.side; created = $x.created_day } } }
+    }
+    foreach ($x in @($pp.sleeves.mom.pending)) { if ($null -ne $x) { $pend += [ordered]@{ sleeve = 'mom'; kind = 'rebalance'; asset = (@($x.target) -join '+'); side = 'long'; created = $x.created_day } } }
+    $coreEq = if ($pp.sleeves.core.PSObject.Properties['equity_mtm'] -and [double]$pp.sleeves.core.equity_mtm -gt 0) { [double]$pp.sleeves.core.equity_mtm } else { [double]$pp.sleeves.core.equity }
+    $setAEq = if ($pp.sleeves.setA.PSObject.Properties['equity_mtm'] -and [double]$pp.sleeves.setA.equity_mtm -gt 0) { [double]$pp.sleeves.setA.equity_mtm } else { [double]$pp.sleeves.setA.equity }
+    $rfProfiles[$prof] = [ordered]@{
+      label = $pp.meta.profile; coreRisk = $pp.meta.core_risk; setaRisk = $pp.meta.seta_risk; momWeight = $pp.meta.mom_weight
+      eq = [double]$pp.profile_eq; dayStartEq = [double]$pp.day_start_eq; dayStartDate = $pp.day_start_date
+      peak = [double]$pp.peak_eq
+      coreEq = $coreEq; setAEq = $setAEq; momEq = [double]$pp.sleeves.mom.equity; momCash = [double]$pp.sleeves.mom.cash
+      positions = [object[]]@($poss); holdings = [object[]]@($hold); pending = [object[]]@($pend)
+      stats = $pp.stats
+    }
+  }
+  $rfTrades = @()
+  $rtPath = Join-Path $rfDir2 'rf_trades.json'
+  if (Test-Path $rtPath) { $rfTrades = [object[]]@((Get-Content $rtPath -Raw -Encoding UTF8 | ConvertFrom-Json) | ForEach-Object { $_ }) }
+  $rfCurve = @()
+  $rePath = Join-Path $rfDir2 'rf_equity.json'
+  if (Test-Path $rePath) { $rfCurve = [object[]]@((Get-Content $rePath -Raw -Encoding UTF8 | ConvertFrom-Json) | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.c2, [double]$_.c3b) }) }
+  $rfShared = Get-Content (Join-Path $rfDir2 'shared.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+  $rfLive = [ordered]@{
+    profiles = $rfProfiles
+    trades = $rfTrades
+    curve = $rfCurve
+    fronts = $rfShared.fronts
+    lastDailyDay = $rfShared.last_daily_day
+    lastTickUtc = $rfShared.last_tick_utc
+  }
+}
+
 # ---- live v2 signal scan (data\signals.json, optional) ----
 $signals = $null
 $sigPath = Join-Path $dir 'data\signals.json'
@@ -369,6 +419,7 @@ $viz = [ordered]@{
   livePositions = $livePositions
   liveClosed = $liveClosed
   liveDaily = $liveDaily
+  rfLive = $rfLive
   failedTrades = $failed
   strategies = $strategies
   deepPrices = $deepPrices
