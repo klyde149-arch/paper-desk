@@ -1,0 +1,403 @@
+<style>
+  :root {
+    --ground: #eaedf2; --surface: #ffffff; --surface2: #f3f6fa; --raised: #ffffff;
+    --ink: #17202b; --muted: #566172; --faint: #8b96a5;
+    --hair: rgba(20,30,45,0.10); --hair2: rgba(20,30,45,0.06);
+    --accent: #a9741a; --accent-soft: rgba(169,116,26,0.12);
+    --gain: #1f9d70; --loss: #ce4c42;
+    --gain-soft: rgba(31,157,112,0.14); --loss-soft: rgba(206,76,66,0.12);
+    --shadow: 0 1px 2px rgba(20,30,45,.06), 0 8px 24px rgba(20,30,45,.05);
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "SF Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0c1117; --surface: #141b24; --surface2: #10161e; --raised: #18212c;
+      --ink: #d3dbe5; --muted: #8290a0; --faint: #5a6572;
+      --hair: rgba(255,255,255,0.09); --hair2: rgba(255,255,255,0.05);
+      --accent: #d9a441; --accent-soft: rgba(217,164,65,0.14);
+      --gain: #46b58a; --loss: #e0685f;
+      --gain-soft: rgba(70,181,138,0.16); --loss-soft: rgba(224,104,95,0.14);
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #eaedf2; --surface: #ffffff; --surface2: #f3f6fa; --raised: #ffffff;
+    --ink: #17202b; --muted: #566172; --faint: #8b96a5;
+    --hair: rgba(20,30,45,0.10); --hair2: rgba(20,30,45,0.06);
+    --accent: #a9741a; --accent-soft: rgba(169,116,26,0.12);
+    --gain: #1f9d70; --loss: #ce4c42;
+    --gain-soft: rgba(31,157,112,0.14); --loss-soft: rgba(206,76,66,0.12);
+    --shadow: 0 1px 2px rgba(20,30,45,.06), 0 8px 24px rgba(20,30,45,.05);
+  }
+  :root[data-theme="dark"] {
+    --ground: #0c1117; --surface: #141b24; --surface2: #10161e; --raised: #18212c;
+    --ink: #d3dbe5; --muted: #8290a0; --faint: #5a6572;
+    --hair: rgba(255,255,255,0.09); --hair2: rgba(255,255,255,0.05);
+    --accent: #d9a441; --accent-soft: rgba(217,164,65,0.14);
+    --gain: #46b58a; --loss: #e0685f;
+    --gain-soft: rgba(70,181,138,0.16); --loss-soft: rgba(224,104,95,0.14);
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: clamp(20px, 4vw, 56px) clamp(16px, 3vw, 32px) 80px; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* masthead */
+  .mast { border-bottom: 1px solid var(--hair); padding-bottom: 28px; margin-bottom: 36px; }
+  .eyebrow { font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin: 0 0 14px; }
+  .mast h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(28px, 4.4vw, 44px); line-height: 1.1; margin: 0 0 14px; text-wrap: balance; letter-spacing: -0.01em; }
+  .mast .sub { color: var(--muted); font-size: 15.5px; max-width: 62ch; margin: 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13px; color: var(--faint); }
+  .meta b { color: var(--ink); font-weight: 600; }
+
+  .verdict-badge { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; padding: 7px 14px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+  .verdict-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 21px; letter-spacing: -0.01em; margin: 46px 0 4px; }
+  .sec-note { color: var(--muted); font-size: 14px; margin: 0 0 20px; max-width: 68ch; }
+
+  /* KPI grid */
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .kpi { background: var(--surface); border: 1px solid var(--hair); border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .kpi .k-label { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin: 0 0 8px; }
+  .kpi .k-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+  .kpi .k-sub { font-size: 12.5px; color: var(--muted); margin-top: 7px; }
+  .pos { color: var(--gain); } .neg { color: var(--loss); } .amb { color: var(--accent); }
+
+  .card { background: var(--surface); border: 1px solid var(--hair); border-radius: 14px; padding: 22px; box-shadow: var(--shadow); }
+  figure { margin: 0; }
+  .chart-scroll { overflow-x: auto; }
+  svg { display: block; width: 100%; height: auto; }
+  .axis text { font-family: var(--mono); font-size: 10.5px; fill: var(--faint); }
+  .axis line, .grid line { stroke: var(--hair2); stroke-width: 1; }
+  .zero { stroke: var(--hair); stroke-width: 1.2; }
+
+  /* frontier */
+  .frontier-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; font-size: 12.5px; color: var(--muted); }
+  .frontier-legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+  /* table */
+  .tbl-scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 620px; }
+  thead th { text-align: right; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); font-weight: 600; padding: 0 14px 10px; border-bottom: 1px solid var(--hair); }
+  thead th:first-child, tbody td:first-child { text-align: left; }
+  tbody td { padding: 11px 14px; text-align: right; border-bottom: 1px solid var(--hair2); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tbody td:first-child { font-family: var(--sans); }
+  tbody tr.hi td { background: var(--accent-soft); }
+  tbody tr.hi td:first-child { font-weight: 600; }
+  .tag { font-family: var(--sans); font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 6px; letter-spacing: .03em; }
+  .tag.rec { background: var(--accent-soft); color: var(--accent); }
+  .tag.warn { background: var(--loss-soft); color: var(--loss); }
+
+  /* verdict callout */
+  .callout { border-radius: 14px; padding: 24px 26px; border: 1px solid var(--hair); background: var(--surface); box-shadow: var(--shadow); }
+  .callout.key { border-left: 3px solid var(--accent); }
+  .callout h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 12px; font-weight: 600; }
+  .callout p { margin: 0 0 12px; font-size: 15px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout ul { margin: 8px 0 0; padding-left: 20px; }
+  .callout li { margin-bottom: 8px; font-size: 14.5px; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .foot { margin-top: 54px; padding-top: 22px; border-top: 1px solid var(--hair); font-size: 12.5px; color: var(--faint); line-height: 1.7; }
+  .foot b { color: var(--muted); }
+
+  .tt { position: fixed; pointer-events: none; z-index: 20; background: var(--raised); border: 1px solid var(--hair); border-radius: 8px; padding: 8px 11px; font-size: 12px; box-shadow: var(--shadow); opacity: 0; transition: opacity .08s; font-family: var(--mono); white-space: nowrap; }
+  .tt .tt-k { color: var(--faint); }
+  .tt b { color: var(--ink); }
+
+  @media (max-width: 680px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .two { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <p class="eyebrow">Отчёт по бэктесту · Paper trading</p>
+    <h1>Трендовая стратегия на крипте: где проходит граница между доходностью и риском</h1>
+    <p class="sub">Механическая проверка сетапа «трендовый откат к EMA» на 16 месяцах данных. Эдж подтверждён — но заявленная связка «5–10% в месяц при просадке ≤8%» математически недостижима, и вот доказательство.</p>
+    <div class="meta">
+      <span><b>Период:</b> 24 фев 2025 — 8 июл 2026 (~16.4 мес)</span>
+      <span><b>Активы:</b> 9 (BTC · ETH · SOL · BNB · XRP · DOGE · ADA · AVAX · LINK)</span>
+      <span><b>Данные:</b> BingX 4h + Fear&amp;Greed</span>
+      <span><b>Депозит:</b> $10 000</span>
+    </div>
+    <div class="verdict-badge"><span class="dot"></span> Эдж есть · цель рекалибрована · DOGE исключён</div>
+  </header>
+
+  <h2>Ключевые метрики</h2>
+  <p class="sec-note">Рабочая конфигурация после серии экспериментов: фильтр тренда BTC + ATR-кэп 3% (риск 1% на сделку для сравнимости). Издержки учтены честно: комиссия 0.05%×2, проскальзывание, фандинг.</p>
+  <div class="kpis">
+    <div class="kpi"><p class="k-label">Итог за период</p><div class="k-val pos">+93.8%</div><p class="k-sub">$10 000 → $19 380</p></div>
+    <div class="kpi"><p class="k-label">В месяц (геом.)</p><div class="k-val amb">4.12%</div><p class="k-sub">цель была 5–10%</p></div>
+    <div class="kpi"><p class="k-label">Profit Factor</p><div class="k-val">1.48</div><p class="k-sub">прибыль / убыток</p></div>
+    <div class="kpi"><p class="k-label">Win-rate</p><div class="k-val">47.1%</div><p class="k-sub">242 сделки</p></div>
+    <div class="kpi"><p class="k-label">Макс. просадка</p><div class="k-val neg">−23.4%</div><p class="k-sub">лимит был −8%</p></div>
+    <div class="kpi"><p class="k-label">Ср. профит / убыток</p><div class="k-val">1.7 : 1</div><p class="k-sub">$253 / −$152</p></div>
+  </div>
+
+  <h2>Граница риск / доходность</h2>
+  <p class="sec-note">Каждая точка — отдельный прогон с разным риском на сделку. Вывод виден геометрически: чтобы попасть в зелёный целевой квадрат (5–10%/мес при просадке ≤8%), точка должна быть в левом верхнем углу — а все реально достижимые конфигурации лежат правее и ниже.</p>
+  <div class="card">
+    <figure class="chart-scroll"><svg id="frontier" viewBox="0 0 900 440" role="img" aria-label="Диаграмма риск-доходность: достижимые конфигурации против недостижимой целевой зоны"></svg></figure>
+    <div class="frontier-legend">
+      <span><i class="swatch" style="background:var(--accent)"></i> Прогон стратегии</span>
+      <span><i class="swatch" style="background:var(--gain);opacity:.28"></i> Целевая зона (недостижима)</span>
+      <span>Ось X — макс. просадка · Ось Y — доходность в месяц</span>
+    </div>
+  </div>
+
+  <h2>Сравнение конфигураций</h2>
+  <div class="card tbl-scroll">
+    <table>
+      <thead><tr><th>Конфигурация</th><th>Риск/сделку</th><th>Итог</th><th>Мес.</th><th>Просадка</th><th>PF</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>Базовая</td><td class="num">1.0%</td><td class="num pos">+42.8%</td><td class="num">2.2%</td><td class="num neg">29.6%</td><td class="num">1.21</td><td></td></tr>
+        <tr class="hi"><td>+ фильтр тренда BTC</td><td class="num">1.0%</td><td class="num pos">+89.3%</td><td class="num">3.97%</td><td class="num neg">24.6%</td><td class="num">1.45</td><td><span class="tag rec">лучший P/R</span></td></tr>
+        <tr><td>Фильтр BTC + низкий риск</td><td class="num">0.5%</td><td class="num pos">+22.5%</td><td class="num">1.25%</td><td class="num">11.3%</td><td class="num">1.38</td><td><span class="tag rec">рабочий режим</span></td></tr>
+        <tr><td>Фильтр BTC + мин. риск</td><td class="num">0.35%</td><td class="num pos">+15.6%</td><td class="num">0.89%</td><td class="num">8.05%</td><td class="num">1.38</td><td></td></tr>
+        <tr><td>Правила строго (стоп −8%)</td><td class="num">1.0%</td><td class="num neg">−3.4%</td><td class="num">—</td><td class="num">HALT</td><td class="num">0.53</td><td><span class="tag warn">остановка</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Walk-forward: стабилен ли эдж?</h2>
+  <p class="sec-note">Период разбит на 4 независимых окна, каждое торгуется «с нуля» ($10 000, риск 1%, фильтр BTC). Эдж держится в трёх окнах из четырёх и не сводится к одному удачному месяцу. Четвёртое окно (авг–ноя 2025, затяжной боковик) — честная цена стратегии: −11% за 4 месяца.</p>
+  <div class="card tbl-scroll">
+    <table>
+      <thead><tr><th>Окно</th><th>Период</th><th>Итог</th><th>PF</th><th>Win-rate</th><th>Макс. DD</th></tr></thead>
+      <tbody>
+        <tr><td>W1</td><td class="num">апр – июл 2025</td><td class="num pos">+48.6%</td><td class="num">2.09</td><td class="num">51.3%</td><td class="num">8.9%</td></tr>
+        <tr><td>W2 — «режим-убийца»</td><td class="num">авг – ноя 2025</td><td class="num neg">−11.1%</td><td class="num">0.78</td><td class="num">35.0%</td><td class="num neg">21.0%</td></tr>
+        <tr><td>W3</td><td class="num">дек 2025 – мар 2026</td><td class="num pos">+24.7%</td><td class="num">2.33</td><td class="num">59.5%</td><td class="num">7.8%</td></tr>
+        <tr><td>W4</td><td class="num">апр – июл 2026</td><td class="num pos">+19.2%</td><td class="num">1.62</td><td class="num">47.9%</td><td class="num">10.6%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Журнал экспериментов</h2>
+  <p class="sec-note">Каждая гипотеза проверяется бэктестом против бейзлайна; принимается только если улучшает и Profit Factor, и просадку.</p>
+  <div class="card tbl-scroll">
+    <table>
+      <thead><tr><th>Гипотеза</th><th>Результат</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>Фильтр тренда BTC (не торговать против главного рынка)</td><td class="num">PF 1.21 → 1.45, доходность ×2</td><td><span class="tag rec">принято</span></td></tr>
+        <tr><td>Walk-forward валидация (4 окна)</td><td class="num">PF &gt; 1 в 3/4 окон</td><td><span class="tag rec">эдж жив</span></td></tr>
+        <tr><td>Equity-curve фильтр (риск ↓ при PF₂₀ &lt; 1)</td><td class="num">доходность 89% → 41%, PF ↓</td><td><span class="tag warn">отклонено</span></td></tr>
+        <tr><td>Сетап B: отбой от границ диапазона</td><td class="num">9 сделок, win-rate 22%, −$480</td><td><span class="tag warn">отклонено</span></td></tr>
+        <tr><td>Мин-ATR фильтр (пропуск низковолатильного чопа)</td><td class="num">доходность 89% → 53%, DD ↑</td><td><span class="tag warn">отклонено</span></td></tr>
+        <tr><td>ATR-кэп 3% (пропуск перегретых входов)</td><td class="num">PF 1.45 → 1.48, DD 24.6% → 23.4%</td><td><span class="tag rec">принято</span></td></tr>
+        <tr><td>ATR-нормированные стопы (пол 1.5–2×ATR)</td><td class="num">доходность 94% → 58–76%, PF ≈</td><td><span class="tag warn">отклонено</span></td></tr>
+        <tr><td>Фандинг-контрариан (нет истории ставок — идёт живой сбор)</td><td class="num">—</td><td><span class="tag" style="background:var(--hair2);color:var(--muted)">сбор данных</span></td></tr>
+        <tr><td>Перенос на акции РФ (MOEX, дневки, только лонг)</td><td class="num">−2.2% / 3 года, PF 0.94</td><td><span class="tag warn">не работает</span></td></tr>
+        <tr><td>Перенос на акции РФ (MOEX, часовики)</td><td class="num">−68.5% / 2 года — комиссии съедают ~65% риска</td><td><span class="tag warn">не работает</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Кривая капитала и помесячная доходность</h2>
+  <p class="sec-note">Основная конфигурация (фильтр BTC). Обратите внимание: почти весь рост сделали 2–3 сильных трендовых месяца, а между ними — болезненные откаты. Это природа следования за трендом, а не сбой.</p>
+  <div class="card">
+    <figure class="chart-scroll"><svg id="equity" viewBox="0 0 900 300" role="img" aria-label="Кривая капитала помесячно"></svg></figure>
+  </div>
+  <div style="height:16px"></div>
+  <div class="card">
+    <figure class="chart-scroll"><svg id="monthly" viewBox="0 0 900 300" role="img" aria-label="Помесячная доходность в процентах"></svg></figure>
+  </div>
+
+  <h2>Вклад по активам</h2>
+  <p class="sec-note">Базовый прогон. XRP и BTC вытянули результат; DOGE и BNB — чистый минус. DOGE исключён из вотчлиста: мем-волатильность ломает трендовую логику.</p>
+  <div class="card">
+    <figure class="chart-scroll"><svg id="persym" viewBox="0 0 900 340" role="img" aria-label="Прибыль и убыток по активам"></svg></figure>
+  </div>
+
+  <h2>Что это значит</h2>
+  <div class="two">
+    <div class="callout key">
+      <h3>Главный вывод</h3>
+      <p>У стратегии есть небольшой, но реальный положительный эдж (Profit Factor 1.2–1.45). Однако <b>две ваши цели противоречат друг другу:</b></p>
+      <p>Чтобы получать 5%+ в месяц, нужен риск, дающий просадки ~30%. Чтобы удержать просадку ≤8%, риск приходится резать так, что доходность падает до ~1%/мес. Одновременно оба условия невыполнимы для трендового стиля.</p>
+      <p>При строгом стопе на −8% стратегию остановило бы уже в апреле 2025 с убытком, до того как пришёл прибыльный тренд.</p>
+    </div>
+    <div class="callout">
+      <h3>Рекомендуемый режим</h3>
+      <p>Баланс между ростом и «не потерять деньги»:</p>
+      <ul>
+        <li><b>Фильтр тренда BTC — включён.</b> Не торговать против главного рынка (PF 1.21 → 1.45).</li>
+        <li><b>Риск 0.5–0.75% на сделку</b>, максимум 2 коррелированные позиции.</li>
+        <li><b>DOGE убран</b> из вотчлиста.</li>
+        <li><b>Просадка:</b> −8% → режем риск вдвое; −15% → полная остановка.</li>
+      </ul>
+      <p style="margin-top:12px"><b>Реалистичное ожидание: 2–4% в месяц при просадках 12–25%</b> — а не 5–10% при &lt;8%.</p>
+    </div>
+  </div>
+
+  <div class="foot">
+    <p><b>Методология.</b> Решение — на закрытии сигнальной 4h-свечи, управление позицией — со следующего бара (без заглядывания в будущее). Стоп и тейк по high/low свечей; если одна свеча задела оба — считается стоп (консервативно). Комиссия тейкера 0.05% на каждую сторону, проскальзывание 0.03% на вход и +0.05% на стоп, фандинг ~0.01%/8ч. Риск-менеджмент: 1% на сделку в базе, до 3 позиций, дневной стоп −3%.</p>
+    <p><b>Оговорки.</b> Бэктест — не прогноз. 16 месяцев истории — преимущественно благоприятные для крипты тренды; на затяжном медвежьем или боковом рынке результаты будут хуже. Это симуляция на виртуальном счёте — реальные деньги не используются. Прошлая доходность не гарантирует будущую.</p>
+  </div>
+</div>
+
+<div class="tt" id="tt"></div>
+
+<script>
+(function () {
+  const css = getComputedStyle(document.documentElement);
+  const c = n => css.getPropertyValue(n).trim();
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const tt = document.getElementById("tt");
+  function el(name, attrs) { const e = document.createElementNS(SVGNS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+  function showTip(html, evt) { tt.innerHTML = html; tt.style.opacity = 1; moveTip(evt); }
+  function moveTip(evt) { const p = 14; let x = evt.clientX + p, y = evt.clientY + p; const r = tt.getBoundingClientRect(); if (x + r.width > innerWidth) x = evt.clientX - r.width - p; if (y + r.height > innerHeight) y = evt.clientY - r.height - p; tt.style.left = x + "px"; tt.style.top = y + "px"; }
+  function hideTip() { tt.style.opacity = 0; }
+
+  // ---------- FRONTIER ----------
+  (function () {
+    const svg = document.getElementById("frontier");
+    const W = 900, H = 440, m = { t: 24, r: 24, b: 52, l: 56 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const xMax = 34, yMax = 11; // DD %, monthly %
+    const X = v => m.l + (v / xMax) * iw;
+    const Y = v => m.t + ih - (v / yMax) * ih;
+
+    // target zone: DD 0-8, monthly 5-10 (unreachable)
+    svg.appendChild(el("rect", { x: X(0), y: Y(10), width: X(8) - X(0), height: Y(5) - Y(10), fill: c("--gain"), opacity: .12, rx: 4 }));
+    svg.appendChild(el("rect", { x: X(0), y: Y(10), width: X(8) - X(0), height: Y(5) - Y(10), fill: "none", stroke: c("--gain"), "stroke-dasharray": "4 4", "stroke-width": 1.5, opacity: .55, rx: 4 }));
+    const tzl = el("text", { x: X(4), y: Y(7.5) + 4, "text-anchor": "middle", fill: c("--gain"), "font-family": c("--sans"), "font-size": 12, "font-weight": 600 }); tzl.textContent = "цель"; svg.appendChild(tzl);
+    const tzl2 = el("text", { x: X(4), y: Y(7.5) + 20, "text-anchor": "middle", fill: c("--muted"), "font-family": c("--sans"), "font-size": 10.5 }); tzl2.textContent = "(недостижима)"; svg.appendChild(tzl2);
+
+    // grid + axes
+    const g = el("g", { class: "grid" });
+    for (let gx = 0; gx <= xMax; gx += 5) { g.appendChild(el("line", { x1: X(gx), y1: m.t, x2: X(gx), y2: m.t + ih })); const t = el("text", { x: X(gx), y: m.t + ih + 20, "text-anchor": "middle", fill: c("--faint"), "font-family": c("--mono"), "font-size": 10.5 }); t.textContent = gx + "%"; g.appendChild(t); }
+    for (let gy = 0; gy <= yMax; gy += 2) { g.appendChild(el("line", { x1: m.l, y1: Y(gy), x2: m.l + iw, y2: Y(gy) })); const t = el("text", { x: m.l - 10, y: Y(gy) + 4, "text-anchor": "end", fill: c("--faint"), "font-family": c("--mono"), "font-size": 10.5 }); t.textContent = gy + "%"; g.appendChild(t); }
+    svg.appendChild(g);
+    const axl = el("text", { x: m.l + iw / 2, y: H - 8, "text-anchor": "middle", fill: c("--muted"), "font-family": c("--sans"), "font-size": 11.5 }); axl.textContent = "Макс. просадка →"; svg.appendChild(axl);
+    const ayl = el("text", { x: 16, y: m.t + ih / 2, "text-anchor": "middle", fill: c("--muted"), "font-family": c("--sans"), "font-size": 11.5, transform: `rotate(-90 16 ${m.t + ih / 2})` }); ayl.textContent = "Доходность / мес →"; svg.appendChild(ayl);
+
+    const pts = [
+      { n: "Базовая (1%)", dd: 29.6, mo: 2.2, hi: 0, lx: 0, ly: -16 },
+      { n: "Фильтр BTC (1%)", dd: 24.6, mo: 3.97, hi: 1, lx: 6, ly: -14 },
+      { n: "Риск 0.5%", dd: 11.3, mo: 1.25, hi: 0, lx: 10, ly: 4 },
+      { n: "Риск 0.35%", dd: 8.05, mo: 0.89, hi: 0, lx: 8, ly: 18 },
+    ];
+    pts.forEach(p => {
+      const cx = X(p.dd), cy = Y(p.mo);
+      if (p.hi) svg.appendChild(el("circle", { cx, cy, r: 12, fill: "none", stroke: c("--accent"), "stroke-width": 1.5, opacity: .5 }));
+      const dot = el("circle", { cx, cy, r: p.hi ? 8 : 6.5, fill: c("--accent"), stroke: c("--surface"), "stroke-width": 2, cursor: "pointer" });
+      dot.addEventListener("mousemove", e => showTip(`<b>${p.n}</b><br><span class="tt-k">просадка</span> ${p.dd}% · <span class="tt-k">мес</span> ${p.mo}%`, e));
+      dot.addEventListener("mouseleave", hideTip);
+      svg.appendChild(dot);
+      const lbl = el("text", { x: cx + p.lx, y: cy + p.ly, "text-anchor": "middle", fill: c("--ink"), "font-family": c("--sans"), "font-size": 11.5, "font-weight": 600 }); lbl.textContent = p.n; svg.appendChild(lbl);
+    });
+  })();
+
+  // ---------- EQUITY ----------
+  (function () {
+    const svg = document.getElementById("equity");
+    const W = 900, H = 300, m = { t: 20, r: 20, b: 40, l: 62 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const data = [
+      ["апр'25", 10046], ["май", 11270], ["июн", 10928], ["июл", 14814], ["авг", 14142], ["сен", 13904], ["окт", 12197], ["ноя", 12874], ["дек", 12254], ["янв'26", 13344], ["фев", 14079], ["мар", 15877], ["апр", 16583], ["май", 17337], ["июн", 19335], ["июл", 18928]
+    ];
+    const lo = 9500, hi = 20000;
+    const X = i => m.l + (i / (data.length - 1)) * iw;
+    const Y = v => m.t + ih - ((v - lo) / (hi - lo)) * ih;
+    const g = el("g", { class: "grid" });
+    for (let v = 10000; v <= 20000; v += 2500) { g.appendChild(el("line", { x1: m.l, y1: Y(v), x2: m.l + iw, y2: Y(v) })); const t = el("text", { x: m.l - 10, y: Y(v) + 4, "text-anchor": "end", fill: c("--faint"), "font-family": c("--mono"), "font-size": 10.5 }); t.textContent = "$" + (v / 1000) + "k"; g.appendChild(t); }
+    svg.appendChild(g);
+    data.forEach((d, i) => { if (i % 2 === 0) { const t = el("text", { x: X(i), y: H - 12, "text-anchor": "middle", fill: c("--faint"), "font-family": c("--mono"), "font-size": 10 }); t.textContent = d[0]; svg.appendChild(t); } });
+    let dPath = "", aPath = `M ${X(0)} ${Y(lo)} `;
+    data.forEach((d, i) => { dPath += (i ? "L" : "M") + " " + X(i) + " " + Y(d[1]) + " "; aPath += "L " + X(i) + " " + Y(d[1]) + " "; });
+    aPath += `L ${X(data.length - 1)} ${Y(lo)} Z`;
+    const grad = el("linearGradient", { id: "eqg", x1: 0, y1: 0, x2: 0, y2: 1 });
+    grad.appendChild(el("stop", { offset: "0%", "stop-color": c("--accent"), "stop-opacity": .28 }));
+    grad.appendChild(el("stop", { offset: "100%", "stop-color": c("--accent"), "stop-opacity": 0 }));
+    const defs = el("defs", {}); defs.appendChild(grad); svg.appendChild(defs);
+    svg.appendChild(el("path", { d: aPath, fill: "url(#eqg)" }));
+    svg.appendChild(el("path", { d: dPath, fill: "none", stroke: c("--accent"), "stroke-width": 2, "stroke-linejoin": "round" }));
+    // start line ref
+    svg.appendChild(el("line", { x1: m.l, y1: Y(10000), x2: m.l + iw, y2: Y(10000), stroke: c("--hair"), "stroke-dasharray": "3 4", "stroke-width": 1 }));
+    // end marker
+    const last = data.length - 1;
+    svg.appendChild(el("circle", { cx: X(last), cy: Y(data[last][1]), r: 4.5, fill: c("--accent"), stroke: c("--surface"), "stroke-width": 2 }));
+    // hover points
+    data.forEach((d, i) => {
+      const dot = el("circle", { cx: X(i), cy: Y(d[1]), r: 10, fill: "transparent", cursor: "pointer" });
+      dot.addEventListener("mousemove", e => showTip(`<b>${d[0]}</b><br><span class="tt-k">капитал</span> $${d[1].toLocaleString("en-US")}`, e));
+      dot.addEventListener("mouseleave", hideTip);
+      svg.appendChild(dot);
+    });
+  })();
+
+  // ---------- MONTHLY BARS ----------
+  (function () {
+    const svg = document.getElementById("monthly");
+    const W = 900, H = 300, m = { t: 20, r: 20, b: 42, l: 48 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const data = [
+      ["апр'25", 0.46], ["май", 12.18], ["июн", -3.03], ["июл", 35.55], ["авг", -4.53], ["сен", -1.68], ["окт", -12.27], ["ноя", 5.55], ["дек", -4.82], ["янв'26", 8.9], ["фев", 5.51], ["мар", 12.77], ["апр", 4.45], ["май", 4.55], ["июн", 11.52], ["июл", -2.1]
+    ];
+    const vmax = 36, vmin = -14;
+    const Y = v => m.t + ih - ((v - vmin) / (vmax - vmin)) * ih;
+    const zero = Y(0);
+    const g = el("g", { class: "grid" });
+    for (let v = -10; v <= 35; v += 10) { g.appendChild(el("line", { x1: m.l, y1: Y(v), x2: m.l + iw, y2: Y(v) })); const t = el("text", { x: m.l - 10, y: Y(v) + 4, "text-anchor": "end", fill: c("--faint"), "font-family": c("--mono"), "font-size": 10.5 }); t.textContent = (v > 0 ? "+" : "") + v + "%"; g.appendChild(t); }
+    svg.appendChild(g);
+    svg.appendChild(el("line", { x1: m.l, y1: zero, x2: m.l + iw, y2: zero, class: "zero" }));
+    const bw = iw / data.length;
+    const barW = bw * 0.62;
+    data.forEach((d, i) => {
+      const cx = m.l + bw * i + bw / 2;
+      const yv = Y(d[1]);
+      const pos = d[1] >= 0;
+      const bx = cx - barW / 2;
+      const by = pos ? yv : zero;
+      const bh = Math.max(2, Math.abs(zero - yv));
+      const r = el("rect", { x: bx, y: by, width: barW, height: bh, rx: 3, fill: pos ? c("--gain") : c("--loss"), cursor: "pointer" });
+      r.addEventListener("mousemove", e => showTip(`<b>${d[0]}</b><br><span class="tt-k">доходность</span> ${d[1] > 0 ? "+" : ""}${d[1]}%`, e));
+      r.addEventListener("mouseleave", hideTip);
+      svg.appendChild(r);
+      if (i % 2 === 0) { const t = el("text", { x: cx, y: H - 14, "text-anchor": "middle", fill: c("--faint"), "font-family": c("--mono"), "font-size": 10 }); t.textContent = d[0]; svg.appendChild(t); }
+    });
+  })();
+
+  // ---------- PER-SYMBOL ----------
+  (function () {
+    const svg = document.getElementById("persym");
+    const W = 900, H = 340, m = { t: 12, r: 60, b: 12, l: 74 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const data = [
+      ["XRP", 2010], ["BTC", 1390], ["AVAX", 773], ["ADA", 653], ["ETH", 540], ["SOL", 486], ["LINK", 294], ["BNB", -785], ["DOGE", -1078]
+    ];
+    const vmax = 2200, vmin = -1200;
+    const X = v => m.l + ((v - vmin) / (vmax - vmin)) * iw;
+    const zero = X(0);
+    const rh = ih / data.length;
+    const barH = rh * 0.56;
+    svg.appendChild(el("line", { x1: zero, y1: m.t, x2: zero, y2: m.t + ih, class: "zero" }));
+    data.forEach((d, i) => {
+      const cy = m.t + rh * i + rh / 2;
+      const pos = d[1] >= 0;
+      const x0 = pos ? zero : X(d[1]);
+      const w = Math.max(2, Math.abs(X(d[1]) - zero));
+      const r = el("rect", { x: x0, y: cy - barH / 2, width: w, height: barH, rx: 3, fill: pos ? c("--gain") : c("--loss"), cursor: "pointer" });
+      r.addEventListener("mousemove", e => showTip(`<b>${d[0]}</b><br><span class="tt-k">P&amp;L</span> ${d[1] > 0 ? "+" : "−"}$${Math.abs(d[1]).toLocaleString("en-US")}`, e));
+      r.addEventListener("mouseleave", hideTip);
+      svg.appendChild(r);
+      const nm = el("text", { x: m.l - 12, y: cy + 4, "text-anchor": "end", fill: c("--ink"), "font-family": c("--sans"), "font-size": 12.5, "font-weight": 600 }); nm.textContent = d[0]; svg.appendChild(nm);
+      const vl = el("text", { x: pos ? X(d[1]) + 8 : X(d[1]) - 8, y: cy + 4, "text-anchor": pos ? "start" : "end", fill: c("--muted"), "font-family": c("--mono"), "font-size": 11 }); vl.textContent = (pos ? "+" : "−") + "$" + Math.abs(d[1]).toLocaleString("en-US"); svg.appendChild(vl);
+    });
+  })();
+})();
+</script>

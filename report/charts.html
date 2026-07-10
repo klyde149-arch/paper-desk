@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мультиграфик — торговый терминал</title>
+<style>
+  :root{
+    --ground:#eaedf2;--surface:#ffffff;--ink:#17202b;--muted:#566172;--faint:#8b96a5;
+    --hair:rgba(20,30,45,.10);--hair2:rgba(20,30,45,.06);
+    --accent:#a9741a;--accent-soft:rgba(169,116,26,.12);
+    --shadow:0 1px 2px rgba(20,30,45,.06),0 8px 24px rgba(20,30,45,.05);
+    --mono:"Cascadia Code","Consolas",ui-monospace,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  :root[data-theme="dark"]{
+    --ground:#0c1117;--surface:#141b24;--ink:#d3dbe5;--muted:#8290a0;--faint:#5a6572;
+    --hair:rgba(255,255,255,.09);--hair2:rgba(255,255,255,.05);
+    --accent:#d9a441;--accent-soft:rgba(217,164,65,.14);
+    --shadow:0 1px 2px rgba(0,0,0,.35),0 12px 32px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0c1117;--surface:#141b24;--ink:#d3dbe5;--muted:#8290a0;--faint:#5a6572;
+      --hair:rgba(255,255,255,.09);--hair2:rgba(255,255,255,.05);
+      --accent:#d9a441;--accent-soft:rgba(217,164,65,.14);
+      --shadow:0 1px 2px rgba(0,0,0,.35),0 12px 32px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;overflow:hidden}
+  .topbar{display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--surface);border-bottom:1px solid var(--hair);flex:0 0 auto}
+  .title{font-weight:700;font-size:14px;letter-spacing:.02em}
+  .title .sub{color:var(--faint);font-weight:400;font-size:11.5px;margin-left:8px}
+  .lay-group{display:flex;gap:4px;margin-left:14px}
+  .lay-btn{width:34px;height:30px;border:1px solid var(--hair);background:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);padding:0}
+  .lay-btn:hover{background:var(--hair2)}
+  .lay-btn.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+  .lay-btn svg{width:18px;height:18px}
+  .lay-btn svg rect{fill:none;stroke:currentColor;stroke-width:1.6}
+  .sp{flex:1}
+  a.tb-link{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;font-size:12.5px;padding:6px 11px;border-radius:8px}
+  a.tb-link:hover{background:var(--hair2);color:var(--ink)}
+  .grid{flex:1;display:grid;gap:3px;background:var(--hair);min-height:0}
+  .pane{position:relative;background:var(--surface);min-width:0;min-height:0}
+  .pane iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+  .pane.max{position:fixed;inset:0;top:45px;z-index:40}
+  .pane .pane-max{position:absolute;top:6px;right:78px;z-index:5;width:26px;height:26px;border-radius:7px;border:1px solid var(--hair);background:var(--surface);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+  .pane:hover .pane-max{opacity:.92}
+  .pane .pane-max:hover{color:var(--accent);border-color:var(--accent)}
+  .hint{position:fixed;bottom:10px;right:14px;z-index:50;font-size:11px;color:var(--faint);background:var(--surface);border:1px solid var(--hair);border-radius:8px;padding:4px 10px;opacity:.85;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="title">Мультиграфик<span class="sub">каждая панель — независимый график: свой символ, ТФ, индикаторы и рисование</span></span>
+  <div class="lay-group" id="layGroup">
+    <button class="lay-btn" data-lay="1" title="Один график"><svg viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="14" rx="1.5"/></svg></button>
+    <button class="lay-btn" data-lay="2h" title="Два — рядом"><svg viewBox="0 0 20 20"><rect x="2" y="3" width="7" height="14" rx="1.5"/><rect x="11" y="3" width="7" height="14" rx="1.5"/></svg></button>
+    <button class="lay-btn" data-lay="2v" title="Два — друг под другом"><svg viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="6" rx="1.5"/><rect x="2" y="11" width="16" height="6" rx="1.5"/></svg></button>
+    <button class="lay-btn" data-lay="3" title="Три: один большой + два"><svg viewBox="0 0 20 20"><rect x="2" y="3" width="9" height="14" rx="1.5"/><rect x="13" y="3" width="5" height="6" rx="1.5"/><rect x="13" y="11" width="5" height="6" rx="1.5"/></svg></button>
+    <button class="lay-btn" data-lay="4" title="Четыре 2×2"><svg viewBox="0 0 20 20"><rect x="2" y="3" width="7" height="6" rx="1.5"/><rect x="11" y="3" width="7" height="6" rx="1.5"/><rect x="2" y="11" width="7" height="6" rx="1.5"/><rect x="11" y="11" width="7" height="6" rx="1.5"/></svg></button>
+  </div>
+  <span class="sp"></span>
+  <a class="tb-link" href="chart.html">📈 Одиночный график</a>
+  <a class="tb-link" href="trades.html">🏠 Дашборд</a>
+</div>
+<div class="grid" id="grid"></div>
+<div class="hint">Кнопка ⛶ в углу панели — развернуть · раскладки вверху · настройки каждой панели сохраняются</div>
+<script>
+(function(){
+  "use strict";
+  const LS_KEY='multi_layout_v1';
+  const DEF={lay:'4',hashes:['ETH-USDT/1h','BTC-USDT/1h','SOL-USDT/4h','XRP-USDT/4h']};
+  let st;
+  try{ st=Object.assign({},DEF,JSON.parse(localStorage.getItem(LS_KEY)||'{}')); }catch(e){ st=Object.assign({},DEF); }
+  if(!Array.isArray(st.hashes)||st.hashes.length<4) st.hashes=DEF.hashes.slice();
+
+  // page chrome follows the chart theme
+  const th=localStorage.getItem('chart_theme'); if(th)document.documentElement.setAttribute('data-theme',th);
+
+  const grid=document.getElementById('grid');
+  const COUNT={ '1':1,'2h':2,'2v':2,'3':3,'4':4 };
+  function apply(){
+    document.querySelectorAll('.lay-btn').forEach(b=>b.classList.toggle('on',b.dataset.lay===st.lay));
+    const n=COUNT[st.lay]||4;
+    grid.innerHTML='';
+    if(st.lay==='1'){ grid.style.gridTemplate='1fr / 1fr'; }
+    else if(st.lay==='2h'){ grid.style.gridTemplate='1fr / 1fr 1fr'; }
+    else if(st.lay==='2v'){ grid.style.gridTemplate='1fr 1fr / 1fr'; }
+    else if(st.lay==='3'){ grid.style.gridTemplate='1fr 1fr / 1.4fr 1fr'; }
+    else { grid.style.gridTemplate='1fr 1fr / 1fr 1fr'; }
+    for(let i=0;i<n;i++){
+      const pane=document.createElement('div'); pane.className='pane';
+      if(st.lay==='3'&&i===0) pane.style.gridRow='1 / span 2';
+      const fr=document.createElement('iframe');
+      fr.src='chart.html#'+(st.hashes[i]||DEF.hashes[i]);
+      fr.dataset.idx=i;
+      const mx=document.createElement('button'); mx.className='pane-max'; mx.title='Развернуть / свернуть'; mx.textContent='⛶';
+      mx.onclick=()=>{ pane.classList.toggle('max'); };
+      pane.appendChild(fr); pane.appendChild(mx); grid.appendChild(pane);
+    }
+  }
+  document.querySelectorAll('.lay-btn').forEach(b=>b.onclick=()=>{ st.lay=b.dataset.lay; save(); apply(); });
+  function save(){ localStorage.setItem(LS_KEY,JSON.stringify(st)); }
+
+  // persist per-pane symbol/TF: same-origin iframes expose their hash
+  setInterval(()=>{
+    let ch=false;
+    document.querySelectorAll('.pane iframe').forEach(fr=>{
+      try{
+        const h=fr.contentWindow.location.hash.slice(1);
+        const i=+fr.dataset.idx;
+        if(h && st.hashes[i]!==h){ st.hashes[i]=h; ch=true; }
+      }catch(e){}
+    });
+    if(ch) save();
+  }, 2000);
+
+  apply();
+})();
+</script>
+</body>
+</html>

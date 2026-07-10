@@ -1,0 +1,78 @@
+name: tick
+# Автономный торговый тик (paper trading): каждые ~15 мин GitHub Actions
+# запускает tools\auto_trade.ps1, пересобирает дашборд и публикует Pages.
+# Килл-свитч: закоммитить файл data/HALT в main - тики выходят сразу.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: windows-latest
+    timeout-minutes: 14
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe market data endpoints
+        shell: powershell
+        run: |
+          foreach ($h in 'api.bybit.com','api.bytick.com','open-api.bingx.com') {
+            try {
+              $u = if ($h -like 'open-api*') { "https://$h/openApi/swap/v2/server/time" } else { "https://$h/v5/market/time" }
+              $r = Invoke-RestMethod -Uri $u -TimeoutSec 15
+              Write-Host "${h}: OK"
+            } catch { Write-Warning "${h}: BLOCKED ($($_.Exception.Message))" }
+          }
+
+      - name: Run trading tick
+        shell: powershell
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\auto_trade.ps1 -Cloud -SkipViz
+
+      - name: Build dashboard data
+        shell: powershell
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\build_vizdata.ps1 -NoDeploy
+
+      - name: Commit state
+        shell: powershell
+        run: |
+          git config user.name 'paper-desk-bot'
+          git config user.email 'bot@users.noreply.github.com'
+          git add portfolio.json journal.md data challenge/portfolio.json
+          if (Test-Path challenge/data/signal.json) { git add challenge/data/signal.json }
+          $st = git status --porcelain --cached
+          if (-not $st) { Write-Host 'state unchanged - nothing to commit'; exit 0 }
+          $stamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm')
+          git commit -q -m "tick $stamp UTC"
+          git push -q origin main
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning 'push rejected - rebasing'
+            git fetch origin main
+            git rebase origin/main
+            git push -q origin main
+            if ($LASTEXITCODE -ne 0) { Write-Warning 'push failed again - state will retry next tick' }
+          }
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: report
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
