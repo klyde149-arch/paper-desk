@@ -161,7 +161,9 @@ if (Test-Path (Join-Path $rfDir2 'c2_portfolio.json')) {
       foreach ($x in @($pp.sleeves.$slName.positions)) {
         if ($null -eq $x) { continue }
         $poss += [ordered]@{ sleeve = $slName; id = $x.id; asset = $x.asset; secid = $x.secid; side = $x.side
-          qty = $x.qty; entry = $x.entry; stop = $x.stop; tp1 = $x.tp1; entryDay = $x.entry_day; risk = $x.risk_usd }
+          qty = $x.qty; entry = $x.entry; stop = $x.stop; tp1 = $x.tp1; entryDay = $x.entry_day; risk = $x.risk_usd
+          cur  = $(if ($x.PSObject.Properties['cur'])  { [double]$x.cur }  else { $null })
+          upnl = $(if ($x.PSObject.Properties['upnl']) { [double]$x.upnl } else { $null }) }
       }
     }
     $hold = @()
@@ -196,10 +198,16 @@ if (Test-Path (Join-Path $rfDir2 'c2_portfolio.json')) {
     })
   }
   $rfShared = Get-Content (Join-Path $rfDir2 'shared.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+  $rfStartMs = $null
+  try {
+    $c2m = (Get-Content (Join-Path $rfDir2 'c2_portfolio.json') -Raw -Encoding UTF8 | ConvertFrom-Json).meta.created
+    if ($c2m) { $rfStartMs = [long]([DateTimeOffset]([datetime]::SpecifyKind([datetime]::Parse([string]$c2m), 'Utc'))).ToUnixTimeMilliseconds() }
+  } catch {}
   $rfLive = [ordered]@{
     profiles = $rfProfiles
     trades = $rfTrades
     curve = $rfCurve
+    startTs = $rfStartMs
     fronts = $rfShared.fronts
     lastDailyDay = $rfShared.last_daily_day
     lastTickUtc = $rfShared.last_tick_utc

@@ -207,21 +207,31 @@
     <a class="hero-cta" href="chart.html">Открыть график <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
   </header>
 
-  <nav class="tabs">
-    <button class="tab on" data-tab="crypto">Крипта<span class="mini">Bybit · автобот 24/7 · v2 комбо</span></button>
-    <button class="tab" data-tab="daily">По дням<span class="mini">живая прибыль каждый день</span></button>
-    <button class="tab" data-tab="moex">Акции РФ<span class="mini">бэктест · momentum 1.15%/мес</span></button>
-    <button class="tab" data-tab="fut">Фьючерсы РФ<span class="mini">бэктест · брейкаут · walk-forward</span></button>
-    <button class="tab" data-tab="compare">Сравнение<span class="mini">бэктест · v1 против v2</span></button>
-    <button class="tab" data-tab="yearly">По годам<span class="mini">бэктест + живой факт</span></button>
-    <button class="tab" data-tab="losses">Убытки<span class="mini" id="lossTabMini">бэктест · архив стопов</span></button>
+  <nav class="tabs" id="marketRow">
+    <button class="tab on" data-market="crypto">Крипта<span class="mini">Bybit · автобот 24/7</span></button>
+    <button class="tab" data-market="stocks">Акции<span class="mini">MOEX · momentum-ротация</span></button>
+    <button class="tab" data-market="fut">Фьючерсы<span class="mini">MOEX · брейкаут + сателлиты</span></button>
+  </nav>
+  <nav class="tabs" id="modeRow" style="margin-top:-14px">
+    <button class="tab on" data-mode="live">Реальная торговля<span class="mini" id="modeLiveMini">живой счёт · факт</span></button>
+    <button class="tab" data-mode="bt">Бэктест<span class="mini" id="modeBtMini">исследование · история</span></button>
   </nav>
 
-  <!-- ============ CRYPTO PANE ============ -->
-  <section id="pane-crypto">
+  <!-- ============ CRYPTO · LIVE ============ -->
+  <section id="pane-crypto-live">
     <h2>Открытые позиции</h2>
     <p class="sec-note">Риск-профиль с 2026-07-10 (решение пользователя): риск 1% на сделку, до 3 одновременных позиций (3-й слот улучшает PF 1.29→1.38 — подбирает сигналы, которые раньше терялись). Лимиты: день −5%, риск вдвое с −16% от пика, полная остановка с −35%. Каждая позиция получает свой график.</p>
     <div id="liveWrap"></div>
+
+    <h2>Крипта — <span class="em">прибыль по дням</span></h2>
+    <div class="kpis" id="dailyKpis" style="grid-template-columns:repeat(4,1fr)"></div>
+    <div style="height:16px"></div>
+    <div class="card"><canvas id="dailyBars" height="240"></canvas><p class="hint">Зелёный — день в плюс, красный — в минус. Наведи на столбик — детали дня.</p></div>
+    <h2>Таблица дней</h2>
+    <div class="card tbl-scroll"><table id="tbl-daily"><thead><tr>
+      <th>Дата (UTC)</th><th>P&L дня</th><th>%</th><th>Сделок (W/L)</th><th>Издержки</th><th>Эквити на конец дня</th>
+    </tr></thead><tbody></tbody></table></div>
+    <p class="hint">P&L дня = изменение эквити за UTC-день: закрытые сделки + переоценка открытых позиций, уже после комиссий Bybit (0.055%) и фандинга. Издержки = комиссии + фандинг сделок, закрытых в этот день.</p>
 
     <h2>Сигналы стратегии <span class="em">v2</span> — сканер входов сейчас</h2>
     <p class="sec-note">Проверка всех 9 пар по правилам v2 (setup A: трендовый откат к EMA20–50 + возврат; фильтр BTC; FlatMode-skip; ATR-кэп 3%; фандинг-фильтр; F&G) на последнем <b>закрытом</b> 4h-баре — по классике, без заглядывания в незакрытую свечу. Строка загорается мятным, когда пройдены все ворота.</p>
@@ -231,9 +241,12 @@
       <th>Пара</th><th>Режим 4h</th><th>Цена</th><th>RSI</th><th>ATR%</th><th>Фандинг 8ч</th><th>Тренд</th><th>Откат</th><th>RSI-сброс</th><th>Триггер</th><th>Ворота v2</th>
     </tr></thead><tbody></tbody></table></div>
     <p class="hint" id="sigHint"></p>
+  </section>
 
-    <h2 style="margin-top:34px">Исследование · <span class="em">бэктесты</span> (не живой счёт)</h2>
-    <p class="sec-note">Всё ниже — историческая симуляция для проверки правил, комиссия Bybit 0.055% учтена. Переключатель меняет показатели, сделки на графике, кривую капитала и журнал. <b>«v2» — действующие живые правила с 2026-07-10</b> (флэт-skip + фандинг-фильтр), «v1» — прежние. Полное сравнение — на вкладке «Сравнение».</p>
+  <!-- ============ CRYPTO · BACKTEST ============ -->
+  <section id="pane-crypto-bt" style="display:none">
+    <h2>Исследование · <span class="em">бэктесты</span> (не живой счёт)</h2>
+    <p class="sec-note">Всё ниже — историческая симуляция для проверки правил, комиссия Bybit 0.055% учтена. Переключатель меняет показатели, сделки на графике, кривую капитала и журнал. <b>«v2» — действующие живые правила с 2026-07-10</b> (флэт-skip + фандинг-фильтр), «v1» — прежние.</p>
     <nav class="tabs" id="stratRow" style="flex-wrap:wrap"></nav>
     <div class="kpis" id="btKpis" style="grid-template-columns:repeat(6,1fr)"></div>
     <div style="height:16px"></div>
@@ -251,30 +264,56 @@
     <h2>Кривая капитала бэктеста</h2>
     <div class="card"><canvas id="eqChart" height="280"></canvas></div>
 
-    <h2>Журнал сделок бэктеста</h2>
+    <h2 style="margin-top:34px">Сравнение стратегий: <span class="em">v2 против v1</span></h2>
+    <p class="sec-note">Все прогоны — один движок, честные издержки (комиссии, проскальзывание, реальный фандинг Bybit). Длинная история: 2020-05 → 2026-07 (~6.2 года), включая медвежий 2022 и вязкий 2023–24; в 2020–21 из вотчлиста были листингованы только BTC и LINK — портфель добирался по мере листингов. v2 = v1 + запрет входов при флэте BTC (skip) + обязательный фандинг-фильтр. Детали: backtest_v2_report.md, strategy_v2_proposal.md.</p>
+    <div class="callout" id="cmpVerdict" style="border-left-color:var(--accent)"></div>
+
+    <h2>Полная статистика по всем прогонам</h2>
+    <div class="card tbl-scroll" style="max-height:none"><table id="tbl-cmp"><thead><tr>
+      <th>Стратегия</th><th>Период</th><th>Сделок</th><th>Win-rate</th><th>PF</th><th>Итог</th><th>%/мес</th><th>Max DD</th><th>Ср. приб. / уб.</th><th>Приб. месяцев</th><th>Лучший / худший мес.</th>
+    </tr></thead><tbody></tbody></table></div>
+
+    <h2>Кривая капитала (бэктест) — <span class="em">риск 1% · 3 позиции</span> ★ этим конфигом торгует бот</h2>
+    <div class="card"><div class="legend" id="lgR" style="position:static;margin-bottom:8px"></div><canvas id="cmpR" height="320"></canvas><p class="hint">Наведи — значения обеих кривых на дату. Серая пунктирная — стартовые $10 000.</p></div>
+
+    <h2>Кривая капитала (бэктест) — консервативный профиль <span class="em">риск 0.5% · 2 позиции</span></h2>
+    <div class="card"><div class="legend" id="lgL" style="position:static;margin-bottom:8px"></div><canvas id="cmpL" height="320"></canvas><p class="hint">Запасной тихий профиль (просадки ~13%): бот торговал им до 2026-07-10, вернуться можно одной командой. Живой факт — на вкладке «Крипта» (Реальная торговля).</p></div>
+
+    <h2>По режимам рынка (walk-forward)</h2>
+    <p class="sec-note">Ключевой критерий устойчивости: улучшение не «в среднем», а в каждом режиме отдельно. Мятным выделено лучшее значение в паре v1/v2.</p>
+    <div class="card tbl-scroll"><table id="tbl-periods"><thead><tr>
+      <th>Режим рынка</th><th colspan="2">Исслед.: PF</th><th colspan="2">Исслед.: возврат</th><th colspan="2">Живой: PF</th><th colspan="2">Живой: возврат</th>
+    </tr><tr><th></th><th>v1</th><th>v2</th><th>v1</th><th>v2</th><th>v1</th><th>v2</th><th>v1</th><th>v2</th></tr></thead><tbody></tbody></table></div>
+
+    <h2 style="margin-top:34px">Доходность <span class="em">по годам</span></h2>
+    <p class="sec-note">Не только общий итог, но и что стратегия приносила каждый календарный год. Цвет ячейки — величина результата (мятный = плюс, красный = минус). Первый и последний годы неполные (данные с листинга монет; 2026 — по июль). В скобках под процентом — макс. просадка внутри года. Верхняя строка <b style="color:var(--accent)">🟢 Живая торговля</b> — фактический результат симуляции; пока трек совсем короткий (сделки ещё не закрыты), сравнивать с годовым бэктестом рано — строка станет осмысленной по мере накопления сделок.</p>
+    <div class="card tbl-scroll" style="max-height:none"><table id="tbl-yearly"><thead></thead><tbody></tbody></table></div>
+
+    <h2>Живой конфиг по годам: <span class="em">v1 против v2</span></h2>
+    <p class="sec-note">Именно этим конфигом (риск 0.5%, ≤2 позиции) торгует симуляция. По каждому году — сколько принесла действующая v1 и предлагаемая v2.</p>
+    <div class="card"><div class="legend" id="lgY" style="position:static;margin-bottom:8px"></div><canvas id="cmpYear" height="300"></canvas><p class="hint">Наведи на столбец — точное значение. Пунктир — нулевая линия.</p></div>
+
+    <h2>Исследовательский конфиг по годам <span class="em">риск 1% · 3 позиции</span></h2>
+    <div class="card"><div class="legend" id="lgYR" style="position:static;margin-bottom:8px"></div><canvas id="cmpYearR" height="300"></canvas></div>
+
+    <h2 style="margin-top:34px">Журнал сделок бэктеста</h2>
     <div class="card tbl-scroll"><table id="tbl-c"><thead><tr><th>#</th><th>Актив</th><th>Сторона</th><th>Вход</th><th>Цена входа</th><th>Выход</th><th>Цена выхода</th><th>Причина</th><th>P&L</th></tr></thead><tbody></tbody></table></div>
   </section>
 
-  <!-- ============ DAILY PANE (итог + рост капитала + дни) ============ -->
-  <section id="pane-daily" style="display:none">
-    <h2>Итог — <span class="em">все рынки</span></h2>
-    <p class="sec-note">Три живых счёта по $10 000: крипта (бот v2 «комбо», с 08.07) и два портфеля рынка РФ — C2 и C3b (фьючерсы + акции, с 10.07). Всё обновляется каждый тик бота (~15 мин), комиссии учтены.</p>
-    <div class="kpis" id="totKpis" style="grid-template-columns:repeat(4,1fr)"></div>
-    <h2>Рост капитала по рынкам</h2>
-    <div class="card"><div class="legend" id="lgMkt" style="position:static;margin-bottom:8px"></div><canvas id="mktChart" height="300"></canvas><p class="hint">В процентах от стартовых $10 000 каждого счёта. Пунктир — ноль (старт). Наведи — значения на момент времени.</p></div>
-    <h2>Крипта — прибыль по дням</h2>
-    <div class="kpis" id="dailyKpis" style="grid-template-columns:repeat(4,1fr)"></div>
-    <div style="height:16px"></div>
-    <div class="card"><canvas id="dailyBars" height="240"></canvas><p class="hint">Зелёный — день в плюс, красный — в минус. Наведи на столбик — детали дня.</p></div>
-    <h2>Таблица дней (крипта)</h2>
-    <div class="card tbl-scroll"><table id="tbl-daily"><thead><tr>
-      <th>Дата (UTC)</th><th>P&L дня</th><th>%</th><th>Сделок (W/L)</th><th>Издержки</th><th>Эквити на конец дня</th>
-    </tr></thead><tbody></tbody></table></div>
-    <p class="hint">P&L дня = изменение эквити за UTC-день: закрытые сделки + переоценка открытых позиций, уже после комиссий Bybit (0.055%) и фандинга. Издержки = комиссии + фандинг сделок, закрытых в этот день.</p>
+  <!-- ============ STOCKS · LIVE ============ -->
+  <section id="pane-stocks-live" style="display:none">
+    <h2>Живой <span class="em">momentum-портфель</span> РФ</h2>
+    <p class="sec-note">Реальный форвард-тест momentum-ротации на акциях MOEX — сателлит портфелей C2/C3b. Раз в месяц покупаются топ-4 бумаги по доходности за 63 торговых дня (skip последнего месяца) и только пока IMOEX выше EMA200, иначе весь капитал в кэше. Комиссии 0.13%/сторона. Старт 2026-07-10 с $10 000.</p>
+    <div id="stkStatus" class="callout" style="border-left-color:var(--accent)"></div>
+    <div class="kpis" id="stkKpis" style="grid-template-columns:repeat(4,1fr)"></div>
+    <h2>Держим сейчас</h2>
+    <div class="card" id="stkHoldings"></div>
+    <h2>Кривая капитала — <span class="em">живой momentum</span></h2>
+    <div class="card"><canvas id="stkEqChart" height="260"></canvas><p class="hint">В долларах от старта $10 000. Пунктир — стартовая база. Кривая наполняется по мере тиков и ежемесячных ребалансировок.</p></div>
   </section>
 
-  <!-- ============ MOEX PANE ============ -->
-  <section id="pane-moex" style="display:none">
+  <!-- ============ STOCKS · BACKTEST ============ -->
+  <section id="pane-stocks-bt" style="display:none">
     <h2>Вердикт бэктеста: стратегия на акции РФ не переносится</h2>
     <div class="kpis">
       <div class="kpi"><p class="l">Дневки · 3 года</p><div class="v neg">−2.2%</div><p class="s">PF 0.94 · 54 сделки · только лонг</p></div>
@@ -318,15 +357,22 @@
     <div class="card tbl-scroll"><table id="tbl-m"><thead><tr><th>#</th><th>Тикер</th><th>Сторона</th><th>Вход</th><th>Цена входа</th><th>Выход</th><th>Цена выхода</th><th>Причина</th><th>P&L</th></tr></thead><tbody></tbody></table></div>
   </section>
 
-  <!-- ============ FORTS FUTURES PANE ============ -->
-  <section id="pane-fut" style="display:none">
+  <!-- ============ FUTURES · LIVE ============ -->
+  <section id="pane-fut-live" style="display:none">
     <h2>Рынок РФ — <span class="em">живой форвард-тест C2 / C3b</span></h2>
     <p class="sec-note">Два виртуальных счёта по $10 000 торгуются ботом 24/7 по замороженным правилам: ядро Donchian-20+re-arm (риск C2 3% / C3b 5%), сателлит setup A (1% / 2%), momentum топ-4 акций (вес 30% / 50%). Решения по закрытым дневным барам MOEX, входы — по открытию следующей сессии, стопы — по касанию (часовые свечи ISS, задержка ~15 мин), роллы фронт-контрактов платные. Старт 2026-07-10 с чистого листа.</p>
     <div id="rfStatus" class="callout" style="border-left-color:var(--accent)"></div>
     <div class="kpis" id="rfKpis" style="grid-template-columns:repeat(2,1fr);gap:14px"></div>
+    <h2>Открытые позиции — <span class="em">цена и плавающий P&L</span></h2>
+    <p class="sec-note">Каждая открытая позиция: цена входа, стоп, <b>текущая цена и плавающий P&L</b> (с мини-графиком свечей ISS, когда они доступны). Пока сделки не закрыты, именно эти позиции двигают кривую эквити (переоценка MTM) — это то, что реально происходит на счёте прямо сейчас.</p>
+    <div id="futLiveWrap"></div>
     <h2>Кривая эквити C2 / C3b — живая</h2>
-    <div class="card"><div class="legend" id="lgRf" style="position:static;margin-bottom:8px"></div><canvas id="rfEqChart" height="240"></canvas><p class="hint">Точка на каждый тик бота. Пунктир — старт $10 000.</p></div>
+    <div class="card"><div class="legend" id="lgRf" style="position:static;margin-bottom:8px"></div><canvas id="rfEqChart" height="240"></canvas><p class="hint" id="rfEqHint">Точка на каждый тик бота. Пунктир и левый край — старт $10 000.</p></div>
     <div id="rfTradesWrap"></div>
+  </section>
+
+  <!-- ============ FUTURES · BACKTEST ============ -->
+  <section id="pane-fut-bt" style="display:none">
 
     <h2 style="margin-top:34px">Исследование · <span class="em">бэктесты</span>: брейкаут прошёл walk-forward + перевход re-arm (принят 2026-07-10)</h2>
     <div class="kpis">
@@ -381,69 +427,13 @@
     <div class="card tbl-scroll"><table id="tbl-f"><thead><tr><th>#</th><th>Актив</th><th>Сторона</th><th>Вход</th><th>Цена входа</th><th>Выход</th><th>Цена выхода</th><th>Причина</th><th>P&L</th></tr></thead><tbody></tbody></table></div>
   </section>
 
-  <!-- ============ COMPARE PANE ============ -->
-  <section id="pane-compare" style="display:none">
-    <h2>Сравнение стратегий (бэктест): v2 — действующая с 2026-07-10, v1 — прежняя</h2>
-    <p class="sec-note">Все прогоны — один движок, честные издержки (комиссии, проскальзывание, реальный фандинг Bybit). Длинная история: 2020-05 → 2026-07 (~6.2 года), включая медвежий 2022 и вязкий 2023–24; в 2020–21 из вотчлиста были листингованы только BTC и LINK — портфель добирался по мере листингов. v2 = v1 + запрет входов при флэте BTC (skip) + обязательный фандинг-фильтр. Детали: backtest_v2_report.md, strategy_v2_proposal.md.</p>
-    <div class="callout" id="cmpVerdict" style="border-left-color:var(--accent)"></div>
-
-    <h2>Полная статистика по всем прогонам</h2>
-    <div class="card tbl-scroll" style="max-height:none"><table id="tbl-cmp"><thead><tr>
-      <th>Стратегия</th><th>Период</th><th>Сделок</th><th>Win-rate</th><th>PF</th><th>Итог</th><th>%/мес</th><th>Max DD</th><th>Ср. приб. / уб.</th><th>Приб. месяцев</th><th>Лучший / худший мес.</th>
-    </tr></thead><tbody></tbody></table></div>
-
-    <h2>Кривая капитала (бэктест) — <span class="em">риск 1% · 3 позиции</span> ★ этим конфигом торгует бот</h2>
-    <div class="card"><div class="legend" id="lgR" style="position:static;margin-bottom:8px"></div><canvas id="cmpR" height="320"></canvas><p class="hint">Наведи — значения обеих кривых на дату. Серая пунктирная — стартовые $10 000.</p></div>
-
-    <h2>Кривая капитала (бэктест) — консервативный профиль <span class="em">риск 0.5% · 2 позиции</span></h2>
-    <div class="card"><div class="legend" id="lgL" style="position:static;margin-bottom:8px"></div><canvas id="cmpL" height="320"></canvas><p class="hint">Запасной тихий профиль (просадки ~13%): бот торговал им до 2026-07-10, вернуться можно одной командой. Живой факт — на вкладках «Крипта» и «По дням».</p></div>
-
-    <h2>По режимам рынка (walk-forward)</h2>
-    <p class="sec-note">Ключевой критерий устойчивости: улучшение не «в среднем», а в каждом режиме отдельно. Мятным выделено лучшее значение в паре v1/v2.</p>
-    <div class="card tbl-scroll"><table id="tbl-periods"><thead><tr>
-      <th>Режим рынка</th><th colspan="2">Исслед.: PF</th><th colspan="2">Исслед.: возврат</th><th colspan="2">Живой: PF</th><th colspan="2">Живой: возврат</th>
-    </tr><tr><th></th><th>v1</th><th>v2</th><th>v1</th><th>v2</th><th>v1</th><th>v2</th><th>v1</th><th>v2</th></tr></thead><tbody></tbody></table></div>
-  </section>
-
-  <!-- ============ YEARLY PANE ============ -->
-  <section id="pane-yearly" style="display:none">
-    <h2>Доходность по годам — <span class="em">каждая стратегия</span></h2>
-    <p class="sec-note">Не только общий итог, но и что стратегия приносила каждый календарный год. Цвет ячейки — величина результата (мятный = плюс, красный = минус). Первый и последний годы неполные (данные с листинга монет; 2026 — по июль). В скобках под процентом — макс. просадка внутри года. Верхняя строка <b style="color:var(--accent)">🟢 Живая торговля</b> — фактический результат симуляции; пока трек совсем короткий (сделки ещё не закрыты), сравнивать с годовым бэктестом рано — строка станет осмысленной по мере накопления сделок.</p>
-    <div class="card tbl-scroll" style="max-height:none"><table id="tbl-yearly"><thead></thead><tbody></tbody></table></div>
-
-    <h2>Живой конфиг по годам: <span class="em">v1 против v2</span></h2>
-    <p class="sec-note">Именно этим конфигом (риск 0.5%, ≤2 позиции) торгует симуляция. По каждому году — сколько принесла действующая v1 и предлагаемая v2.</p>
-    <div class="card"><div class="legend" id="lgY" style="position:static;margin-bottom:8px"></div><canvas id="cmpYear" height="300"></canvas><p class="hint">Наведи на столбец — точное значение. Пунктир — нулевая линия.</p></div>
-
-    <h2>Исследовательский конфиг по годам <span class="em">риск 1% · 3 позиции</span></h2>
-    <div class="card"><div class="legend" id="lgYR" style="position:static;margin-bottom:8px"></div><canvas id="cmpYearR" height="300"></canvas></div>
-  </section>
-
-  <!-- ============ LOSSES PANE ============ -->
-  <section id="pane-losses" style="display:none">
-    <h2>Почему стратегия теряет: разбор всех убыточных сделок бэктеста</h2>
-    <p class="sec-note">Каждый стоп канонического бэктеста (сетап A, фильтр BTC, ATR-кэп 3%) автоматически классифицирован по первопричине: лог сделок обогащён контекстом входа (режим BTC, RSI, ATR, MFE/MAE). Полный текстовый разбор с walk-forward-таблицами — в <b>report/loss_analysis.md</b>.</p>
-    <div class="kpis" id="lossKpis"></div>
-    <div style="height:10px"></div>
-    <div class="callout" id="lossCallout"></div>
-
-    <h2>Категории причин</h2>
-    <p class="sec-note">Клик по карточке — фильтр архива по категории.</p>
-    <div class="kpis" id="catCards" style="grid-template-columns:repeat(3,1fr)"></div>
-
-    <h2>Архив неудачных сделок</h2>
-    <p class="sec-note">Клик по строке — объяснение конкретной сделки.</p>
-    <div class="row" id="symRow-l"></div>
-    <div class="card tbl-scroll" style="max-height:560px"><table id="tbl-l"><thead><tr><th>#</th><th>Актив</th><th>Сторона</th><th>Вход</th><th>Выход</th><th>P&L</th><th>MFE R</th><th>MAE R</th><th>Баров</th><th>BTC при входе</th><th>Категория</th></tr></thead><tbody></tbody></table></div>
-  </section>
-
   <div class="foot">
     <p><b>Честность симуляции:</b> крипта — входы бот берёт по рынку после закрытия сигнального 4h-бара (+0.03% проскальзывание), комиссия Bybit 0.055% тейкер/сторона (включая TP1), стопы и тейки — <b>по касанию цены</b> (минутные свечи; гэп за уровень = исполнение по открытию, +0.05% на стопах), конфликт стоп+тейк в одной минуте = стоп, фандинг каждые 8ч по фактической ставке; MOEX (бэктест) — комиссия 0.08%/сторона, проскальзывание 0.05%, без плеча, только лонг. Бэктест ≠ гарантия будущей доходности. Реальные деньги не используются.</p>
   </div>
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1783697321"></script>
+<script src="vizdata.js?v=1783705876"></script>
 <script>
 (function(){
   "use strict";
@@ -538,21 +528,44 @@
     redrawActive();
   });
 
-  // ---------- tabs ----------
-  let TAB = new URLSearchParams(location.search).get("tab") || localStorage.getItem("term_tab") || "crypto";
-  function setTab(t){
-    TAB=t; localStorage.setItem("term_tab",t);
-    document.querySelectorAll(".tab[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));
-    $("pane-crypto").style.display = t==="crypto"?"":"none";
-    $("pane-daily").style.display = t==="daily"?"":"none";
-    $("pane-moex").style.display = t==="moex"?"":"none";
-    $("pane-fut").style.display = t==="fut"?"":"none";
-    $("pane-losses").style.display = t==="losses"?"":"none";
-    $("pane-compare").style.display = t==="compare"?"":"none";
-    $("pane-yearly").style.display = t==="yearly"?"":"none";
+  // ---------- market + mode (two-level nav) ----------
+  const qs = new URLSearchParams(location.search);
+  (function migrateTab(){                     // legacy term_tab -> (market,mode), one-time
+    const old = localStorage.getItem("term_tab");
+    if(old && !localStorage.getItem("term_market")){
+      const MAP={crypto:["crypto","live"], daily:["crypto","live"], losses:["crypto","bt"],
+                 compare:["crypto","bt"], yearly:["crypto","bt"],
+                 moex:["stocks","bt"], fut:["fut","live"]};
+      const m=MAP[old]; if(m){ localStorage.setItem("term_market",m[0]); localStorage.setItem("term_mode",m[1]); }
+      localStorage.removeItem("term_tab");
+    }
+  })();
+  let MARKET = qs.get("market") || localStorage.getItem("term_market") || "crypto";
+  let MODE   = qs.get("mode")   || localStorage.getItem("term_mode")   || "live";
+  if(!["crypto","stocks","fut"].includes(MARKET)) MARKET="crypto";
+  if(!["live","bt"].includes(MODE)) MODE="live";
+  const PANES=["crypto-live","crypto-bt","stocks-live","stocks-bt","fut-live","fut-bt"];
+  const MODE_MINIS={
+    crypto:{live:"позиции · дни · сигналы",         bt:"v1/v2 · сравнение · по годам"},
+    stocks:{live:"momentum-ротация · сейчас",       bt:"momentum + setup A · история"},
+    fut:   {live:"C2/C3b форвард-тест · открытые",  bt:"брейкаут · walk-forward · портфели"}
+  };
+  function applyNav(){
+    localStorage.setItem("term_market",MARKET);
+    localStorage.setItem("term_mode",MODE);
+    document.querySelectorAll("#marketRow .tab[data-market]").forEach(b=>b.classList.toggle("on",b.dataset.market===MARKET));
+    document.querySelectorAll("#modeRow .tab[data-mode]").forEach(b=>b.classList.toggle("on",b.dataset.mode===MODE));
+    const key=MARKET+"-"+MODE;
+    PANES.forEach(k=>{ const el=$("pane-"+k); if(el) el.style.display=(k===key)?"":"none"; });
+    const hk=document.querySelector(".hero-kpis"); if(hk) hk.style.display=(MARKET==="crypto"&&MODE==="live")?"":"none";
+    if($("modeLiveMini")) $("modeLiveMini").textContent=MODE_MINIS[MARKET].live;
+    if($("modeBtMini"))   $("modeBtMini").textContent  =MODE_MINIS[MARKET].bt;
     redrawActive();
   }
-  document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+  function setMarket(m){ MARKET=m; applyNav(); }
+  function setMode(m){ MODE=m; applyNav(); }
+  document.querySelectorAll("#marketRow .tab[data-market]").forEach(b=>b.onclick=()=>setMarket(b.dataset.market));
+  document.querySelectorAll("#modeRow .tab[data-mode]").forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 
   // ---------- LIVE POSITIONS (interactive candle charts) ----------
   const liveCharts=[];
@@ -650,7 +663,7 @@
     const t0=st.t0??full[0], t1=st.t1??full[1];
     const vis=k.filter(c=>c[0]>=t0&&c[0]<=t1);
     if(!vis.length) return;
-    let lo=Math.min(p.stop,...vis.map(c=>c[3])), hi=Math.max(p.tp1,...vis.map(c=>c[2]));
+    let lo=Math.min(p.stop,...vis.map(c=>c[3])), hi=Math.max((p.tp1!=null?p.tp1:p.entry),...vis.map(c=>c[2]));
     const pad=(hi-lo)*.05; lo-=pad; hi+=pad;
     const X=ts=>m.l+(ts-t0)/(t1-t0)*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
     ctx.clearRect(0,0,w,h);
@@ -658,7 +671,7 @@
     for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4, y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText("$"+fmtP(v), m.l+iw+6, y+4); }
     drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
     // profit/risk zones
-    ctx.fillStyle=C("--gain-soft"); ctx.fillRect(m.l,Y(p.tp1),iw,Math.max(0,Y(p.entry)-Y(p.tp1)));
+    if(p.tp1!=null&&p.tp1!==p.entry){ ctx.fillStyle=C("--gain-soft"); ctx.fillRect(m.l,Y(p.tp1),iw,Math.max(0,Y(p.entry)-Y(p.tp1))); }
     ctx.fillStyle=C("--loss-soft"); ctx.fillRect(m.l,Y(p.entry),iw,Math.max(0,Y(p.stop)-Y(p.entry)));
     // candles
     const bw=Math.max(1.5, iw/vis.length*0.62);
@@ -671,7 +684,7 @@
     });
     // levels
     const lvl=(v,col,lab)=>{ ctx.strokeStyle=col; ctx.lineWidth=1.6; ctx.setLineDash([5,4]); ctx.beginPath(); ctx.moveTo(m.l,Y(v)); ctx.lineTo(m.l+iw,Y(v)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=col; ctx.font=FONT("600 "); ctx.textAlign="right"; ctx.fillText(lab,m.l+iw-4,Y(v)-5); };
-    lvl(p.tp1,C("--gain"),"TP1 "+fmtP(p.tp1)); lvl(p.entry,C("--accent"),"вход "+fmtP(p.entry)); lvl(p.stop,C("--loss"),"стоп "+fmtP(p.stop));
+    if(p.tp1!=null&&p.tp1!==p.entry) lvl(p.tp1,C("--gain"),"TP1 "+fmtP(p.tp1)); lvl(p.entry,C("--accent"),"вход "+fmtP(p.entry)); lvl(p.stop,C("--loss"),"стоп "+fmtP(p.stop));
     // entry marker
     const et=Date.parse(p.entryUtc.replace(" ","T")+":00Z");
     if(et>=t0&&et<=t1){ const ex=X(et), ey=Y(p.entry);
@@ -826,71 +839,6 @@
     }).join("");
   }
 
-  // ---------- LOSSES PANE (failed-trades archive) ----------
-  const FAILED = arr(VIZ.failedTrades);
-  const CATMETA = {
-    "regime-flip":  {t:"Слом тренда",     d:"Тренд 4h актива сломался сразу после входа — вход пришёлся в конец движения."},
-    "chop-whipsaw": {t:"Пила во флэте",   d:"Повторный убыточный вход по той же монете за ≤7 дней — рынок пилит диапазон, тренд-логика мелет его в труху."},
-    "btc-drag":     {t:"Разворот BTC",    d:"BTC сменил режим против позиции за время сделки — рынок утянул актив."},
-    "near-miss":    {t:"Недобитый тейк",  d:"Цена прошла ≥1R в плюс, но TP1 (1.5R) не взят — профит был, не зафиксирован, затем стоп."},
-    "instant-fail": {t:"Ложный триггер",  d:"MFE < 0.3R — сигнальная свеча оказалась последней, продолжения не было. Неустранимая цена сетапа."},
-    "slow-fade":    {t:"Затухание",       d:"Небольшой ход в плюс (<1R), затем медленный слив в стоп — откат не стал продолжением."}
-  };
-  let selCat=null, selSymL=null;
-  function buildLosses(){
-    if(!FAILED.length){ return; }
-    const totLoss = FAILED.reduce((s,t)=>s+t.pnlUsd,0);
-    $("lossTabMini").textContent = FAILED.length + " стопов · причины";
-    // KPIs
-    const regimeCats=["regime-flip","chop-whipsaw","btc-drag"];
-    const regimeLoss = FAILED.filter(t=>regimeCats.includes(t.category)).reduce((s,t)=>s+t.pnlUsd,0);
-    const rangeTr = TRADES.filter(t=>t.btcTrendEntry==="range");
-    const rgW = rangeTr.filter(t=>t.pnlUsd>0).reduce((s,t)=>s+t.pnlUsd,0);
-    const rgL = Math.abs(rangeTr.filter(t=>t.pnlUsd<=0).reduce((s,t)=>s+t.pnlUsd,0));
-    const rgNet = rangeTr.reduce((s,t)=>s+t.pnlUsd,0);
-    const oct = FAILED.filter(t=>t.exitDay && t.exitDay.startsWith("2025-10"));
-    $("lossKpis").innerHTML =
-      `<div class="kpi"><p class="l">Убыточных сделок</p><div class="v neg">${FAILED.length} из ${TRADES.length}</div><p class="s">все — по стопу · −$${Math.abs(totLoss).toLocaleString("en-US",{maximumFractionDigits:0})}</p></div>`+
-      `<div class="kpi"><p class="l">Убыток из-за режима рынка</p><div class="v amb">${Math.round(100*regimeLoss/totLoss)}%</div><p class="s">слом тренда + пила + разворот BTC</p></div>`+
-      `<div class="kpi"><p class="l">Входы при флэте BTC</p><div class="v neg">PF ${rgL>0?(rgW/rgL).toFixed(2):"—"}</div><p class="s">${rangeTr.length} сделок · ${rgNet<0?"−":"+"}$${Math.abs(rgNet).toFixed(0)} — единственный убыточный режим</p></div>`+
-      `<div class="kpi"><p class="l">Худший месяц: окт-2025</p><div class="v neg">${oct.length} стопов</div><p class="s">−$${Math.abs(oct.reduce((s,t)=>s+t.pnlUsd,0)).toFixed(0)} · флэт после разворота</p></div>`;
-    $("lossCallout").innerHTML = `<b>Главная находка.</b> Сигнал входа у прибыльных и убыточных сделок статистически неотличим (RSI, ATR, дистанции до EMA почти совпадают) — <b>убыток создаёт режим, а не сигнал</b>. Когда BTC в тренде, стратегия зарабатывает (PF 1.69 в ап-, 2.35 в даунтренде); весь чистый минус генерируют входы при БТС-флэте. Лекарство исследовано (фильтр FlatMode, walk-forward пройден в обоих подпериодах) и <b>ждёт решения о внедрении</b> — живые правила пока не менялись.`;
-    renderCatCards(); renderLossTable(); renderSymChips();
-  }
-  function renderCatCards(){
-    const totLoss = FAILED.reduce((s,t)=>s+t.pnlUsd,0);
-    const cats = Object.keys(CATMETA).map(c=>{
-      const g=FAILED.filter(t=>t.category===c);
-      return {c, n:g.length, loss:g.reduce((s,t)=>s+t.pnlUsd,0)};
-    }).filter(x=>x.n>0).sort((a,b)=>a.loss-b.loss);
-    $("catCards").innerHTML = cats.map(x=>
-      `<div class="kpi" data-cat="${x.c}" style="cursor:pointer;${selCat===x.c?"border-color:var(--accent);background:var(--accent-soft)":""}">`+
-      `<p class="l">${CATMETA[x.c].t} · ${x.c}</p><div class="v neg" style="font-size:17px">${x.n} <span style="font-size:12px;color:var(--muted)">(${Math.round(100*x.n/FAILED.length)}%)</span> · −$${Math.abs(x.loss).toFixed(0)}</div>`+
-      `<p class="s">${CATMETA[x.c].d}</p></div>`).join("");
-    $("catCards").querySelectorAll("[data-cat]").forEach(el=>el.onclick=()=>{ selCat = selCat===el.dataset.cat?null:el.dataset.cat; renderCatCards(); renderLossTable(); });
-  }
-  function renderSymChips(){
-    const syms=[...new Set(FAILED.map(t=>t.sym))].sort();
-    $("symRow-l").innerHTML = `<button class="chip ${selSymL===null?"on":""}" data-sym="">Все монеты</button>`+
-      syms.map(s=>`<button class="chip ${selSymL===s?"on":""}" data-sym="${s}">${s.replace("-USDT","")}</button>`).join("");
-    $("symRow-l").querySelectorAll(".chip").forEach(el=>el.onclick=()=>{ selSymL = el.dataset.sym||null; renderSymChips(); renderLossTable(); });
-  }
-  function renderLossTable(){
-    const rows = FAILED.filter(t=>(!selCat||t.category===selCat)&&(!selSymL||t.sym===selSymL));
-    const tb=$("tbl-l").querySelector("tbody");
-    tb.innerHTML = rows.map((t,i)=>
-      `<tr data-i="${i}" style="cursor:pointer"><td class="num">${i+1}</td><td>${t.sym.replace("-USDT","")}</td>`+
-      `<td style="color:${t.side==="long"?C("--gain"):C("--loss")};font-family:var(--sans);font-weight:600">${t.side==="long"?"ЛОНГ":"ШОРТ"}</td>`+
-      `<td>${t.entryDay}</td><td>${t.exitDay}</td>`+
-      `<td style="color:${C("--loss")};font-weight:600">−$${Math.abs(t.pnlUsd).toFixed(2)}</td>`+
-      `<td>${t.mfeR==null?"—":t.mfeR.toFixed(2)}</td><td>${t.maeR==null?"—":t.maeR.toFixed(2)}</td><td>${t.barsHeld==null?"—":t.barsHeld}</td>`+
-      `<td style="font-family:var(--sans);color:${t.btcTrendEntry==="range"?C("--loss"):"var(--muted)"}">${t.btcTrendEntry||"—"}</td>`+
-      `<td style="font-family:var(--sans);font-weight:600;color:var(--accent)">${CATMETA[t.category]?CATMETA[t.category].t:t.category}</td></tr>`+
-      `<tr class="expl" style="display:none"><td></td><td colspan="10" style="text-align:left;font-family:var(--sans);color:var(--muted);white-space:normal;max-width:70ch">${t.explain||""} <span style="color:var(--faint)">(вход ${fmtP(t.entry)} → выход ${fmtP(t.exitPx)}, стоп ${fmtP(t.stop0)}, RSI ${t.rsiEntry}, ATR ${t.atrPct}%)</span></td></tr>`
-    ).join("");
-    tb.querySelectorAll("tr[data-i]").forEach(tr=>tr.onclick=()=>{ const nx=tr.nextElementSibling; if(nx) nx.style.display = nx.style.display==="none"?"":"none"; });
-  }
-
   // ---------- STRATEGY SWITCHER (v1 / v2 backtests) ----------
   const STRATS = arr(VIZ.strategies);
   const DEEPP = VIZ.deepPrices || null;
@@ -948,7 +896,7 @@
     buildExplorerFor(curStrat);
     EQ_CUR = arr(curStrat.equity).map(p=>[+p[0],+p[1]]);
     buildTable("tbl-c", stratTrades(curStrat));
-    if(TAB==="crypto"){ exC.draw(); drawEq(); }
+    if(MARKET==="crypto"&&MODE==="bt"){ exC.draw(); drawEq(); }
   }
 
   // ---------- COMPARE PANE ----------
@@ -1187,7 +1135,6 @@
   buildLive();
   buildSignals();
   buildYearly();
-  buildLosses();
   buildStratTabs();
   if(curStrat){ applyStrat(); buildCompare(); }
   else {
@@ -1343,22 +1290,10 @@
     const sgn=v=>(v>=0?"+":"−")+"$"+Math.abs(v).toFixed(2);
     const cls=v=>v>=0?"pos":"neg";
     const LA=VIZ.liveActual||{};
-    const rf=VIZ.rfLive||null;
-    // --- ИТОГ по всем рынкам (главный ответ: какой в итоге плюс) ---
-    const cryptoPnl=(VIZ.equityNow||0)-(LA.startEq||10000);
-    const c2=rf&&rf.profiles?rf.profiles.c2:null, c3=rf&&rf.profiles?rf.profiles.c3b:null;
-    const c2Pnl=c2?c2.eq-10000:0, c3Pnl=c3?c3.eq-10000:0;
-    const grand=cryptoPnl+c2Pnl+c3Pnl;
-    const grandPct=100*grand/(10000*(1+(c2?1:0)+(c3?1:0)));
-    if($("totKpis")) $("totKpis").innerHTML=
-      `<div class="kpi" style="border-left:3px solid var(--accent)"><p class="l">ИТОГО ПО ВСЕМ РЫНКАМ</p><div class="v ${cls(grand)}" style="font-size:26px">${sgn(grand)}</div><p class="s">${(grandPct>=0?"+":"−")+Math.abs(grandPct).toFixed(2)}% на вложенные $${(10000*(1+(c2?1:0)+(c3?1:0))).toLocaleString("en-US")}</p></div>`+
-      `<div class="kpi"><p class="l">Крипта (v2 комбо)</p><div class="v ${cls(cryptoPnl)}">${sgn(cryptoPnl)}</div><p class="s">счёт $${(VIZ.equityNow||0).toFixed(2)} · ${(LA.closedTrades||0)} сделок</p></div>`+
-      `<div class="kpi"><p class="l">Рынок РФ · C2</p><div class="v ${c2?cls(c2Pnl):""}">${c2?sgn(c2Pnl):"—"}</div><p class="s">${c2?("счёт $"+c2.eq.toFixed(2)+" · фьючерсы + акции"):"запускается"}</p></div>`+
-      `<div class="kpi"><p class="l">Рынок РФ · C3b</p><div class="v ${c3?cls(c3Pnl):""}">${c3?sgn(c3Pnl):"—"}</div><p class="s">${c3?("счёт $"+c3.eq.toFixed(2)+" · агрессивный профиль"):"запускается"}</p></div>`;
     // --- крипта по дням ---
     if(!LD.length){
       box.innerHTML='<div class="card" style="grid-column:1/-1;color:var(--muted);font-size:14px">Данных по дням пока нет — появятся после первого тика автобота.</div>';
-      drawMarkets(); return;
+      return;
     }
     const tod=LD[LD.length-1].live?LD[LD.length-1]:null;
     const yest=tod?(LD.length>1?LD[LD.length-2]:null):LD[LD.length-1];
@@ -1381,7 +1316,7 @@
         `<td class="num">${cost?"$"+cost.toFixed(2):"—"}</td>`+
         `<td class="num">$${d.eq1.toFixed(2)}</td></tr>`;
     }).join("");
-    drawDailyBars(); drawMarkets();
+    drawDailyBars();
   }
   function drawDailyBars(){
     const cv=$("dailyBars"); if(!cv||!LD.length) return;
@@ -1417,60 +1352,6 @@
     };
     cv.onmouseleave=hideTT;
   }
-  // рост капитала по рынкам: Крипта · Фьючерсы РФ (C2/C3b) · Акции РФ — в % от стартовых $10k
-  function drawMarkets(){
-    const cv=$("mktChart"); if(!cv) return;
-    const {ctx,w,h}=setupCanvas(cv);
-    ctx.clearRect(0,0,w,h);
-    const LA=VIZ.liveActual||{}; const rf=VIZ.rfLive||null;
-    const pct=v=>100*(v/10000-1);
-    const lines=[];
-    const cc=arr(LA.curve).map(p=>[p[0],pct(p[1])]);
-    if(cc.length>1) lines.push({name:"Крипта",col:C("--accent"),pts:cc});
-    if(rf&&arr(rf.curve).length){
-      const rc=arr(rf.curve);
-      const f2=rc.filter(p=>p[4]!=null).map(p=>[p[0],pct(p[4])]);
-      const f3=rc.filter(p=>p[5]!=null).map(p=>[p[0],pct(p[5])]);
-      const mm=rc.filter(p=>p[3]!=null).map(p=>[p[0],pct(p[3])]);
-      if(f2.length>1) lines.push({name:"Фьючерсы РФ · C2",col:"#d9a441",pts:f2});
-      if(f3.length>1) lines.push({name:"Фьючерсы РФ · C3b",col:"#e0784a",pts:f3});
-      if(mm.length>1) lines.push({name:"Акции РФ (momentum)",col:"#6f9fe8",pts:mm});
-    }
-    if($("lgMkt")) $("lgMkt").innerHTML=[
-      `<span><i style="width:14px;height:2px;background:${C("--accent")};display:inline-block"></i> Крипта</span>`,
-      `<span><i style="width:14px;height:2px;background:#d9a441;display:inline-block"></i> Фьючерсы РФ · C2</span>`,
-      `<span><i style="width:14px;height:2px;background:#e0784a;display:inline-block"></i> Фьючерсы РФ · C3b</span>`,
-      `<span><i style="width:14px;height:2px;background:#6f9fe8;display:inline-block"></i> Акции РФ (momentum)</span>`].join("");
-    if(!lines.length){ ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("кривые появятся после нескольких тиков бота",20,40); return; }
-    let t0=Infinity,t1=-Infinity,lo=0,hi=0;
-    lines.forEach(L=>L.pts.forEach(p=>{ t0=Math.min(t0,p[0]); t1=Math.max(t1,p[0]); lo=Math.min(lo,p[1]); hi=Math.max(hi,p[1]); }));
-    if(hi-lo<0.5){ hi+=0.3; lo-=0.3; }
-    const pad=(hi-lo)*.12; lo-=pad; hi+=pad;
-    const m={t:14,r:64,b:26,l:10}, iw=w-m.l-m.r, ih=h-m.t-m.b;
-    const X=ts=>m.l+(ts-t0)/Math.max(1,(t1-t0))*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
-    ctx.strokeStyle=C("--hair2"); ctx.fillStyle=C("--faint"); ctx.font=FONT(); ctx.textAlign="left"; ctx.lineWidth=1;
-    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4, y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText((v>=0?"+":"−")+Math.abs(v).toFixed(1)+"%", m.l+iw+6, y+4); }
-    ctx.setLineDash([4,4]); ctx.strokeStyle=C("--faint"); ctx.beginPath(); ctx.moveTo(m.l,Y(0)); ctx.lineTo(m.l+iw,Y(0)); ctx.stroke(); ctx.setLineDash([]);
-    lines.forEach(L=>{
-      ctx.strokeStyle=L.col; ctx.lineWidth=2; ctx.beginPath();
-      L.pts.forEach((p,i)=>{ const x=X(p[0]),y=Y(p[1]); if(i)ctx.lineTo(x,y); else ctx.moveTo(x,y); });
-      ctx.stroke();
-      const lp=L.pts[L.pts.length-1];
-      ctx.fillStyle=L.col; ctx.beginPath(); ctx.arc(X(lp[0]),Y(lp[1]),3,0,7); ctx.fill();
-    });
-    drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
-    cv.onmousemove=e=>{
-      const r=cv.getBoundingClientRect(), mx=e.clientX-r.left;
-      const ts=t0+(mx-m.l)/iw*(t1-t0);
-      let html=`<b>${fmtDT(ts)}</b>`;
-      lines.forEach(L=>{
-        let best=null; L.pts.forEach(p=>{ if(p[0]<=ts) best=p; });
-        if(best) html+=`<br><span style="color:${L.col}">●</span> ${L.name}: <b>${(best[1]>=0?"+":"−")+Math.abs(best[1]).toFixed(2)}%</b>`;
-      });
-      showTT(html,e.clientX,e.clientY);
-    };
-    cv.onmouseleave=hideTT;
-  }
   buildDaily();
 
   // ---------- RF LIVE: форвард-тест C2/C3b (вкладка «Фьючерсы РФ») ----------
@@ -1484,14 +1365,23 @@
       return;
     }
     const fr = RF.fronts ? Object.keys(RF.fronts).map(a=>`${a}→${RF.fronts[a].secid}`).join(" · ") : "—";
-    $("rfStatus").innerHTML = `<b>Статус:</b> последний дневной проход — <b class="num">${RF.lastDailyDay||"—"}</b> · тик <b class="num">${RF.lastTickUtc||"—"}</b> UTC<br><span style="color:var(--muted);font-size:12px">фронт-контракты: ${fr}</span>`;
+    let nOpen=0; ["c2","c3b"].forEach(pid=>{ const P=RF.profiles&&RF.profiles[pid]; if(P&&P.positions) nOpen+=P.positions.length; });
+    const nClosed=arr(RF.trades).length;
+    const startDay = RF.startTs ? fmtD(RF.startTs) : "10.07.26";
+    $("rfStatus").innerHTML = `<b>Статус:</b> форвард-тест с <b class="num">${startDay}</b> · закрытых сделок <b class="num">${nClosed}</b> · открыто <b class="num">${nOpen}</b>`+
+      (nClosed===0 && nOpen>0 ? ` — <b style="color:var(--accent)">сделки ещё не закрыты</b>: кривая эквити короткая и отражает переоценку (MTM) открытых позиций, поэтому выглядит почти плоской — это не ошибка. Сами позиции и их плавающий P&L — на графиках ниже.` : ``)+
+      `<br><span style="color:var(--muted);font-size:12px">последний тик ${RF.lastTickUtc||"—"} UTC · дневной проход ${RF.lastDailyDay||"—"} · фронт-контракты: ${fr}</span>`;
     const sgn=v=>(v>=0?"+":"−")+"$"+Math.abs(v).toFixed(2);
     let html="";
     ["c2","c3b"].forEach(pid=>{
       const P=RF.profiles?RF.profiles[pid]:null; if(!P) return;
       const tot=P.eq-10000, day=P.eq-(P.dayStartEq||10000);
       const rowSt='display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--hair2);font-size:12.5px';
-      const posRows=(P.positions||[]).map(x=>`<div style="${rowSt}"><span>${x.sleeve==="core"?"ядро":"сетап A"} · ${x.asset} <span style="color:var(--faint)">(${x.secid})</span> <b style="color:${x.side==="long"?"var(--gain)":"var(--loss)"}">${x.side==="long"?"ЛОНГ":"ШОРТ"}</b></span><b>вход ${x.entry} · стоп <span class="neg">${x.stop}</span></b></div>`).join("");
+      const posRows=(P.positions||[]).map(x=>{
+        const cur=(x.cur!=null)?x.cur:null, up=(x.upnl!=null)?x.upnl:null;
+        const rM=(up!=null&&x.risk)?` <span style="color:var(--faint)">(${up/x.risk>=0?"+":""}${(up/x.risk).toFixed(2)}R)</span>`:"";
+        return `<div style="${rowSt}"><span>${x.sleeve==="core"?"ядро":"сетап A"} · ${x.asset} <span style="color:var(--faint)">(${x.secid})</span> <b style="color:${x.side==="long"?"var(--gain)":"var(--loss)"}">${x.side==="long"?"ЛОНГ":"ШОРТ"}</b></span><b>вход ${x.entry}${cur!=null?` · тек ${cur}`:""}${up!=null?` · <span class="${up>=0?"pos":"neg"}">${up>=0?"+":"−"}$${Math.abs(up).toFixed(2)}</span>${rM}`:""} · стоп <span class="neg">${x.stop}</span></b></div>`;
+      }).join("");
       const holdRows=(P.holdings||[]).map(h=>`<div style="${rowSt}"><span>momentum · <b>${h.sym}</b></span><b>${h.qty} @ ${h.entry}</b></div>`).join("");
       const pendRows=(P.pending||[]).map(x=>`<div style="${rowSt}"><span style="color:var(--faint)">⏳ ждёт открытия сессии · ${x.sleeve} ${x.asset||""} ${x.side||""}</span><b style="color:var(--faint)">${x.created}</b></div>`).join("");
       html+=`<div class="kpi" style="padding:16px 18px">
@@ -1526,7 +1416,11 @@
     const cv=$("rfEqChart"); if(!cv) return;
     const {ctx,w,h}=setupCanvas(cv);
     ctx.clearRect(0,0,w,h);
-    const curve=RF?arr(RF.curve):[];
+    let curve=RF?arr(RF.curve).slice():[];
+    if(curve.length){                                  // seed $10 000 origin at engine start so a young curve isn't misleadingly flat
+      const startTs=(RF&&RF.startTs)||(curve[0][0]-5*60000);
+      if(curve[0][0]>startTs){ const seed=curve[0].map(()=>10000); seed[0]=startTs; curve=[seed].concat(curve); }
+    }
     if($("lgRf"))$("lgRf").innerHTML=`<span><i style="width:14px;height:2px;background:var(--accent);display:inline-block"></i> C2</span><span><i style="width:14px;height:2px;background:#d9a441;display:inline-block"></i> C3b</span>`;
     if(curve.length<2){ ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("кривая появится после нескольких тиков бота",20,40); return; }
     const m={t:14,r:70,b:26,l:10}, iw=w-m.l-m.r, ih=h-m.t-m.b;
@@ -1546,17 +1440,91 @@
     });
     drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
   }
+  // открытые фьючерс-позиции РФ на мини-графиках (свечи ISS + вход/стоп + плавающий P&L)
+  function drawFutLivePos(){
+    const wrap=$("futLiveWrap"); if(!wrap) return;
+    const poss=[];
+    if(RF&&RF.profiles) ["c2","c3b"].forEach(pid=>{ const P=RF.profiles[pid]; if(P&&arr(P.positions).length) arr(P.positions).forEach(x=>poss.push(Object.assign({profile:P.label||pid},x))); });
+    if(!poss.length){
+      wrap.innerHTML='<div class="card" style="color:var(--muted);font-size:14px">Открытых позиций по фьючерсам сейчас нет — бот ждёт сигналы по закрытым дневным барам MOEX.</div>';
+      return;
+    }
+    wrap.innerHTML="";
+    poss.forEach((x,pi)=>{
+      const k=arr(x.candles1h);
+      const cur=(x.cur!=null)?x.cur:(k.length?k[k.length-1][4]:x.entry);
+      const up=(x.upnl!=null)?x.upnl:(x.side==="long"?(cur-x.entry)*x.qty:(x.entry-cur)*x.qty);
+      const rMult=(x.risk)?((up/x.risk>=0?"+":"")+(up/x.risk).toFixed(2)+"R"):"—";
+      const card=document.createElement("div"); card.className="card pcard";
+      card.innerHTML=`<div class="badge"><span class="dot"></span> ОТКРЫТА · ${x.profile}</div>
+        <h3>${x.sleeve==="core"?"ядро":"сетап A"} · ${x.side==="long"?"ЛОНГ":"ШОРТ"} ${x.asset}</h3>
+        <div class="pr"><span>Контракт</span><b>${x.secid||x.asset}</b></div>
+        <div class="pr"><span>Вход (${x.entryDay||"—"})</span><b>${fmtP(x.entry)}</b></div>
+        <div class="pr"><span>Текущая цена</span><b>${fmtP(cur)}</b></div>
+        <div class="pr"><span>Стоп-лосс</span><b class="neg">${fmtP(x.stop)}</b></div>
+        ${(x.tp1!=null)?`<div class="pr"><span>Тейк-профит 1</span><b class="pos">${fmtP(x.tp1)}</b></div>`:""}
+        <div class="pr"><span>Плавающий P&L</span><b class="${up>=0?"pos":"neg"}">${up>=0?"+":"−"}$${Math.abs(up).toFixed(2)} <span style="color:var(--faint)">(${rMult})</span></b></div>
+        <div class="pr"><span>Риск на сделку</span><b>$${x.risk||"—"}</b></div>`;
+      if(k.length){
+        const grid=document.createElement("div"); grid.className="live-grid";
+        const chartCard=document.createElement("div"); chartCard.className="card";
+        const cv=document.createElement("canvas"); cv.setAttribute("height","300"); cv.id="futlive-"+pi;
+        chartCard.appendChild(cv);
+        const hint=document.createElement("p"); hint.className="hint"; hint.textContent="Часовые свечи ISS · вход, стоп и текущая цена · зум колесом, двойной клик — сброс";
+        chartCard.appendChild(hint);
+        grid.appendChild(chartCard); grid.appendChild(card); wrap.appendChild(grid);
+        const adapt={entry:+x.entry, stop:+x.stop, tp1:(x.tp1!=null?+x.tp1:+x.entry), qty:+x.qty, side:x.side, entryUtc:(x.entryDay||"")+" 00:00", symbol:x.asset};
+        const st={t0:null,t1:null}, mL=8, mR=66;
+        const redraw=()=>drawLiveChart(cv,adapt,k,st,mL,mR);
+        const fullFn=()=>[k[0][0],k[k.length-1][0]]; const innerWFn=()=>(cv.clientWidth||800)-mL-mR;
+        attachPanZoom(cv,st,fullFn,redraw,mL,innerWFn); redraw();
+      } else {
+        wrap.appendChild(card);
+      }
+    });
+  }
   buildRfLive();
 
-  function redrawActive(){
-    if(TAB==="crypto"){ liveCharts.forEach(f=>f()); if(exC)exC.draw(); drawEq(); }
-    else if(TAB==="daily"){ drawDailyBars(); drawMarkets(); }
-    else if(TAB==="compare"){ drawCompare(); }
-    else if(TAB==="yearly"){ drawYearly(); }
-    else if(TAB==="moex"){ if(exM)exM.draw(); if(MOMS)drawEqOn("eqMom",MOMS.equity); }
-    else if(TAB==="fut"){ drawRfEq(); if(exF){ exF.draw(); drawCombos(); drawEqOn("eqFut",FUT.equity); } }
+  // ---------- STOCKS LIVE: живой momentum-портфель (рукав mom профилей C2/C3b) ----------
+  function buildStocksLive(){
+    if(!$("stkKpis")) return;
+    const P = RF && RF.profiles ? (RF.profiles.c2||RF.profiles.c3b) : null;
+    const momEq=P?(+P.momEq||10000):10000, momCash=P?(+P.momCash||0):10000, hold=P?arr(P.holdings):[];
+    if($("stkStatus")) $("stkStatus").innerHTML = `<b>Статус:</b> momentum-ротация РФ запущена <b class="num">10.07.26</b>. `+
+      (hold.length ? `Держим <b>${hold.length}</b> бумаг(и) из топ-4 по 63-дневному моментуму.`
+                   : `Портфель <b>в кэше $${momCash.toFixed(0)}</b> — покупки топ-4 акций в 1-й торговый день месяца при гейте IMOEX&gt;EMA200. Ждём ближайшую ребалансировку.`);
+    const cls=v=>v>=10000?"pos":(v<10000?"neg":"");
+    $("stkKpis").innerHTML =
+      `<div class="kpi"><p class="l">Капитал (momentum)</p><div class="v ${cls(momEq)}">$${momEq.toLocaleString("en-US",{minimumFractionDigits:2})}</div><p class="s">старт $10 000</p></div>`+
+      `<div class="kpi"><p class="l">Кэш</p><div class="v">$${momCash.toFixed(0)}</div><p class="s">вне позиций</p></div>`+
+      `<div class="kpi"><p class="l">Держим бумаг</p><div class="v">${hold.length}</div><p class="s">лимит 4 · ребаланс раз в месяц</p></div>`+
+      `<div class="kpi"><p class="l">Вес в портфелях РФ</p><div class="v" style="font-size:15px">C2 ×0.3 · C3b ×0.5</div><p class="s">сателлит ядра фьючерсов</p></div>`;
+    if($("stkHoldings")) $("stkHoldings").innerHTML = hold.length
+      ? `<div class="tbl-scroll"><table style="min-width:0"><thead><tr><th>Тикер</th><th>Кол-во</th><th>Цена входа</th></tr></thead><tbody>`+
+        hold.map(h=>`<tr><td style="font-weight:600">${h.sym}</td><td class="num">${h.qty}</td><td class="num">${h.entry}</td></tr>`).join("")+`</tbody></table></div>`
+      : `<p class="sec-note" style="margin:0">Держим: — весь капитал в кэше, ждём ежемесячную ребалансировку (топ-4 при IMOEX&gt;EMA200).</p>`;
+    drawStocksLiveEq();
   }
-  setTab(TAB);
+  function drawStocksLiveEq(){
+    const cv=$("stkEqChart"); if(!cv) return;
+    const rc=RF?arr(RF.curve):[];
+    let pts=rc.filter(p=>p[3]!=null).map(p=>[p[0],p[3]]);   // колонка mom (акции)
+    if(pts.length){ const s=(RF&&RF.startTs)||(pts[0][0]-5*60000); if(pts[0][0]>s) pts=[[s,10000]].concat(pts); }
+    if(pts.length<2){ const {ctx,w,h}=setupCanvas(cv); ctx.clearRect(0,0,w,h); ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("кривая появится после первой ребалансировки / нескольких тиков",20,40); return; }
+    drawEqOn("stkEqChart", pts);
+  }
+  buildStocksLive();
+
+  function redrawActive(){
+    const k=MARKET+"-"+MODE;
+    if(k==="crypto-live"){ liveCharts.forEach(f=>f()); drawDailyBars(); }
+    else if(k==="crypto-bt"){ if(exC)exC.draw(); drawEq(); drawCompare(); drawYearly(); }
+    else if(k==="stocks-live"){ drawStocksLiveEq(); }
+    else if(k==="stocks-bt"){ if(exM)exM.draw(); if(MOMS)drawEqOn("eqMom",MOMS.equity); }
+    else if(k==="fut-live"){ drawRfEq(); drawFutLivePos(); }
+    else if(k==="fut-bt"){ if(exF){ exF.draw(); drawCombos(); drawEqOn("eqFut",FUT.equity); } }
+  }
+  applyNav();
   addEventListener("resize", redrawActive);
 
   // ---------- auto-refresh (fresh data lands here after each trading-loop iteration) ----------

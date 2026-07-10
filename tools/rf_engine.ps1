@@ -734,7 +734,13 @@ function Invoke-RfMtm {
       foreach ($pos in @($sl.positions)) {
         $cur = if ($px.ContainsKey("F:$($pos.asset)")) { [double]$px["F:$($pos.asset)"] } else { [double]$pos.entry }
         $sm = if ($pos.side -eq 'long') { 1.0 } else { -1.0 }
-        $unreal += $sm * [double]$pos.qty * ($cur - [double]$pos.entry)
+        $pu = $sm * [double]$pos.qty * ($cur - [double]$pos.entry)
+        # сохраняем текущую цену и плавающий P&L на позиции — для дашборда (вкладка «Фьючерсы → Реальная»)
+        if (-not $pos.PSObject.Properties['cur'])  { $pos | Add-Member -NotePropertyName cur  -NotePropertyValue 0.0 }
+        if (-not $pos.PSObject.Properties['upnl']) { $pos | Add-Member -NotePropertyName upnl -NotePropertyValue 0.0 }
+        $pos.cur  = [math]::Round($cur, 6)
+        $pos.upnl = [math]::Round($pu, 2)
+        $unreal += $pu
       }
       # equity рукава = реализованное (уже в equity) + нереализованное (пересчитываем на лету в отдельном поле)
       if (-not $sl.PSObject.Properties['equity_mtm']) { $sl | Add-Member -NotePropertyName equity_mtm -NotePropertyValue 0.0 }
