@@ -40,6 +40,11 @@ jobs:
               Write-Host "${h}: OK"
             } catch { Write-Warning "${h}: BLOCKED ($($_.Exception.Message))" }
           }
+          try {
+            $r = Invoke-RestMethod -Uri 'https://iss.moex.com/iss/engines/futures/markets/forts/securities.json?iss.only=securities&securities.columns=SECID&start=0' -TimeoutSec 20
+            $n = @($r.securities.data).Count
+            Write-Host "iss.moex.com: OK ($n securities)"
+          } catch { Write-Warning "iss.moex.com: BLOCKED ($($_.Exception.Message))" }
 
       - name: Run trading tick
         shell: powershell
