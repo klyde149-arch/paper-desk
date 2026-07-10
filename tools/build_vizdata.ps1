@@ -187,7 +187,14 @@ if (Test-Path (Join-Path $rfDir2 'c2_portfolio.json')) {
   if (Test-Path $rtPath) { $rfTrades = [object[]]@((Get-Content $rtPath -Raw -Encoding UTF8 | ConvertFrom-Json) | ForEach-Object { $_ }) }
   $rfCurve = @()
   $rePath = Join-Path $rfDir2 'rf_equity.json'
-  if (Test-Path $rePath) { $rfCurve = [object[]]@((Get-Content $rePath -Raw -Encoding UTF8 | ConvertFrom-Json) | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.c2, [double]$_.c3b) }) }
+  if (Test-Path $rePath) {
+    $rfCurve = [object[]]@((Get-Content $rePath -Raw -Encoding UTF8 | ConvertFrom-Json) | ForEach-Object {
+      $mom = if ($_.PSObject.Properties['mom']) { [double]$_.mom } else { $null }
+      $f2  = if ($_.PSObject.Properties['futC2']) { [double]$_.futC2 } else { $null }
+      $f3  = if ($_.PSObject.Properties['futC3b']) { [double]$_.futC3b } else { $null }
+      ,[object[]]@([long]$_.ts, [double]$_.c2, [double]$_.c3b, $mom, $f2, $f3)
+    })
+  }
   $rfShared = Get-Content (Join-Path $rfDir2 'shared.json') -Raw -Encoding UTF8 | ConvertFrom-Json
   $rfLive = [ordered]@{
     profiles = $rfProfiles

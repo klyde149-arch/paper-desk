@@ -782,8 +782,14 @@ try {
     foreach ($x in @((Read-JsonFile $eqPath))) { if ($null -ne $x) { $eq.Add($x) } }
     $nowStr = MsToUtcStr $NowMs
     if (-not $eq.Count -or [string]$eq[$eq.Count-1].utc -ne $nowStr) {
+      # покривые по рынкам: futCx = аддитивная комбинация фьючерсных рукавов (ядро+сетап A), mom = акции (одинаков для профилей)
+      function SlEq($sl) { if ($sl.PSObject.Properties['equity_mtm'] -and [double]$sl.equity_mtm -gt 0) { [double]$sl.equity_mtm } else { [double]$sl.equity } }
+      $c2p = $profState['c2']; $c3p = $profState['c3b']
+      $futC2  = [math]::Round(10000.0 * ((SlEq $c2p.sleeves.core) / 10000.0 + (SlEq $c2p.sleeves.setA) / 10000.0 - 1), 2)
+      $futC3b = [math]::Round(10000.0 * ((SlEq $c3p.sleeves.core) / 10000.0 + (SlEq $c3p.sleeves.setA) / 10000.0 - 1), 2)
       $eq.Add([pscustomobject]@{ utc = $nowStr; ts = $NowMs
-        c2 = [double]$profState['c2'].profile_eq; c3b = [double]$profState['c3b'].profile_eq })
+        c2 = [double]$profState['c2'].profile_eq; c3b = [double]$profState['c3b'].profile_eq
+        mom = [math]::Round([double]$c2p.sleeves.mom.equity, 2); futC2 = $futC2; futC3b = $futC3b })
       Write-JsonAtomic $eqPath (ToArr $eq) 4
     }
     if ($script:rfJournal.Count) { Write-Journal $Root ($script:rfJournal -join '') }

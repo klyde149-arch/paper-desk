@@ -255,21 +255,22 @@
     <div class="card tbl-scroll"><table id="tbl-c"><thead><tr><th>#</th><th>Актив</th><th>Сторона</th><th>Вход</th><th>Цена входа</th><th>Выход</th><th>Цена выхода</th><th>Причина</th><th>P&L</th></tr></thead><tbody></tbody></table></div>
   </section>
 
-  <!-- ============ DAILY PANE (живая прибыль по дням) ============ -->
+  <!-- ============ DAILY PANE (итог + рост капитала + дни) ============ -->
   <section id="pane-daily" style="display:none">
-    <h2>Прибыль по дням — <span class="em">живой счёт</span></h2>
-    <p class="sec-note">Факт бумажного счёта в реальном времени: P&L дня = изменение эквити за UTC-день (реализованное + плавающее по открытым позициям), с учётом комиссий Bybit (0.055% тейкер) и фандинга. Сегодняшний день обновляется каждый тик бота (~15 мин).</p>
-    <div class="kpis" id="dailyKpis" style="grid-template-columns:repeat(5,1fr)"></div>
+    <h2>Итог — <span class="em">все рынки</span></h2>
+    <p class="sec-note">Три живых счёта по $10 000: крипта (бот v2 «комбо», с 08.07) и два портфеля рынка РФ — C2 и C3b (фьючерсы + акции, с 10.07). Всё обновляется каждый тик бота (~15 мин), комиссии учтены.</p>
+    <div class="kpis" id="totKpis" style="grid-template-columns:repeat(4,1fr)"></div>
+    <h2>Рост капитала по рынкам</h2>
+    <div class="card"><div class="legend" id="lgMkt" style="position:static;margin-bottom:8px"></div><canvas id="mktChart" height="300"></canvas><p class="hint">В процентах от стартовых $10 000 каждого счёта. Пунктир — ноль (старт). Наведи — значения на момент времени.</p></div>
+    <h2>Крипта — прибыль по дням</h2>
+    <div class="kpis" id="dailyKpis" style="grid-template-columns:repeat(4,1fr)"></div>
     <div style="height:16px"></div>
-    <h2>P&L по дням</h2>
-    <div class="card"><canvas id="dailyBars" height="260"></canvas><p class="hint">Зелёный — день в плюс, красный — в минус. Наведи на столбик — детали дня.</p></div>
-    <h2>Сегодня — эквити внутри дня</h2>
-    <div class="card"><canvas id="dailyIntra" height="220"></canvas><p class="hint">Кривая эквити по тикам бота за текущий UTC-день.</p></div>
-    <h2>Таблица дней</h2>
+    <div class="card"><canvas id="dailyBars" height="240"></canvas><p class="hint">Зелёный — день в плюс, красный — в минус. Наведи на столбик — детали дня.</p></div>
+    <h2>Таблица дней (крипта)</h2>
     <div class="card tbl-scroll"><table id="tbl-daily"><thead><tr>
-      <th>Дата (UTC)</th><th>Старт дня</th><th>Конец дня</th><th>P&L дня</th><th>%</th><th>Сделок (W/L)</th><th>Реализовано</th><th>Комиссии</th><th>Фандинг</th><th>Эквити нарастающим</th>
+      <th>Дата (UTC)</th><th>P&L дня</th><th>%</th><th>Сделок (W/L)</th><th>Издержки</th><th>Эквити на конец дня</th>
     </tr></thead><tbody></tbody></table></div>
-    <p class="hint">Реализовано — чистый результат закрытых в этот день сделок (уже за вычетом комиссий и фандинга). P&L дня включает ещё и переоценку открытых позиций.</p>
+    <p class="hint">P&L дня = изменение эквити за UTC-день: закрытые сделки + переоценка открытых позиций, уже после комиссий Bybit (0.055%) и фандинга. Издержки = комиссии + фандинг сделок, закрытых в этот день.</p>
   </section>
 
   <!-- ============ MOEX PANE ============ -->
@@ -442,7 +443,7 @@
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1783695942"></script>
+<script src="vizdata.js?v=1783697321"></script>
 <script>
 (function(){
   "use strict";
@@ -1339,39 +1340,48 @@
   const LD = arr(VIZ.liveDaily);
   function buildDaily(){
     const box=$("dailyKpis"); if(!box) return;
-    if(!LD.length){
-      box.innerHTML='<div class="card" style="grid-column:1/-1;color:var(--muted);font-size:14px">Данных по дням пока нет — появятся после первого тика автобота.</div>';
-      return;
-    }
     const sgn=v=>(v>=0?"+":"−")+"$"+Math.abs(v).toFixed(2);
     const cls=v=>v>=0?"pos":"neg";
+    const LA=VIZ.liveActual||{};
+    const rf=VIZ.rfLive||null;
+    // --- ИТОГ по всем рынкам (главный ответ: какой в итоге плюс) ---
+    const cryptoPnl=(VIZ.equityNow||0)-(LA.startEq||10000);
+    const c2=rf&&rf.profiles?rf.profiles.c2:null, c3=rf&&rf.profiles?rf.profiles.c3b:null;
+    const c2Pnl=c2?c2.eq-10000:0, c3Pnl=c3?c3.eq-10000:0;
+    const grand=cryptoPnl+c2Pnl+c3Pnl;
+    const grandPct=100*grand/(10000*(1+(c2?1:0)+(c3?1:0)));
+    if($("totKpis")) $("totKpis").innerHTML=
+      `<div class="kpi" style="border-left:3px solid var(--accent)"><p class="l">ИТОГО ПО ВСЕМ РЫНКАМ</p><div class="v ${cls(grand)}" style="font-size:26px">${sgn(grand)}</div><p class="s">${(grandPct>=0?"+":"−")+Math.abs(grandPct).toFixed(2)}% на вложенные $${(10000*(1+(c2?1:0)+(c3?1:0))).toLocaleString("en-US")}</p></div>`+
+      `<div class="kpi"><p class="l">Крипта (v2 комбо)</p><div class="v ${cls(cryptoPnl)}">${sgn(cryptoPnl)}</div><p class="s">счёт $${(VIZ.equityNow||0).toFixed(2)} · ${(LA.closedTrades||0)} сделок</p></div>`+
+      `<div class="kpi"><p class="l">Рынок РФ · C2</p><div class="v ${c2?cls(c2Pnl):""}">${c2?sgn(c2Pnl):"—"}</div><p class="s">${c2?("счёт $"+c2.eq.toFixed(2)+" · фьючерсы + акции"):"запускается"}</p></div>`+
+      `<div class="kpi"><p class="l">Рынок РФ · C3b</p><div class="v ${c3?cls(c3Pnl):""}">${c3?sgn(c3Pnl):"—"}</div><p class="s">${c3?("счёт $"+c3.eq.toFixed(2)+" · агрессивный профиль"):"запускается"}</p></div>`;
+    // --- крипта по дням ---
+    if(!LD.length){
+      box.innerHTML='<div class="card" style="grid-column:1/-1;color:var(--muted);font-size:14px">Данных по дням пока нет — появятся после первого тика автобота.</div>';
+      drawMarkets(); return;
+    }
     const tod=LD[LD.length-1].live?LD[LD.length-1]:null;
     const yest=tod?(LD.length>1?LD[LD.length-2]:null):LD[LD.length-1];
     const w7=LD.slice(-7).reduce((s,d)=>s+d.pnl,0);
-    const LA=VIZ.liveActual||{};
-    const total=(VIZ.equityNow||0)-(LA.startEq||10000);
     const costs=(LA.fees||0)+(LA.funding||0);
     box.innerHTML=
       `<div class="kpi"><p class="l">Сегодня (UTC)</p><div class="v ${tod?cls(tod.pnl):""}">${tod?sgn(tod.pnl):"—"}</div><p class="s">${tod?((tod.pnlPct>=0?"+":"−")+Math.abs(tod.pnlPct).toFixed(2)+"% · обновляется ~15 мин"):"день ещё не начался"}</p></div>`+
       `<div class="kpi"><p class="l">Вчера</p><div class="v ${yest?cls(yest.pnl):""}">${yest?sgn(yest.pnl):"—"}</div><p class="s">${yest?yest.d:""}</p></div>`+
       `<div class="kpi"><p class="l">Последние 7 дней</p><div class="v ${cls(w7)}">${sgn(w7)}</div><p class="s">сумма дневных P&L</p></div>`+
-      `<div class="kpi"><p class="l">Всего со старта</p><div class="v ${cls(total)}">${sgn(total)}</div><p class="s">${LA.startDate||""} → сейчас (${(LA.closedTrades||0)} сделок: ${(LA.wins||0)}W/${(LA.losses||0)}L)</p></div>`+
       `<div class="kpi"><p class="l">Издержки всего</p><div class="v">$${costs.toFixed(2)}</div><p class="s">комиссии $${(LA.fees||0).toFixed(2)} + фандинг $${(LA.funding||0).toFixed(2)}</p></div>`;
-    // таблица дней
+    // таблица дней (упрощённая: дата · P&L · % · сделки · издержки · эквити)
     const tb=$("tbl-daily").querySelector("tbody");
     tb.innerHTML=LD.slice().reverse().map(d=>{
       const win=d.pnl>=0;
+      const cost=(d.fees||0)+(d.funding||0);
       return `<tr${d.live?' style="background:var(--accent-soft)"':''}><td>${d.d}${d.live?' <span style="color:var(--accent);font-size:10px;font-weight:700">· СЕЙЧАС</span>':''}</td>`+
-        `<td class="num">$${d.eq0.toFixed(2)}</td><td class="num">$${d.eq1.toFixed(2)}</td>`+
         `<td style="color:${win?'var(--gain)':'var(--loss)'};font-weight:700">${sgn(d.pnl)}</td>`+
         `<td class="${cls(d.pnlPct)}">${(d.pnlPct>=0?"+":"−")+Math.abs(d.pnlPct).toFixed(2)}%</td>`+
         `<td class="num">${d.w+d.l?`${d.w+d.l} (<span class="pos">${d.w}W</span>/<span class="neg">${d.l}L</span>)`:"—"}</td>`+
-        `<td class="${cls(d.realized)}">${d.w+d.l?sgn(d.realized):"—"}</td>`+
-        `<td class="num">${d.fees?"$"+d.fees.toFixed(2):"—"}</td>`+
-        `<td class="num">${d.funding?sgn(-d.funding).replace("$","$"):"—"}</td>`+
+        `<td class="num">${cost?"$"+cost.toFixed(2):"—"}</td>`+
         `<td class="num">$${d.eq1.toFixed(2)}</td></tr>`;
     }).join("");
-    drawDailyBars(); drawDailyIntra();
+    drawDailyBars(); drawMarkets();
   }
   function drawDailyBars(){
     const cv=$("dailyBars"); if(!cv||!LD.length) return;
@@ -1407,33 +1417,59 @@
     };
     cv.onmouseleave=hideTT;
   }
-  function drawDailyIntra(){
-    const cv=$("dailyIntra"); if(!cv) return;
+  // рост капитала по рынкам: Крипта · Фьючерсы РФ (C2/C3b) · Акции РФ — в % от стартовых $10k
+  function drawMarkets(){
+    const cv=$("mktChart"); if(!cv) return;
     const {ctx,w,h}=setupCanvas(cv);
     ctx.clearRect(0,0,w,h);
-    const LA=VIZ.liveActual||{}; const curve=arr(LA.curve);
-    const today=LD.length?LD[LD.length-1]:null;
-    if(!today||!today.live){ ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("сегодня точек ещё нет",20,40); return; }
-    const d0=Date.UTC(+today.d.slice(0,4), +today.d.slice(5,7)-1, +today.d.slice(8,10));
-    let pts=curve.filter(p=>p[0]>=d0).map(p=>[p[0],p[1]]);
-    pts.unshift([d0, today.eq0]);
-    if(pts.length<2){ pts.push([Date.now(), today.eq1]); }
-    const m={t:14,r:70,b:26,l:10}, iw=w-m.l-m.r, ih=h-m.t-m.b;
-    let lo=Math.min(...pts.map(p=>p[1])), hi=Math.max(...pts.map(p=>p[1]));
-    if(hi===lo){hi+=1;lo-=1;}
-    const pad=(hi-lo)*.15; lo-=pad; hi+=pad;
-    const t0=d0, t1=Math.max(pts[pts.length-1][0], t0+3600000);
-    const X=ts=>m.l+(ts-t0)/(t1-t0)*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
+    const LA=VIZ.liveActual||{}; const rf=VIZ.rfLive||null;
+    const pct=v=>100*(v/10000-1);
+    const lines=[];
+    const cc=arr(LA.curve).map(p=>[p[0],pct(p[1])]);
+    if(cc.length>1) lines.push({name:"Крипта",col:C("--accent"),pts:cc});
+    if(rf&&arr(rf.curve).length){
+      const rc=arr(rf.curve);
+      const f2=rc.filter(p=>p[4]!=null).map(p=>[p[0],pct(p[4])]);
+      const f3=rc.filter(p=>p[5]!=null).map(p=>[p[0],pct(p[5])]);
+      const mm=rc.filter(p=>p[3]!=null).map(p=>[p[0],pct(p[3])]);
+      if(f2.length>1) lines.push({name:"Фьючерсы РФ · C2",col:"#d9a441",pts:f2});
+      if(f3.length>1) lines.push({name:"Фьючерсы РФ · C3b",col:"#e0784a",pts:f3});
+      if(mm.length>1) lines.push({name:"Акции РФ (momentum)",col:"#6f9fe8",pts:mm});
+    }
+    if($("lgMkt")) $("lgMkt").innerHTML=[
+      `<span><i style="width:14px;height:2px;background:${C("--accent")};display:inline-block"></i> Крипта</span>`,
+      `<span><i style="width:14px;height:2px;background:#d9a441;display:inline-block"></i> Фьючерсы РФ · C2</span>`,
+      `<span><i style="width:14px;height:2px;background:#e0784a;display:inline-block"></i> Фьючерсы РФ · C3b</span>`,
+      `<span><i style="width:14px;height:2px;background:#6f9fe8;display:inline-block"></i> Акции РФ (momentum)</span>`].join("");
+    if(!lines.length){ ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("кривые появятся после нескольких тиков бота",20,40); return; }
+    let t0=Infinity,t1=-Infinity,lo=0,hi=0;
+    lines.forEach(L=>L.pts.forEach(p=>{ t0=Math.min(t0,p[0]); t1=Math.max(t1,p[0]); lo=Math.min(lo,p[1]); hi=Math.max(hi,p[1]); }));
+    if(hi-lo<0.5){ hi+=0.3; lo-=0.3; }
+    const pad=(hi-lo)*.12; lo-=pad; hi+=pad;
+    const m={t:14,r:64,b:26,l:10}, iw=w-m.l-m.r, ih=h-m.t-m.b;
+    const X=ts=>m.l+(ts-t0)/Math.max(1,(t1-t0))*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
     ctx.strokeStyle=C("--hair2"); ctx.fillStyle=C("--faint"); ctx.font=FONT(); ctx.textAlign="left"; ctx.lineWidth=1;
-    for(let i=0;i<=3;i++){ const v=lo+(hi-lo)*i/3, y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText("$"+v.toFixed(2), m.l+iw+6, y+4); }
-    // базовая линия старта дня
-    ctx.setLineDash([4,4]); ctx.strokeStyle=C("--faint"); ctx.beginPath(); ctx.moveTo(m.l,Y(today.eq0)); ctx.lineTo(m.l+iw,Y(today.eq0)); ctx.stroke(); ctx.setLineDash([]);
-    const up=today.pnl>=0;
-    ctx.strokeStyle=up?C("--gain"):C("--loss"); ctx.lineWidth=2; ctx.beginPath();
-    pts.forEach((p,i)=>{ const x=X(p[0]),y=Y(p[1]); if(i)ctx.lineTo(x,y); else ctx.moveTo(x,y); });
-    ctx.stroke();
-    ctx.fillStyle=C("--faint"); ctx.textAlign="center";
-    for(let hh=0;hh<=24;hh+=6){ const ts=t0+hh*3600000; if(ts<=t1+3600000) ctx.fillText(String(hh).padStart(2,"0")+":00", Math.max(m.l+16,Math.min(m.l+iw-16,X(ts))), h-8); }
+    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4, y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText((v>=0?"+":"−")+Math.abs(v).toFixed(1)+"%", m.l+iw+6, y+4); }
+    ctx.setLineDash([4,4]); ctx.strokeStyle=C("--faint"); ctx.beginPath(); ctx.moveTo(m.l,Y(0)); ctx.lineTo(m.l+iw,Y(0)); ctx.stroke(); ctx.setLineDash([]);
+    lines.forEach(L=>{
+      ctx.strokeStyle=L.col; ctx.lineWidth=2; ctx.beginPath();
+      L.pts.forEach((p,i)=>{ const x=X(p[0]),y=Y(p[1]); if(i)ctx.lineTo(x,y); else ctx.moveTo(x,y); });
+      ctx.stroke();
+      const lp=L.pts[L.pts.length-1];
+      ctx.fillStyle=L.col; ctx.beginPath(); ctx.arc(X(lp[0]),Y(lp[1]),3,0,7); ctx.fill();
+    });
+    drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
+    cv.onmousemove=e=>{
+      const r=cv.getBoundingClientRect(), mx=e.clientX-r.left;
+      const ts=t0+(mx-m.l)/iw*(t1-t0);
+      let html=`<b>${fmtDT(ts)}</b>`;
+      lines.forEach(L=>{
+        let best=null; L.pts.forEach(p=>{ if(p[0]<=ts) best=p; });
+        if(best) html+=`<br><span style="color:${L.col}">●</span> ${L.name}: <b>${(best[1]>=0?"+":"−")+Math.abs(best[1]).toFixed(2)}%</b>`;
+      });
+      showTT(html,e.clientX,e.clientY);
+    };
+    cv.onmouseleave=hideTT;
   }
   buildDaily();
 
@@ -1514,7 +1550,7 @@
 
   function redrawActive(){
     if(TAB==="crypto"){ liveCharts.forEach(f=>f()); if(exC)exC.draw(); drawEq(); }
-    else if(TAB==="daily"){ drawDailyBars(); drawDailyIntra(); }
+    else if(TAB==="daily"){ drawDailyBars(); drawMarkets(); }
     else if(TAB==="compare"){ drawCompare(); }
     else if(TAB==="yearly"){ drawYearly(); }
     else if(TAB==="moex"){ if(exM)exM.draw(); if(MOMS)drawEqOn("eqMom",MOMS.equity); }
