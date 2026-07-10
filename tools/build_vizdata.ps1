@@ -238,9 +238,9 @@ $strategies = [object[]]@()
 $stratDefs = @(
   @{ id='v1';         label='v1 · канон · 16.4 мес';            cfg='риск 1% · 3 позиции · фильтр BTC + ATR-кэп';                 src=$null;                     prices='main' },
   @{ id='deep-base';  label='v1 · длинная история 6.2 г';       cfg='те же правила · Bybit 2020–2026 · реальный период цикла';    src='base';                    prices='deep' },
-  @{ id='deep-combo'; label='v2 · комбо · 6.2 г';               cfg='+ флэт-skip + реальный фандинг + фандинг-фильтр';            src='combo-skip-fund-filter';  prices='deep' },
-  @{ id='live-base';  label='v1 · живой конфиг · 6.2 г';        cfg='риск 0.5% · 2 позиции · реальный фандинг';                   src='live-base-deep';          prices='deep' },
-  @{ id='live-combo'; label='v2 · живой конфиг ★ ДЕЙСТВУЮЩАЯ';  cfg='0.5% · 2 поз. + флэт-skip + фандинг-фильтр · Bybit 0.055%';  src='live-combo-deep';         prices='deep' }
+  @{ id='deep-combo'; label='v2 · комбо 1%/3поз ★ ДЕЙСТВУЮЩАЯ'; cfg='риск 1% · 3 позиции · флэт-skip + фандинг-фильтр · этим торгует бот с 2026-07-10'; src='combo-skip-fund-filter';  prices='deep' },
+  @{ id='live-base';  label='v1 · конс. конфиг · 6.2 г';        cfg='риск 0.5% · 2 позиции · реальный фандинг';                   src='live-base-deep';          prices='deep' },
+  @{ id='live-combo'; label='v2 · консервативный профиль';      cfg='0.5% · 2 поз. + флэт-skip + фандинг-фильтр (запасной, тише)'; src='live-combo-deep';         prices='deep' }
 )
 foreach ($sd in $stratDefs) {
   if ($null -eq $sd.src) {

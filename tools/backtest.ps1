@@ -12,6 +12,8 @@ param(
   [double]$StopSlipPct = 0.0005, # extra slippage on stop fills
   [double]$FundingPerBar = 0.00005, # ~0.01%/8h -> per 4h bar drag on notional
   [double]$RewardR = 1.5,        # TP1 at 1.5R
+  [double]$Tp1ClosePct = 0.5,    # fraction closed at TP1 (1.0 = close ALL at TP, no runner)
+  [switch]$NoTp1,                # no TP at all: pure EMA20-close trail from entry (stop never moves to BE)
   [int]$PullbackLookback = 3,
   [double]$DailyLossHaltPct = 0.03,
   [double]$MaxDDFlagPct = 0.08,
@@ -259,20 +261,26 @@ foreach ($ts in $timeline) {
 
     if ($p.side -eq 'long') {
       $stopHit = ($lo -le $p.stop)
-      $tpHit = (-not $p.tp1done) -and ($hi -ge $p.tp1)
+      $tpHit = (-not $NoTp1) -and (-not $p.tp1done) -and ($hi -ge $p.tp1)
       if ($stopHit) {
         $fill = ([math]::Min($p.stop, $opn)) * (1 - $StopSlipPct)   # gap-aware: fill at open when bar opens beyond the stop
         $pnl = ($fill - $p.entry) * $p.qty - $fill*$p.qty*$FeePct
         $equity += $pnl; $p.realized += $pnl; $exited=$true; $reason=if($p.tp1done){'trail-stop/BE'}else{'stop'}
       }
       elseif ($tpHit) {
-        $half = $p.qty * 0.5
-        $fill = $p.tp1
-        $pnl = ($fill - $p.entry)*$half - $fill*$half*$FeePct
-        $equity += $pnl; $p.realized += $pnl
-        $p.qty -= $half; $p.tp1done=$true; $p.stop=$p.entry  # BE
+        if ($Tp1ClosePct -ge 1.0) {   # full take-profit: close everything at TP, no runner
+          $fill = $p.tp1
+          $pnl = ($fill - $p.entry)*$p.qty - $fill*$p.qty*$FeePct
+          $equity += $pnl; $p.realized += $pnl; $exited=$true; $reason='tp-full'
+        } else {
+          $half = $p.qty * $Tp1ClosePct
+          $fill = $p.tp1
+          $pnl = ($fill - $p.entry)*$half - $fill*$half*$FeePct
+          $equity += $pnl; $p.realized += $pnl
+          $p.qty -= $half; $p.tp1done=$true; $p.stop=$p.entry  # BE
+        }
       }
-      if (-not $exited -and $p.tp1done -and ($cl -lt $e20)) {
+      if (-not $exited -and ($p.tp1done -or $NoTp1) -and ($cl -lt $e20)) {
         $fill = $cl * (1 - $SlipPct)
         $pnl = ($fill - $p.entry)*$p.qty - $fill*$p.qty*$FeePct
         $equity += $pnl; $p.realized += $pnl
@@ -289,19 +297,25 @@ foreach ($ts in $timeline) {
       }
     } else {
       $stopHit = ($hi -ge $p.stop)
-      $tpHit = (-not $p.tp1done) -and ($lo -le $p.tp1)
+      $tpHit = (-not $NoTp1) -and (-not $p.tp1done) -and ($lo -le $p.tp1)
       if ($stopHit) {
         $fill = ([math]::Max($p.stop, $opn)) * (1 + $StopSlipPct)   # gap-aware: fill at open when bar opens beyond the stop
         $pnl = ($p.entry - $fill) * $p.qty - $fill*$p.qty*$FeePct
         $equity += $pnl; $p.realized += $pnl; $exited=$true; $reason=if($p.tp1done){'trail-stop/BE'}else{'stop'}
       }
       elseif ($tpHit) {
-        $half = $p.qty * 0.5; $fill=$p.tp1
-        $pnl = ($p.entry - $fill)*$half - $fill*$half*$FeePct
-        $equity += $pnl; $p.realized += $pnl
-        $p.qty -= $half; $p.tp1done=$true; $p.stop=$p.entry
+        if ($Tp1ClosePct -ge 1.0) {   # full take-profit: close everything at TP, no runner
+          $fill = $p.tp1
+          $pnl = ($p.entry - $fill)*$p.qty - $fill*$p.qty*$FeePct
+          $equity += $pnl; $p.realized += $pnl; $exited=$true; $reason='tp-full'
+        } else {
+          $half = $p.qty * $Tp1ClosePct; $fill=$p.tp1
+          $pnl = ($p.entry - $fill)*$half - $fill*$half*$FeePct
+          $equity += $pnl; $p.realized += $pnl
+          $p.qty -= $half; $p.tp1done=$true; $p.stop=$p.entry
+        }
       }
-      if (-not $exited -and $p.tp1done -and ($cl -gt $e20)) {
+      if (-not $exited -and ($p.tp1done -or $NoTp1) -and ($cl -gt $e20)) {
         $fill = $cl * (1 + $SlipPct)
         $pnl = ($p.entry - $fill)*$p.qty - $fill*$p.qty*$FeePct
         $equity += $pnl; $p.realized += $pnl

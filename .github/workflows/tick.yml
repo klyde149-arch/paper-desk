@@ -5,7 +5,8 @@ name: tick
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    # непопулярные минуты: на 0/15/30/45 GitHub перегружен и часто пропускает/задерживает cron
+    - cron: '4,19,34,49 * * * *'
   workflow_dispatch:
   push:
     branches: [main]

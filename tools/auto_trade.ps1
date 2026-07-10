@@ -1,7 +1,7 @@
 ﻿# auto_trade.ps1 - автономный тик-движок paper-trading (v2 «комбо»), 24/7.
 # Запускается каждые ~15 мин (GitHub Actions / вручную). Делает ВСЁ, что раньше делал агент:
 #   1) реплей закрытых 1m-свечей с прошлого тика: стопы/TP1 ПО КАСАНИЮ, фандинг на 8h-слотах,
-#      трейл раннера по закрытию 4h за EMA20, лимиты −3%/−8%/−15%, роллы UTC-дня;
+#      трейл раннера по закрытию 4h за EMA20, лимиты −5%/−16%/−35% (профиль 1%/3поз), роллы UTC-дня;
 #   2) автовходы на свежезакрытом 4h-баре через scan_signals.ps1 (все ворота v2);
 #   3) персист portfolio.json / data\live_trades.json / data\live_equity.json / journal.md;
 #   4) отдельный контур челленджа (challenge\, замороженные правила S4).
@@ -24,8 +24,8 @@ if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 $FEE      = 0.00055   # тейкер за сторону (включая TP1 - консервативно)
 $SLIP     = 0.0003    # слиппедж рыночных входов/выходов
 $STOPSLIP = 0.0005    # доп. слиппедж на стопах
-$RISKPCT  = 0.006     # риск на сделку 0.6% (середина коридора 0.5-0.75%)
-$MAXPOS   = 2
+$RISKPCT  = 0.01      # риск на сделку 1% (решение пользователя 2026-07-10: самый прибыльный профиль, PF 1.38)
+$MAXPOS   = 3         # 3 слота улучшают PF (1.29->1.38): третий подбирает сигналы, которые раньше терялись
 $MAXLEV   = 5
 $TPR      = 1.5       # TP1 = 1.5R (закрыть 50%)
 $MIN=[long]60000; $H1=[long]3600000; $H4=[long]14400000; $SLOT8=[long]28800000
@@ -293,30 +293,30 @@ try {
           $lastMtm = $mtm
           if ($mtm -gt [double]$pf.peak_equity_usd) { $pf.peak_equity_usd = [math]::Round($mtm, 2) }
           $dd = ([double]$pf.peak_equity_usd - $mtm) / [double]$pf.peak_equity_usd
-          if ($dd -ge 0.15 -and $positions.Count -gt 0) {
+          if ($dd -ge 0.35 -and $positions.Count -gt 0) {   # хард-стоп −35% (профиль 1%/3поз, историч. DD ~34%)
             foreach ($p in $positions.ToArray()) {
               $px = if ($lastPx.ContainsKey($p.symbol)) { [double]$lastPx[$p.symbol] } else { [double]$p.entry_price }
               $sm = if ($p.side -eq 'long') { 1.0 } else { -1.0 }
-              Close-Trade $p ($px * (1 - $sm * $SLIP)) $ts 'hard-halt' 'hard-halt-15pct'
+              Close-Trade $p ($px * (1 - $sm * $SLIP)) $ts 'hard-halt' 'hard-halt-35pct'
               [void]$positions.Remove($p)
             }
             $pf.trading_halted = $true
-            $script:events.Add('HARD-HALT −15% от пика')
-            $script:journalBlocks.Add(("`r`n## {0} UTC — АВТО: ЖЁСТКАЯ ОСТАНОВКА −15% от пика. Все позиции закрыты, торговля остановлена до решения пользователя.`r`n" -f (MsToUtcStr $ts)))
+            $script:events.Add('HARD-HALT −35% от пика')
+            $script:journalBlocks.Add(("`r`n## {0} UTC — АВТО: ЖЁСТКАЯ ОСТАНОВКА −35% от пика. Все позиции закрыты, торговля остановлена до решения пользователя.`r`n" -f (MsToUtcStr $ts)))
             $pf.auto.last_1m_ts = $ts
             break
           }
-          if ($dd -ge 0.08) {
-            if (-not $pf.auto.soft_dd) { $pf.auto.soft_dd = $true; $script:events.Add('SOFT-DD −8%: риск x0.5'); $script:journalBlocks.Add(("`r`n## {0} UTC — АВТО: просадка ≥8% от пика — риск новых входов снижен вдвое (0.3%).`r`n" -f (MsToUtcStr $ts))) }
-          } elseif ($dd -lt 0.06 -and $pf.auto.soft_dd) {
+          if ($dd -ge 0.16) {
+            if (-not $pf.auto.soft_dd) { $pf.auto.soft_dd = $true; $script:events.Add('SOFT-DD −16%: риск x0.5'); $script:journalBlocks.Add(("`r`n## {0} UTC — АВТО: просадка ≥16% от пика — риск новых входов снижен вдвое (0.5%).`r`n" -f (MsToUtcStr $ts))) }
+          } elseif ($dd -lt 0.12 -and $pf.auto.soft_dd) {
             $pf.auto.soft_dd = $false
             $script:events.Add('SOFT-DD снят (<6%)')
           }
           $dayBase = [double]$pf.day_start_equity_usd
-          if ($dayBase -gt 0 -and (($mtm - $dayBase) / $dayBase) -le -0.03 -and $pf.auto.halt_day_utc -ne $tsDay) {
+          if ($dayBase -gt 0 -and (($mtm - $dayBase) / $dayBase) -le -0.05 -and $pf.auto.halt_day_utc -ne $tsDay) {
             $pf.auto.halt_day_utc = $tsDay
-            $script:events.Add("DAY-HALT −3% ($tsDay)")
-            $script:journalBlocks.Add(("`r`n## {0} UTC — АВТО: дневной лимит −3% достигнут — новые входы заблокированы до следующего UTC-дня.`r`n" -f (MsToUtcStr $ts)))
+            $script:events.Add("DAY-HALT −5% ($tsDay)")
+            $script:journalBlocks.Add(("`r`n## {0} UTC — АВТО: дневной лимит −5% достигнут — новые входы заблокированы до следующего UTC-дня.`r`n" -f (MsToUtcStr $ts)))
           }
           $pf.auto.last_1m_ts = $ts
         }
