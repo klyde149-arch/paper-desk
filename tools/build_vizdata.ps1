@@ -479,6 +479,9 @@ foreach ($html in @('report\trades.html', 'report\chart.html', 'report\charts.ht
   $new = [regex]::Replace($h, 'vizdata\.js(\?v=\d+)?', "vizdata.js?v=$ver")
   if ($new -ne $h) { [IO.File]::WriteAllText($hp, $new, (New-Object System.Text.UTF8Encoding($false))); "  cache-bust $html -> ?v=$ver" }
 }
+# маркер билда для авто-обновления страницы: trades.html опрашивает build.json без кэша и,
+# увидев v больше своего ?v=, показывает баннер «обновить» / сам перезагружается минуя кэш.
+[IO.File]::WriteAllText((Join-Path $dir 'report\build.json'), "{""v"":$ver}", (New-Object System.Text.UTF8Encoding($false)))
 
 # auto-publish to GitHub Pages so the hosted dashboard reflects every data change
 # automatically (no manual deploy step). Failures (offline/auth) only warn - the

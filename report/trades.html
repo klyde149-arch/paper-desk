@@ -444,7 +444,7 @@
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1783708189"></script>
+<script src="vizdata.js?v=1783710132"></script>
 <script>
 (function(){
   "use strict";
@@ -1561,10 +1561,34 @@
   applyNav();
   addEventListener("resize", redrawActive);
 
-  // ---------- auto-refresh (fresh data lands here after each trading-loop iteration) ----------
+  // ---------- авто-обновление: замечаем новый билд (build.json) → баннер / reload без кэша ----------
   let lastAct=Date.now(); const loadT=Date.now();
   ["mousemove","mousedown","wheel","keydown","touchstart"].forEach(ev=>addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
-  setInterval(()=>{ if(Date.now()-lastAct>60000 && Date.now()-loadT>180000) location.reload(); }, 15000);
+  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1783710132"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
+  function bustReload(v){ const u=new URL(location.href); u.searchParams.set("b", v||Date.now()); location.replace(u.toString()); }
+  let updBannerShown=false;
+  function showUpdBanner(v){
+    if(updBannerShown) return; updBannerShown=true;
+    const b=document.createElement("div"); b.id="updBanner";
+    b.style.cssText="position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:80;background:var(--accent);color:var(--ground);font-family:var(--jak);font-weight:700;font-size:13px;padding:11px 18px;border-radius:999px;box-shadow:var(--shadow);cursor:pointer";
+    b.textContent="🔄 Доступна новая версия дашборда — обновить";
+    b.onclick=()=>bustReload(v);
+    document.body.appendChild(b);
+  }
+  async function checkBuild(){
+    if(!MYBUILD) return;                                  // не знаем свой билд — не дёргаем
+    try{
+      const r=await fetch("build.json?_="+Date.now(),{cache:"no-store"});
+      if(!r.ok) return;
+      const j=await r.json(); const latest=+j.v||0;
+      if(latest>MYBUILD){
+        if(Date.now()-lastAct>60000 && Date.now()-loadT>120000) bustReload(latest);  // в простое — сама
+        else showUpdBanner(latest);                                                   // активен — баннер
+      }
+    }catch(e){}
+  }
+  setInterval(checkBuild, 30000);
+  checkBuild();
 })();
 </script>
 </body>
