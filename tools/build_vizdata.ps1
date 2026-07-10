@@ -154,14 +154,31 @@ $rfLive = $null
 $rfDir2 = Join-Path $dir 'data\rf'
 if (Test-Path (Join-Path $rfDir2 'c2_portfolio.json')) {
   $rfProfiles = [ordered]@{}
+  $futKlineCache = @{}   # secid -> candles1h [[t,o,h,l,c],...]; c2/c3b часто держат одни и те же контракты
   foreach ($prof in 'c2', 'c3b') {
     $pp = Get-Content (Join-Path $rfDir2 "$($prof)_portfolio.json") -Raw -Encoding UTF8 | ConvertFrom-Json
     $poss = @()
     foreach ($slName in 'core', 'setA') {
       foreach ($x in @($pp.sleeves.$slName.positions)) {
         if ($null -eq $x) { continue }
+        # часовые свечи ISS по контракту позиции — тот же сырой масштаб, что и entry/stop/tp1
+        # (RF-движок входит по Get-IssCandles 'fut' $secid 60), чтобы drawLiveChart нарисовал уровни как у крипты
+        $fk = @()
+        if ($x.secid) {
+          if ($futKlineCache.ContainsKey([string]$x.secid)) { $fk = $futKlineCache[[string]$x.secid] }
+          else {
+            try {
+              $fromDay = ([datetime]$x.entry_day).AddDays(-3).ToString('yyyy-MM-dd')  # окно включает бар входа
+              $fbars = Get-IssCandles 'fut' ([string]$x.secid) 60 $fromDay
+              $fk = [object[]]@($fbars | ForEach-Object { ,[object[]]@([long]$_.t, [double]$_.o, [double]$_.h, [double]$_.l, [double]$_.c) })
+            } catch { Write-Warning "fut candles failed for $($x.secid): $_" }
+            $futKlineCache[[string]$x.secid] = $fk
+          }
+        }
         $poss += [ordered]@{ sleeve = $slName; id = $x.id; asset = $x.asset; secid = $x.secid; side = $x.side
           qty = $x.qty; entry = $x.entry; stop = $x.stop; tp1 = $x.tp1; entryDay = $x.entry_day; risk = $x.risk_usd
+          entryTs = $(if ($x.PSObject.Properties['entry_ts']) { [long]$x.entry_ts } else { $null })
+          candles1h = $fk
           cur  = $(if ($x.PSObject.Properties['cur'])  { [double]$x.cur }  else { $null })
           upnl = $(if ($x.PSObject.Properties['upnl']) { [double]$x.upnl } else { $null }) }
       }

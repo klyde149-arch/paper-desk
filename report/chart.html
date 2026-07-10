@@ -248,7 +248,7 @@
   </div>
 </div>
 
-<script src="vizdata.js?v=1783705876"></script>
+<script src="vizdata.js?v=1783708189"></script>
 <script>
 (function(){
 "use strict";
@@ -262,6 +262,24 @@ const BT_CRYPTO=arr(typeof VIZ!=='undefined'?VIZ.trades:[]);
 const LIVECLOSED=arr(typeof VIZ!=='undefined'?VIZ.liveClosed:[]);
 const BT_MOEX=arr(typeof VIZ!=='undefined'&&VIZ.moex?VIZ.moex.trades:[]);
 const BT_FUT=arr(typeof VIZ!=='undefined'&&VIZ.moexFut?VIZ.moexFut.trades:[]);
+// живые фьючерсные позиции (форвард-тест РФ, профили c2/c3b). asset === sym.id фьючерса (BR/NG/GOLD/…),
+// entry/stop/tp1 — в сыром масштабе front-контракта, совпадает со свечами loadFut(). Дедуп по активу:
+// c2 и c3b держат один контракт по одной цене входа, рисуем один набор уровней.
+const RFLIVE=(function(){
+ const rf=(typeof VIZ!=='undefined')?VIZ.rfLive:null;
+ if(!rf||!rf.profiles)return [];
+ const seen={},out=[];
+ Object.keys(rf.profiles).forEach(pid=>{
+  arr(rf.profiles[pid].positions).forEach(x=>{
+   const key=x.asset+'|'+x.side+'|'+x.entry+'|'+x.stop;
+   if(seen[key])return; seen[key]=1;
+   out.push({symbol:x.asset,side:x.side,entry:+x.entry,stop:+x.stop,
+    tp1:(x.tp1!=null?+x.tp1:null),
+    entryUtc:(x.entryTs?new Date(x.entryTs).toISOString().slice(0,16).replace('T',' '):(x.entryDay||'')+' 00:00')});
+  });
+ });
+ return out;
+})();
 
 /* ===== symbols & timeframes ===== */
 const SYMS=[
@@ -717,7 +735,7 @@ function updateSymChip(){
 }
 
 /* ===== trades layer ===== */
-function livePosFor(){return LIVEPOS.filter(p=>p.symbol===sym.id);}
+function livePosFor(){return (sym.mkt==='fut'?RFLIVE:LIVEPOS).filter(p=>p.symbol===sym.id);}
 function btFor(){const t0=candles.length?candles[0].t:0;return(sym.mkt==='crypto'?BT_CRYPTO:sym.mkt==='fut'?BT_FUT:BT_MOEX).filter(t=>t.sym===sym.id&&t.entryTs&&t.entryTs>=t0);}
 let tradeMarkers=[];
 function renderTrades(ctx,i0,i1){

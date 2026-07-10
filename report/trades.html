@@ -223,10 +223,21 @@
     <p class="sec-note">Риск-профиль с 2026-07-10 (решение пользователя): риск 1% на сделку, до 3 одновременных позиций (3-й слот улучшает PF 1.29→1.38 — подбирает сигналы, которые раньше терялись). Лимиты: день −5%, риск вдвое с −16% от пика, полная остановка с −35%. Каждая позиция получает свой график.</p>
     <div id="liveWrap"></div>
 
-    <h2>Крипта — <span class="em">прибыль по дням</span></h2>
-    <div class="kpis" id="dailyKpis" style="grid-template-columns:repeat(4,1fr)"></div>
-    <div style="height:16px"></div>
-    <div class="card"><canvas id="dailyBars" height="240"></canvas><p class="hint">Зелёный — день в плюс, красный — в минус. Наведи на столбик — детали дня.</p></div>
+    <h2>Капитал — <span class="em">кривая накопления</span></h2>
+    <div class="card" style="padding:20px 22px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
+        <div>
+          <div class="num" id="capBig" style="font-size:34px;font-weight:700;line-height:1.05">—</div>
+          <div id="capChange" style="margin-top:7px">—</div>
+        </div>
+        <nav class="tabs" id="capRange" style="margin:0">
+          <button class="tab on" data-range="all">За всё время</button>
+          <button class="tab" data-range="today">За сегодня</button>
+        </nav>
+      </div>
+      <canvas id="capCurve" height="260" style="margin-top:16px"></canvas>
+      <p class="hint" id="capHint"></p>
+    </div>
     <h2>Таблица дней</h2>
     <div class="card tbl-scroll"><table id="tbl-daily"><thead><tr>
       <th>Дата (UTC)</th><th>P&L дня</th><th>%</th><th>Сделок (W/L)</th><th>Издержки</th><th>Эквити на конец дня</th>
@@ -433,7 +444,7 @@
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1783705876"></script>
+<script src="vizdata.js?v=1783708189"></script>
 <script>
 (function(){
   "use strict";
@@ -1283,29 +1294,85 @@
   }
   if(MOMS) buildMomJournal();
 
-  // ---------- DAILY PANE (живая прибыль по дням) ----------
+  // ---------- CRYPTO LIVE: капитал (кривая накопления, стиль Т-Инвестиций) + таблица дней ----------
   const LD = arr(VIZ.liveDaily);
+  const LA = VIZ.liveActual || {};
+  let capPeriod = localStorage.getItem("cap_period")==="today" ? "today" : "all";
+  function setCapRange(r){
+    capPeriod=r; localStorage.setItem("cap_period",r);
+    document.querySelectorAll("#capRange .tab[data-range]").forEach(b=>b.classList.toggle("on",b.dataset.range===r));
+    buildCap();
+  }
+  function todayInfo(){ const d=LD.length?LD[LD.length-1]:null; return d?{day:d.d,eq0:+d.eq0,pnl:+d.pnl,pnlPct:+d.pnlPct}:null; }
+  function buildCap(){
+    if(!$("capBig")) return;
+    const eqNow=+VIZ.equityNow||0;
+    $("capBig").textContent="$"+eqNow.toLocaleString("en-US",{minimumFractionDigits:2});
+    let chg, pct;
+    if(capPeriod==="today"){ const t=todayInfo(); chg=t?t.pnl:0; pct=t?t.pnlPct:0; }
+    else { const s=+LA.startEq||10000; chg=eqNow-s; pct=(LA.retPct!=null)?+LA.retPct:100*(chg/s); }
+    const cls=chg>=0?"pos":"neg";
+    $("capChange").innerHTML=`<b class="${cls}" style="font-size:17px">${chg>=0?"+":"−"}$${Math.abs(chg).toFixed(2)}</b> `+
+      `<span class="${cls}">${pct>=0?"+":"−"}${Math.abs(pct).toFixed(2)}%</span> `+
+      `<span style="color:var(--faint)">· ${capPeriod==="today"?"за сегодня":"за всё время"}</span>`;
+    $("capHint").textContent=capPeriod==="today"
+      ? "Внутридневная кривая от эквити на начало дня (UTC). Капитал — mark-to-market: двигается по мере роста/падения цены, обновляется каждый тик бота."
+      : "Накопленный капитал с момента старта. Пунктир — старт $10 000. Капитал включает плавающий P&L открытых позиций.";
+    drawCapCurve();
+  }
+  function drawCapCurve(){
+    const cv=$("capCurve"); if(!cv) return;
+    const {ctx,w,h}=setupCanvas(cv);
+    ctx.clearRect(0,0,w,h);
+    const full=arr(LA.curve).map(p=>[+p[0],+p[1]]);
+    const eqNow=+VIZ.equityNow||0;
+    let pts, base;
+    if(capPeriod==="today"){
+      const dayKey=ts=>{const d=new Date(ts);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());};
+      const t=todayInfo();
+      const refTs=full.length?full[full.length-1][0]:(t?Date.parse(t.day+"T12:00:00Z"):null);
+      if(refTs==null){ ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("кривая появится после первого тика бота",20,40); return; }
+      const tk=dayKey(refTs);
+      pts=full.filter(p=>dayKey(p[0])===tk);
+      base=t?t.eq0:(pts.length?pts[0][1]:10000);
+      if(!pts.length){ pts=[[tk,base],[refTs,eqNow]]; }
+      else if(pts[0][0]>tk){ pts=[[tk,base]].concat(pts); }
+    } else {
+      pts=full.slice();
+      if(!pts.length){ ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("кривая появится после нескольких тиков бота",20,40); return; }
+      base=pts[0][1];
+    }
+    const m={t:16,r:70,b:26,l:8}, iw=w-m.l-m.r, ih=h-m.t-m.b;
+    const t0=pts[0][0], t1=pts[pts.length-1][0];
+    let lo=base, hi=base; pts.forEach(p=>{ if(p[1]<lo)lo=p[1]; if(p[1]>hi)hi=p[1]; });
+    const pad=(hi-lo)*.12||50; lo-=pad; hi+=pad;
+    const X=ts=>m.l+(ts-t0)/Math.max(1,(t1-t0))*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
+    const endEq=pts[pts.length-1][1], up=endEq>=base, col=up?C("--gain"):C("--loss");
+    ctx.strokeStyle=C("--hair2"); ctx.fillStyle=C("--faint"); ctx.font=FONT(); ctx.textAlign="left"; ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4,y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText("$"+(v>=1000?(Math.round(v/10)/100+"k"):v.toFixed(0)),m.l+iw+6,y+4); }
+    if(t1>t0) drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
+    ctx.strokeStyle=C("--hair"); ctx.setLineDash([3,4]); ctx.beginPath(); ctx.moveTo(m.l,Y(base)); ctx.lineTo(m.l+iw,Y(base)); ctx.stroke(); ctx.setLineDash([]);
+    const grad=ctx.createLinearGradient(0,m.t,0,m.t+ih);
+    grad.addColorStop(0, up?C("--gain-soft"):C("--loss-soft")); grad.addColorStop(1,"transparent");
+    ctx.beginPath(); ctx.moveTo(X(t0),Y(base));
+    pts.forEach(p=>ctx.lineTo(X(p[0]),Y(p[1]))); ctx.lineTo(X(t1),Y(base)); ctx.closePath();
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath();
+    pts.forEach((p,i)=>{ const x=X(p[0]),y=Y(p[1]); if(i)ctx.lineTo(x,y); else ctx.moveTo(x,y); }); ctx.stroke();
+    const le=pts[pts.length-1];
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(X(le[0]),Y(le[1]),4,0,7); ctx.fill();
+    ctx.font=FONT("600 "); ctx.textAlign="right"; ctx.fillText("$"+le[1].toLocaleString("en-US",{maximumFractionDigits:0}),X(le[0])-8,Y(le[1])-8);
+    cv.onmousemove=e=>{ const r=cv.getBoundingClientRect(), ts=t0+(e.clientX-r.left-m.l)/iw*(t1-t0);
+      let i=pts.findIndex(p=>p[0]>=ts); if(i<0)i=pts.length-1; const p=pts[Math.max(0,i)]; const dd=p[1]-base;
+      showTT(`<b>${capPeriod==="today"?fmtDT(p[0]):fmtD(p[0])}</b><br><span class="k">капитал</span> $${p[1].toLocaleString("en-US",{maximumFractionDigits:2})}<br><span class="k">${capPeriod==="today"?"за день":"с старта"}</span> <b style="color:${dd>=0?C("--gain"):C("--loss")}">${dd>=0?"+":"−"}$${Math.abs(dd).toFixed(2)}</b>`,e.clientX,e.clientY); };
+    cv.onmouseleave=hideTT;
+  }
   function buildDaily(){
-    const box=$("dailyKpis"); if(!box) return;
+    const tbl=$("tbl-daily"); if(!tbl) return;
     const sgn=v=>(v>=0?"+":"−")+"$"+Math.abs(v).toFixed(2);
     const cls=v=>v>=0?"pos":"neg";
-    const LA=VIZ.liveActual||{};
-    // --- крипта по дням ---
-    if(!LD.length){
-      box.innerHTML='<div class="card" style="grid-column:1/-1;color:var(--muted);font-size:14px">Данных по дням пока нет — появятся после первого тика автобота.</div>';
-      return;
-    }
-    const tod=LD[LD.length-1].live?LD[LD.length-1]:null;
-    const yest=tod?(LD.length>1?LD[LD.length-2]:null):LD[LD.length-1];
-    const w7=LD.slice(-7).reduce((s,d)=>s+d.pnl,0);
-    const costs=(LA.fees||0)+(LA.funding||0);
-    box.innerHTML=
-      `<div class="kpi"><p class="l">Сегодня (UTC)</p><div class="v ${tod?cls(tod.pnl):""}">${tod?sgn(tod.pnl):"—"}</div><p class="s">${tod?((tod.pnlPct>=0?"+":"−")+Math.abs(tod.pnlPct).toFixed(2)+"% · обновляется ~15 мин"):"день ещё не начался"}</p></div>`+
-      `<div class="kpi"><p class="l">Вчера</p><div class="v ${yest?cls(yest.pnl):""}">${yest?sgn(yest.pnl):"—"}</div><p class="s">${yest?yest.d:""}</p></div>`+
-      `<div class="kpi"><p class="l">Последние 7 дней</p><div class="v ${cls(w7)}">${sgn(w7)}</div><p class="s">сумма дневных P&L</p></div>`+
-      `<div class="kpi"><p class="l">Издержки всего</p><div class="v">$${costs.toFixed(2)}</div><p class="s">комиссии $${(LA.fees||0).toFixed(2)} + фандинг $${(LA.funding||0).toFixed(2)}</p></div>`;
-    // таблица дней (упрощённая: дата · P&L · % · сделки · издержки · эквити)
-    const tb=$("tbl-daily").querySelector("tbody");
+    const tb=tbl.querySelector("tbody");
+    if(!LD.length){ tb.innerHTML='<tr><td colspan="6" style="text-align:left;color:var(--muted)">Данных по дням пока нет — появятся после первого тика автобота.</td></tr>'; return; }
     tb.innerHTML=LD.slice().reverse().map(d=>{
       const win=d.pnl>=0;
       const cost=(d.fees||0)+(d.funding||0);
@@ -1316,43 +1383,10 @@
         `<td class="num">${cost?"$"+cost.toFixed(2):"—"}</td>`+
         `<td class="num">$${d.eq1.toFixed(2)}</td></tr>`;
     }).join("");
-    drawDailyBars();
   }
-  function drawDailyBars(){
-    const cv=$("dailyBars"); if(!cv||!LD.length) return;
-    const {ctx,w,h}=setupCanvas(cv);
-    const m={t:18,r:14,b:30,l:56}, iw=w-m.l-m.r, ih=h-m.t-m.b;
-    ctx.clearRect(0,0,w,h);
-    const vals=LD.map(d=>d.pnl);
-    let lo=Math.min(0,...vals), hi=Math.max(0,...vals);
-    if(hi===lo){hi=lo+1;}
-    const pad=(hi-lo)*.12; lo-=pad; hi+=pad;
-    const Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
-    ctx.strokeStyle=C("--hair2"); ctx.fillStyle=C("--faint"); ctx.font=FONT(); ctx.textAlign="left"; ctx.lineWidth=1;
-    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4, y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText((v>=0?"+":"−")+"$"+Math.abs(v).toFixed(0), 6, y+4); }
-    ctx.strokeStyle=C("--faint"); ctx.beginPath(); ctx.moveTo(m.l,Y(0)); ctx.lineTo(m.l+iw,Y(0)); ctx.stroke();
-    const bw=Math.min(64, iw/LD.length*0.6);
-    const bars=[];
-    LD.forEach((d,i)=>{
-      const x=m.l+iw*(i+0.5)/LD.length - bw/2;
-      const y0=Y(0), y1=Y(d.pnl);
-      ctx.fillStyle=d.pnl>=0?C("--gain"):C("--loss");
-      ctx.globalAlpha=d.live?1:0.82;
-      rr(ctx,x,Math.min(y0,y1),bw,Math.max(2,Math.abs(y0-y1)),3);
-      ctx.globalAlpha=1;
-      bars.push({x,w:bw,d});
-      ctx.fillStyle=C("--faint"); ctx.textAlign="center";
-      ctx.fillText(d.d.slice(5).replace("-","."), x+bw/2, h-10);
-    });
-    cv.onmousemove=e=>{
-      const r=cv.getBoundingClientRect(), mx=e.clientX-r.left;
-      const b=bars.find(b=>mx>=b.x&&mx<=b.x+b.w);
-      if(b){ const d=b.d; showTT(`<b>${d.d}</b><br>P&L дня: <b style="color:${d.pnl>=0?'var(--gain)':'var(--loss)'}">${(d.pnl>=0?"+":"−")}$${Math.abs(d.pnl).toFixed(2)} (${(d.pnlPct>=0?"+":"−")}${Math.abs(d.pnlPct).toFixed(2)}%)</b><br>эквити: $${d.eq0.toFixed(2)} → $${d.eq1.toFixed(2)}<br>сделок: ${d.w+d.l} (${d.w}W/${d.l}L) · реализовано ${(d.realized>=0?"+":"−")}$${Math.abs(d.realized).toFixed(2)}<br>комиссии $${d.fees.toFixed(2)} · фандинг $${d.funding.toFixed(2)}`, e.clientX, e.clientY); }
-      else hideTT();
-    };
-    cv.onmouseleave=hideTT;
-  }
+  document.querySelectorAll("#capRange .tab[data-range]").forEach(b=>b.onclick=()=>setCapRange(b.dataset.range));
   buildDaily();
+  setCapRange(capPeriod);
 
   // ---------- RF LIVE: форвард-тест C2/C3b (вкладка «Фьючерсы РФ») ----------
   const RF = VIZ.rfLive || null;
@@ -1473,7 +1507,7 @@
         const hint=document.createElement("p"); hint.className="hint"; hint.textContent="Часовые свечи ISS · вход, стоп и текущая цена · зум колесом, двойной клик — сброс";
         chartCard.appendChild(hint);
         grid.appendChild(chartCard); grid.appendChild(card); wrap.appendChild(grid);
-        const adapt={entry:+x.entry, stop:+x.stop, tp1:(x.tp1!=null?+x.tp1:+x.entry), qty:+x.qty, side:x.side, entryUtc:(x.entryDay||"")+" 00:00", symbol:x.asset};
+        const adapt={entry:+x.entry, stop:+x.stop, tp1:(x.tp1!=null?+x.tp1:+x.entry), qty:+x.qty, side:x.side, entryUtc:(x.entryTs?new Date(x.entryTs).toISOString().slice(0,16).replace("T"," "):(x.entryDay||"")+" 00:00"), symbol:x.asset};
         const st={t0:null,t1:null}, mL=8, mR=66;
         const redraw=()=>drawLiveChart(cv,adapt,k,st,mL,mR);
         const fullFn=()=>[k[0][0],k[k.length-1][0]]; const innerWFn=()=>(cv.clientWidth||800)-mL-mR;
@@ -1517,7 +1551,7 @@
 
   function redrawActive(){
     const k=MARKET+"-"+MODE;
-    if(k==="crypto-live"){ liveCharts.forEach(f=>f()); drawDailyBars(); }
+    if(k==="crypto-live"){ liveCharts.forEach(f=>f()); drawCapCurve(); }
     else if(k==="crypto-bt"){ if(exC)exC.draw(); drawEq(); drawCompare(); drawYearly(); }
     else if(k==="stocks-live"){ drawStocksLiveEq(); }
     else if(k==="stocks-bt"){ if(exM)exM.draw(); if(MOMS)drawEqOn("eqMom",MOMS.equity); }
