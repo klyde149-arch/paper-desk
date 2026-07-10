@@ -610,7 +610,7 @@ function render(){
  if(IND.ema1.on)addS(emaArr(IND.ema1.p));if(IND.ema2.on)addS(emaArr(IND.ema2.p));if(IND.ema3.on)addS(emaArr(IND.ema3.p));
  if(IND.sma.on)addS(smaArr(IND.sma.p));if(IND.vwap.on&&tf.id!=='1D')addS(vwapArr());
  if(IND.bb.on){const m=smaArr(IND.bb.p),s=stdevArr(IND.bb.p);addS(m.map((v,i)=>v+IND.bb.k*s[i]));addS(m.map((v,i)=>v-IND.bb.k*s[i]));}
- livePosFor().forEach(p=>{[p.entry,p.stop,p.tp1].forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v;});});
+ livePosFor().forEach(p=>{[p.entry,p.stop,p.tp1].forEach(v=>{if(v==null||!isFinite(v))return;if(v<lo)lo=v;if(v>hi)hi=v;});});
  const pad=(hi-lo)*.07||1;mainScale={lo:lo-pad,hi:hi+pad};
  const P=panes[0];
 
@@ -742,13 +742,22 @@ function renderTrades(ctx,i0,i1){
  tradeMarkers=[];
  const P=panes[0];
  livePosFor().forEach(p=>{
+  const long=p.side==='long';
+  // ---- Bybit/TV-style position: profit/risk zones + 3 dashed levels + right-axis price tags ----
+  const zone=(a,b,col)=>{const ya=Ymain(a),yb=Ymain(b);
+   const top=Math.max(P.y,Math.min(ya,yb)),bot=Math.min(P.y+P.h,Math.max(ya,yb));if(bot<=top)return;
+   ctx.globalAlpha=.07;ctx.fillStyle=col;ctx.fillRect(0,top,plotW(),bot-top);ctx.globalAlpha=1;};
+  if(p.tp1!=null)zone(p.entry,p.tp1,C('--gain'));
+  zone(p.entry,p.stop,C('--loss'));
   const lv=(v,col,lab)=>{const y=Ymain(v);if(y<P.y||y>P.y+P.h)return;
-   ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(plotW(),y);ctx.stroke();ctx.setLineDash([]);
+   ctx.strokeStyle=col;ctx.lineWidth=1.4;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(plotW(),y);ctx.stroke();ctx.setLineDash([]);
    ctx.font='600 10.5px Consolas,monospace';
-   const tw=ctx.measureText(lab).width+14;
-   ctx.fillStyle=col;roundRect(ctx,plotW()-tw-6,y-19,tw,16,4);ctx.fill();
-   ctx.fillStyle='#fff';ctx.textAlign='right';ctx.fillText(lab,plotW()-13,y-7);};
-  if(p.tp1!=null)lv(p.tp1,C('--gain'),'TP1 '+fmtP(p.tp1));lv(p.entry,C('--accent'),'ВХОД '+fmtP(p.entry));lv(p.stop,C('--loss'),'СТОП '+fmtP(p.stop));
+   ctx.fillStyle=col;ctx.textAlign='left';ctx.fillText(lab,6,y-5);              // подпись на линии
+   ctx.fillStyle=col;roundRect(ctx,plotW()+2,y-9,PRICE_W-4,18,4);ctx.fill();     // плашка на оси (как last-price)
+   ctx.fillStyle='#fff';ctx.textAlign='left';ctx.fillText(fmtP(v),plotW()+8,y+4);};
+  lv(p.stop,C('--loss'),'СТОП');
+  lv(p.entry,C('--accent'),'ВХОД '+(long?'LONG':'SHORT'));
+  if(p.tp1!=null)lv(p.tp1,C('--gain'),'ТЕЙК');
   const ei=tToI(Date.parse(p.entryUtc.replace(' ','T')+':00Z'));
   if(ei>=i0&&ei<=i1){const x=X(ei),y=Ymain(p.entry);
    ctx.fillStyle=C('--accent');ctx.beginPath();ctx.moveTo(x,y-10);ctx.lineTo(x-6,y-20);ctx.lineTo(x+6,y-20);ctx.closePath();ctx.fill();
