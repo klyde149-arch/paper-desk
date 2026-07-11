@@ -6,7 +6,7 @@
 #   3) персист portfolio.json / data\live_trades.json / data\live_equity.json / journal.md;
 #   4) отдельный контур челленджа (challenge\, замороженные правила S4).
 # Fail-safe: любой сбой API => тик отменяется целиком, вотермарки не двигаются, позиции не трогаются.
-# Килл-свитч: файл data\HALT. Правила: docs\strategy.md (v2). Кодировка файла: UTF-8 c BOM (кириллица).
+# Килл-свитч: файл data\HALT. Правила: docs\strategy\strategy.md (v2). Кодировка файла: UTF-8 c BOM (кириллица).
 param(
   [switch]$Cloud,          # запуск в GitHub Actions (сейчас только маркер для лога)
   [switch]$DryRun,         # посчитать и напечатать, НИЧЕГО не записывать
@@ -21,7 +21,7 @@ $ErrorActionPreference = 'Stop'
 if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')
 
-# ---- константы (docs\strategy.md v2, комиссии Bybit) ----
+# ---- константы (docs\strategy\strategy.md v2, комиссии Bybit) ----
 $FEE      = 0.00055   # тейкер за сторону (включая TP1 - консервативно)
 $SLIP     = 0.0003    # слиппедж рыночных входов/выходов
 $STOPSLIP = 0.0005    # доп. слиппедж на стопах

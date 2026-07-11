@@ -48,7 +48,7 @@ $combos = @(
   (BuildCombo 'C3b' 'C3b · целевой 5–10%' 'брейкаут @5% + setup A @2% + 0.5×momentum' { param($mn) (G $B5 $mn) + (G $A2 $mn) + 0.5 * (G $MM $mn) })
 )
 
-# sleeve walk-forward table (numbers from the research log, docs\strategy_moex_fut.md)
+# sleeve walk-forward table (numbers from the research log, docs\strategy\strategy_moex_fut.md)
 $wf = @(
   [pscustomobject]@{ sleeve = 'Donchian-брейкаут · фьючерсы @1%'; is = '0.55%/мес · PF 1.45'; oos1 = '1.14%/мес · PF 1.86'; oos2 = '2.08%/мес · PF 2.99'; verdict = 'ЯДРО — прошёл 3/3, эдж рос'; ok = $true },
   [pscustomobject]@{ sleeve = 'Setup A (откат к EMA) · фьючерсы @1%'; is = '0.76%/мес · PF 1.69'; oos1 = '0.79%/мес · PF 1.60'; oos2 = '−0.38%/мес · PF 0.77'; verdict = 'сателлит — 2/3, умер в 2025–26'; ok = $false },

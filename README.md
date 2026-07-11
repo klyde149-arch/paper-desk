@@ -19,12 +19,14 @@ trading-sim/
 ├── portfolio.json        # СОСТОЯНИЕ: счёт, позиции, карточки тезисов (читает build_vizdata.ps1 — не перемещать)
 ├── journal.md            # СОСТОЯНИЕ: журнал всех итераций — при старте сессии читать хвост
 │
-├── docs/                 # документация (правила, отчёты исследований)
-│   ├── strategy.md               # действующий регламент v2 «комбо» (сетап A + флэт-skip + фандинг-ворота)
-│   ├── strategy_v2_proposal.md   # предложение v2 — ПРИНЯТО 2026-07-10
-│   ├── strategy_moex_fut.md      # стратегия «Рынок РФ v1» (фьючерсы FORTS)
-│   ├── backtest_report.md        # бэктест v1 (16.4 мес)
-│   ├── backtest_v2_report.md     # бэктест v2 (5.3 года, data\deep)
+├── docs/                 # документация ЖИВОГО бота (правила, отчёты исследований)
+│   ├── strategy/                 # действующие регламенты
+│   │   ├── strategy.md               # регламент v2 «комбо» (сетап A + флэт-skip + фандинг-ворота)
+│   │   ├── strategy_v2_proposal.md   # предложение v2 — ПРИНЯТО 2026-07-10
+│   │   └── strategy_moex_fut.md      # стратегия «Рынок РФ v1» (фьючерсы FORTS)
+│   ├── backtests/                # отчёты бэктестов
+│   │   ├── backtest_report.md        # бэктест v1 (16.4 мес)
+│   │   └── backtest_v2_report.md     # бэктест v2 (5.3 года, data\deep)
 │   └── archive/
 │       └── strategy_v1_archive.md
 │
@@ -43,12 +45,24 @@ trading-sim/
 │   ├── chart.html        # график с индикаторами
 │   └── vizdata.js        # данные дашборда (генерирует tools\build_vizdata.ps1; в git не коммитится)
 │
-└── challenge/            # ЧЕЛЛЕНДЖ «30 дней» — автономный контур, ноль зависимостей от tools\
-    ├── portfolio.json    # отдельный счёт $1,000
-    ├── strategy.md       # замороженная система S4 (менять нельзя)
-    ├── report.md
-    ├── tools/            # свои fetch/backtest/analyze/research/scan
-    └── data/             # свои данные Bybit 1h/4h/funding 2020→
+├── challenge/            # ЧЕЛЛЕНДЖ «30 дней» — автономный контур, ноль зависимостей от tools\
+│   ├── portfolio.json    # отдельный счёт $1,000
+│   ├── strategy.md       # замороженная система S4 (менять нельзя)
+│   ├── report.md
+│   ├── tools/            # свои fetch/backtest/analyze/research/scan
+│   └── data/             # свои данные Bybit 1h/4h/funding 2020→
+│
+├── strategy_lab/         # ЛОКАЛЬНО (gitignore): Python-лаборатория бэктестов, самодостаточная
+│
+└── vps/                  # ЛОКАЛЬНО (gitignore ЦЕЛИКОМ): справочный бандл с боевого VPS — НЕ коммитить
+    ├── README.md         # манифест бандла (что откуда, как расшифровать секреты)
+    ├── secrets/          # vps_secrets.enc — AES-256-шифрованные API-ключи
+    ├── strategies/freqtrade/          # 111 экспериментальных стратегий
+    ├── backtests/{freqtrade,bingx}/   # результаты бэктестов
+    ├── code/openclaw_v3/ # исходники живого VPS-бота (советник Telegram)
+    ├── data/{openclaw_v3,bingx}/      # сигнальные данные и трек-рекорды
+    ├── docs/openclaw_v3/ # kill-gate планы/отчёты + графики
+    └── configs/          # эталонные конфиги (freqtrade, dry_run)
 ```
 
 ## Цикл (автоматизирован с 2026-07-10)
@@ -57,4 +71,4 @@ trading-sim/
 
 Локальный терминал: `tools\start_terminal.ps1 -Launch` → http://localhost:8377/ (или публичный https://klyde149-arch.github.io/paper-desk/)
 
-Подробности и договорённости — в памяти Claude (`trading-sim-project.md`) и в `docs\strategy.md`.
+Подробности и договорённости — в памяти Claude (`trading-sim-project.md`) и в `docs\strategy\strategy.md`.

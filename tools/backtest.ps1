@@ -1,5 +1,5 @@
 # Portfolio backtest of the trend-pullback strategy on cached 4h data.
-# Mechanical version of docs\strategy.md setup A (trend pullback), risk 1%/trade,
+# Mechanical version of docs\strategy\strategy.md setup A (trend pullback), risk 1%/trade,
 # TP1 1.5R (close half) -> stop to breakeven -> trail EMA20, F&G filter, honest costs.
 param(
   [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT'),
