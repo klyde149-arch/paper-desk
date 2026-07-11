@@ -359,6 +359,32 @@ try {
       if ($sig -and $sig.closedBarUtc -and ((UtcStrToMs ([string]$sig.closedBarUtc)) -eq $closed4h)) {
         $pf.auto.last_4h_ts = $closed4h
         $sigList = @($sig.signals)
+        # вердикт скана в тик-лог: signals.json перезаписывается каждым сканом, истории «почему не вошли» без этой строки нет
+        try {
+          $watchList = @($sig.watch)
+          $total = $sigList.Count + $watchList.Count
+          $scanNote = if ($sigList.Count -gt 0) {
+            "pass=$($sigList.Count)/$total (" + ((@($sigList | ForEach-Object { "$($_.symbol) $($_.side)" })) -join ', ') + ")"
+          } else {
+            $best = $null; $bestOk = -1; $bestScore = -1
+            foreach ($w in $watchList) {
+              if (-not $w -or -not $w.checks) { continue }
+              $ok = @($w.checks.PSObject.Properties | Where-Object { $_.Value -eq $true }).Count
+              $subOk = if ($w.sub) { @($w.sub.PSObject.Properties | Where-Object { $_.Value -eq $true }).Count } else { 0 }
+              $score = $ok * 10 + $subOk   # тай-брейк: при равных воротах ближе тот, у кого больше суб-чеков сетапа
+              if ($score -gt $bestScore) { $bestScore = $score; $bestOk = $ok; $best = $w }
+            }
+            if ($best) {
+              $miss = @($best.checks.PSObject.Properties | Where-Object { $_.Value -ne $true } | ForEach-Object { $_.Name })
+              if ($miss.Count -eq 1 -and $miss[0] -eq 'setupA' -and $best.sub) {
+                $subMiss = @($best.sub.PSObject.Properties | Where-Object { $_.Value -ne $true } | ForEach-Object { $_.Name })
+                if ($subMiss.Count -gt 0) { $miss = $subMiss }
+              }
+              "pass=0/$total, near=$($best.symbol) $bestOk/6 (miss: $($miss -join '+'))"
+            } else { "pass=0/$total" }
+          }
+          Write-TickLog $Root ("scan 4h bar=$($sig.closedBarUtc): $scanNote, btc=$($sig.btcTrend) fng=$($sig.fng) flat=$(if($sig.flatBlockAll){'ON'}else{'off'})")
+        } catch { Write-TickLog $Root "scan log note failed: $($_.Exception.Message)" }
         if ($sigList.Count -gt 0) {
           $tickers = Get-TickersAll (@($sigList | ForEach-Object { $_.symbol }))
           foreach ($s in $sigList) {
