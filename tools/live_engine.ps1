@@ -28,8 +28,10 @@ $MAXPOS   = 3
 $MAXLEV   = 5
 $TPR      = 1.5
 $MIN = [long]60000; $H4 = [long]14400000
-$EXCLUDED = @('DOGE-USDT')
-$SYMBOLS  = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT')
+# APT/OP/AAVE: убыточны на бэктесте 2020-26 (PF 0.73/0.57/0.51) - на бумаге форвард-тестятся, в реал не входят
+$EXCLUDED = @('DOGE-USDT','APT-USDT','OP-USDT','AAVE-USDT')
+$SYMBOLS  = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
+              'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT')
 
 # ---- пути ----
 $liveDir = Join-Path $Root 'data/live_real'

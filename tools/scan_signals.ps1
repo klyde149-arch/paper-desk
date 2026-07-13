@@ -5,7 +5,10 @@
 param(
   # ВНИМАНИЕ: дефолт ниже = универсум LIVE-контура (live_engine.ps1 вызывает сканер БЕЗ -Symbols).
   # Менять только осознанным «live-коммитом» после бэктеста. Бумага (auto_trade.ps1) передаёт свой список явно.
-  [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT'),
+  # 2026-07-13: расширен до 20 (решение пользователя по бэктесту, docs/backtests/backtest_pairs_expansion.md);
+  # слабые APT/OP/AAVE отсечены на входе через $EXCLUDED в live_engine.ps1 (live торгует 17 - DOGE).
+  [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
+                         'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT'),
   [double]$Equity = 10000, [double]$RiskPct = 0.006, [int]$PullbackLookback = 3,
   [string]$OutPath = ''   # куда писать результат; пусто = data/signals.json (paper, как раньше)
 )
