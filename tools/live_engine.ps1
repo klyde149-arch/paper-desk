@@ -61,6 +61,9 @@ function LLog([string]$Line) {
   } catch {}
 }
 function Bs([string]$Sym) { $Sym.Replace('-', '') }
+function Ensure-Prop($Obj, [string]$Name, $Default) {
+  if (-not $Obj.PSObject.Properties[$Name]) { $Obj | Add-Member -NotePropertyName $Name -NotePropertyValue $Default }
+}
 
 $script:events = New-Object System.Collections.Generic.List[string]
 $script:jblocks = New-Object System.Collections.Generic.List[string]
@@ -74,6 +77,7 @@ function New-LiveState([double]$Equity) {
     schema = 1; engine = 'v2-combo-live'; mode = $modeTag
     equity_usd = $Equity; peak_equity_usd = $Equity
     day_start_equity_usd = $Equity; day_start_date_utc = (MsToUtcDay $nowMs)
+    week_start_equity_usd = $Equity; week_start_date_utc = ''
     trading_halted = $false; entries_halt_reason = ''
     open_trades = @(); pending_intents = @()
     auto = [pscustomobject]@{
@@ -159,6 +163,9 @@ try {
     $lp.mode = $modeTag
   }
   $lp.auto.consec_api_fail = 0
+  # миграция состояния: поля недельного отчёта (могли отсутствовать в ранних версиях)
+  Ensure-Prop $lp 'week_start_equity_usd' $equity
+  Ensure-Prop $lp 'week_start_date_utc' ''
 
   $trades = New-Object System.Collections.Generic.List[object]
   foreach ($t in @($lp.open_trades)) { if ($null -ne $t) { $trades.Add($t) } }
@@ -257,7 +264,9 @@ try {
         $tByLink.status = 'open'
         $script:events.Add("ENTRY FILLED $($tByLink.id) $($tByLink.symbol) @$fp")
         $script:jblocks.Add(("`r`n## {0} UTC — LIVE: ВХОД {1} {2} {3} исполнен @{4}, qty {5}, комиссия {6}$`r`n" -f (MsToUtcStr $eMs), $tByLink.id, $tByLink.symbol, ([string]$tByLink.side).ToUpper(), $fp, $fq, [math]::Round($fee,4)))
-        [void](Send-TgAlert "[$modeTag] ВХОД $($tByLink.id) $($tByLink.symbol) $(([string]$tByLink.side).ToUpper()) @$fp qty=$fq стоп=$($tByLink.stop)")
+        [void](Send-TgAlert (("[$modeTag] ВХОД {0} {1} {2} @{3}" -f $tByLink.id, $tByLink.symbol, ([string]$tByLink.side).ToUpper(), $fp) +
+          ("`nqty={0} стоп={1} TP1={2}" -f $fq, $tByLink.stop, $tByLink.tp1) +
+          ("`nриск {0}$, номинал {1}$, план: TP1 1.5R (50%) -> БУ -> трейл EMA20 4h" -f $tByLink.risk_usd, $tByLink.notional_usd)))
       }
       continue
     }
@@ -319,7 +328,10 @@ try {
       $script:events.Add("EXIT $($card.id) $($card.sym) $reason $($card.pnlUsd) USD")
       $script:jblocks.Add(("`r`n## {0} UTC — LIVE: закрыта {1} {2} {3} — {4} {5:+0.00;-0.00}$ ({6})`r`n" -f $nowStr, $card.id, $card.sym, ([string]$card.side).ToUpper(), $resTxt, [double]$card.pnlUsd, $reason) +
         ("Вход {0} → средний выход {1}; R = {2}; комиссии {3}$, фандинг {4}$.`r`n" -f $card.entry, $card.exitPx, $card.rMultiple, $card.fees, $card.funding))
-      [void](Send-TgAlert "[$modeTag] ВЫХОД $($card.id) $($card.sym): $($card.pnlUsd) USD ($reason), R=$($card.rMultiple)")
+      $holdH = [math]::Round(($nowMs - [long]$card.entryTs) / 3600000.0, 1)
+      [void](Send-TgAlert (("[$modeTag] ВЫХОД {0} {1} {2}: {3:+0.00;-0.00}$ ({4}), R={5}" -f $card.id, $card.sym, ([string]$card.side).ToUpper(), [double]$card.pnlUsd, $reason, $card.rMultiple) +
+        ("`nвход {0} -> выход {1}, в позиции {2}ч" -f $card.entry, $card.exitPx, $holdH) +
+        ("`nкомиссии {0}$, фандинг {1}$, equity {2}$" -f $card.fees, $card.funding, $equity)))
       continue
     }
     if ([string]$t.status -eq 'open' -and $havePos) {
@@ -367,6 +379,37 @@ try {
   }
   if ($driftHalt) { $lp.entries_halt_reason = $driftHalt }
   elseif ("$($lp.entries_halt_reason)" -like 'D*') { $lp.entries_halt_reason = ''; LLog 'drift-халт снят (дрифт исчез)' }
+
+  # ---------- 4a. недельный отчёт (первый тик новой ISO-недели, пн 00:00 UTC) ----------
+  $todayDate = (MsToUtc $nowMs).Date
+  $curMonday = $todayDate.AddDays(-((([int]$todayDate.DayOfWeek) + 6) % 7)).ToString('yyyy-MM-dd')
+  if ("$($lp.week_start_date_utc)" -eq '') {
+    $lp.week_start_date_utc = $curMonday
+    $lp.week_start_equity_usd = $equity
+  } elseif ([string]$lp.week_start_date_utc -ne $curMonday) {
+    $wStart = [string]$lp.week_start_date_utc
+    $wPnl = [math]::Round($equity - [double]$lp.week_start_equity_usd, 2)
+    $wPct = if ([double]$lp.week_start_equity_usd -gt 0) { [math]::Round(100.0 * $wPnl / [double]$lp.week_start_equity_usd, 2) } else { 0.0 }
+    $wTrades = @()
+    foreach ($x in @(Read-JsonFile $ltPath)) {
+      if ($null -ne $x -and [string]$x.exitDay -ge $wStart -and [string]$x.exitDay -lt $curMonday) { $wTrades += $x }
+    }
+    $wWins = @($wTrades | Where-Object { $_.result -eq 'win' }).Count
+    $wFees = 0.0; $wFund = 0.0; $wR = 0.0
+    foreach ($x in $wTrades) { $wFees += [double]$x.fees; $wFund += [double]$x.funding; if ($null -ne $x.rMultiple) { $wR += [double]$x.rMultiple } }
+    $ddNow = if ([double]$lp.peak_equity_usd -gt 0) { [math]::Round(100.0 * ([double]$lp.peak_equity_usd - $equity) / [double]$lp.peak_equity_usd, 1) } else { 0.0 }
+    $haltTxt = if ($lp.trading_halted) { 'HALT' } elseif ("$($lp.entries_halt_reason)" -ne '') { [string]$lp.entries_halt_reason } else { 'нет' }
+    $wMsg = ("[$modeTag] НЕДЕЛЬНЫЙ ОТЧЁТ {0}..{1}" -f $wStart, $curMonday) +
+      ("`nEquity: {0}$ | P&L недели: {1:+0.00;-0.00}$ ({2:+0.00;-0.00}%)" -f $equity, $wPnl, $wPct) +
+      ("`nСделок: {0} (W{1}/L{2}), суммарный R: {3:+0.00;-0.00}" -f $wTrades.Count, $wWins, ($wTrades.Count - $wWins), $wR) +
+      ("`nКомиссии: {0}$ | фандинг: {1}$" -f [math]::Round($wFees,2), [math]::Round($wFund,2)) +
+      ("`nОт пика: -{0}% | халты: {1}" -f $ddNow, $haltTxt)
+    [void](Send-TgAlert $wMsg)
+    $script:jblocks.Add(("`r`n## {0} UTC — LIVE недельный отчёт {1}..{2}: P&L {3:+0.00;-0.00}$ ({4:+0.00;-0.00}%), сделок {5} (W{6}/L{7}), R {8:+0.00;-0.00}, комиссии {9}$, фандинг {10}$`r`n" -f $nowStr, $wStart, $curMonday, $wPnl, $wPct, $wTrades.Count, $wWins, ($wTrades.Count - $wWins), $wR, [math]::Round($wFees,2), [math]::Round($wFund,2)))
+    $script:events.Add('WEEKLY REPORT')
+    $lp.week_start_date_utc = $curMonday
+    $lp.week_start_equity_usd = $equity
+  }
 
   # ---------- 4. ролл дня + governors на реальном equity ----------
   $todayUtc = MsToUtcDay $nowMs
