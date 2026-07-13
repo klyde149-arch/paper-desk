@@ -149,6 +149,60 @@ $liveActual = [ordered]@{
   curve = [object[]]@($leLog | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.eq) })
 }
 
+# ---- РЕАЛ: живой счёт Bybit (data\live_real\*, пишет VPS-бот; все файлы опциональны) ----
+$realLive = $null
+$rlDir = Join-Path $dir 'data\live_real'
+$rlPf  = Join-Path $rlDir 'portfolio.json'
+if (Test-Path $rlPf) {
+  $rp = Get-Content $rlPf -Raw -Encoding UTF8 | ConvertFrom-Json
+  $rCurve = [object[]]@()
+  if (Test-Path (Join-Path $rlDir 'live_equity.json')) {
+    $rCurve = [object[]]@((Get-Content (Join-Path $rlDir 'live_equity.json') -Raw -Encoding UTF8 | ConvertFrom-Json) |
+      ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.eq) })
+  }
+  $rClosed = [object[]]@()
+  if (Test-Path (Join-Path $rlDir 'live_trades.json')) {
+    $rClosed = [object[]]@((Get-Content (Join-Path $rlDir 'live_trades.json') -Raw -Encoding UTF8 | ConvertFrom-Json) | ForEach-Object { $_ })
+  }
+  $rOpen = [object[]]@()
+  if (-not $SkipLive) {
+    $rOpen = [object[]]@(@($rp.open_trades) | Where-Object { $null -ne $_ } | ForEach-Object {
+      $p = $_
+      $k1 = [object[]]@()
+      try {
+        $nowK = UtcNowMs
+        $bars = Get-Klines $p.symbol '60' ($nowK - 170*3600000) $nowK $nowK
+        $k1 = [object[]]@($bars | ForEach-Object { ,[object[]]@([long]$_.t, [double]$_.o, [double]$_.h, [double]$_.l, [double]$_.c) })
+      } catch { Write-Warning "real candles failed for $($p.symbol): $_" }
+      # поле-в-поле как $livePositions выше — трейдс-панель рендерит обе вкладки одним кодом
+      [ordered]@{
+        id = $p.id; symbol = $p.symbol; side = $p.side; qty = $p.qty; entry = $p.entry_price
+        stop = $p.stop; tp1 = $p.tp1; entryUtc = $p.entry_utc; riskUsd = $p.risk_usd
+        notional = $p.notional_usd; plan = $null; candles1h = $k1
+        fees = [math]::Round([double]$p.fees_usd, 2); funding = [math]::Round([double]$p.funding_usd, 2)
+        tp1Done = [bool]$p.tp1_done; status = [string]$p.status
+        thesis = $p.thesis
+      }
+    })
+  }
+  # startEq = первая точка equity-лога (не депозит $100: лог начат при запуске live-контура;
+  # если захочется отсчёт от депозита — заменить на константу здесь)
+  $realLive = [ordered]@{
+    equityNow = [double]$rp.equity_usd
+    startEq   = $(if ($rCurve.Count) { [double]$rCurve[0][1] } else { [double]$rp.equity_usd })
+    peak      = [double]$rp.peak_equity_usd
+    dayStartEq = [double]$rp.day_start_equity_usd
+    dayStartDate = [string]$rp.day_start_date_utc
+    halted = [bool]$rp.trading_halted
+    haltReason = [string]$rp.entries_halt_reason
+    lastTickUtc = [string]$rp.auto.last_tick_utc
+    pendingIntents = @($rp.pending_intents).Count
+    openTrades = $rOpen
+    closed = $rClosed
+    curve = $rCurve
+  }
+}
+
 # ---- живой форвард-тест РФ: профили C2/C3b (data\rf\*, optional) ----
 $rfLive = $null
 $rfDir2 = Join-Path $dir 'data\rf'
@@ -457,6 +511,7 @@ $viz = [ordered]@{
   deepPrices = $deepPrices
   signals = $signals
   liveActual = $liveActual
+  realLive = $realLive
 }
 $json = $viz | ConvertTo-Json -Depth 8 -Compress
 $out = Join-Path $dir 'report\vizdata.js'

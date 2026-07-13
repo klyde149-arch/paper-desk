@@ -194,7 +194,7 @@
     <button class="theme-btn" id="themeBtn">◐ Тема</button>
   </nav>
   <header class="hero">
-    <p class="eyebrow">PAPER TRADING · ВИРТУАЛЬНЫЙ СЧЁТ · РЕАЛЬНЫЕ ДЕНЬГИ НЕ ИСПОЛЬЗУЮТСЯ</p>
+    <p class="eyebrow">PAPER + LIVE · СИМУЛЯЦИЯ И РЕАЛЬНЫЙ СЧЁТ BYBIT (ВКЛАДКА «РЕАЛ»)</p>
     <h1 class="hero-h">Торговый <em>терминал</em><span class="dot">.</span></h1>
     <p class="sub">Торгует автономный бот 24/7 (GitHub Actions, тик ~15 мин): входы по стратегии v2 «комбо», стопы и тейки по касанию цены, комиссии Bybit 0.055%. Котировки Bybit и MOEX. Страница автообновляется сама. Все графики интерактивные: колесо — зум, перетаскивание — прокрутка, двойной клик — сброс.</p>
     <div class="stamp" style="margin-top:14px"><span class="dot"></span> Обновлено: <b class="num" id="genTime">—</b> UTC · счёт: <b class="num" id="eqNow">—</b></div>
@@ -213,7 +213,8 @@
     <button class="tab" data-market="fut">Фьючерсы<span class="mini">MOEX · брейкаут + сателлиты</span></button>
   </nav>
   <nav class="tabs" id="modeRow" style="margin-top:-14px">
-    <button class="tab on" data-mode="live">Реальная торговля<span class="mini" id="modeLiveMini">живой счёт · факт</span></button>
+    <button class="tab on" data-mode="live">Бумага<span class="mini" id="modeLiveMini">виртуальные $10 000</span></button>
+    <button class="tab" data-mode="real" id="modeRealBtn">Реал<span class="mini" id="modeRealMini">Bybit · живой счёт</span></button>
     <button class="tab" data-mode="bt">Бэктест<span class="mini" id="modeBtMini">исследование · история</span></button>
   </nav>
 
@@ -252,6 +253,28 @@
       <th>Пара</th><th>Режим 4h</th><th>Цена</th><th>RSI</th><th>ATR%</th><th>Фандинг 8ч</th><th>Тренд</th><th>Откат</th><th>RSI-сброс</th><th>Триггер</th><th>Ворота v2</th>
     </tr></thead><tbody></tbody></table></div>
     <p class="hint" id="sigHint"></p>
+  </section>
+
+  <!-- ============ CRYPTO · REAL (живой счёт Bybit) ============ -->
+  <section id="pane-crypto-real" style="display:none">
+    <h2>Реальный счёт — <span class="em">Bybit</span></h2>
+    <div id="realStatus" class="callout" style="border-left-color:var(--accent)"></div>
+    <div class="kpis" id="realKpis" style="margin-top:14px">
+      <div class="kpi"><p class="l">Эквити</p><div class="v num" id="realEq">—</div><p class="s">кошелёк UTA · USDT</p></div>
+      <div class="kpi"><p class="l">P&L со старта</p><div class="v num" id="realPnl">—</div><p class="s" id="realPnlS">от первой точки лога</p></div>
+      <div class="kpi"><p class="l">P&L сегодня</p><div class="v num" id="realDay">—</div><p class="s">UTC-день</p></div>
+      <div class="kpi"><p class="l">Открытых позиций</p><div class="v num" id="realPos">—</div><p class="s" id="realPosS">лимит: 3 · риск 1%</p></div>
+    </div>
+
+    <h2>Открытые позиции</h2>
+    <p class="sec-note">Та же стратегия v2 «комбо», что и на бумаге, но ордера настоящие: стоп-лосс всегда лежит на бирже, тейк — reduce-only лимиткой. Движок сверяется с биржей каждый тик и при любом расхождении останавливает входы.</p>
+    <div id="realWrap"></div>
+
+    <h2>Капитал — <span class="em">кривая эквити</span></h2>
+    <div class="card" style="padding:20px 22px">
+      <canvas id="realEqCurve" height="260"></canvas>
+      <p class="hint" id="realEqHint"></p>
+    </div>
   </section>
 
   <!-- ============ CRYPTO · BACKTEST ============ -->
@@ -439,12 +462,12 @@
   </section>
 
   <div class="foot">
-    <p><b>Честность симуляции:</b> крипта — входы бот берёт по рынку после закрытия сигнального 4h-бара (+0.03% проскальзывание), комиссия Bybit 0.055% тейкер/сторона (включая TP1), стопы и тейки — <b>по касанию цены</b> (минутные свечи; гэп за уровень = исполнение по открытию, +0.05% на стопах), конфликт стоп+тейк в одной минуте = стоп, фандинг каждые 8ч по фактической ставке; MOEX (бэктест) — комиссия 0.08%/сторона, проскальзывание 0.05%, без плеча, только лонг. Бэктест ≠ гарантия будущей доходности. Реальные деньги не используются.</p>
+    <p><b>Честность симуляции:</b> крипта — входы бот берёт по рынку после закрытия сигнального 4h-бара (+0.03% проскальзывание), комиссия Bybit 0.055% тейкер/сторона (включая TP1), стопы и тейки — <b>по касанию цены</b> (минутные свечи; гэп за уровень = исполнение по открытию, +0.05% на стопах), конфликт стоп+тейк в одной минуте = стоп, фандинг каждые 8ч по фактической ставке; MOEX (бэктест) — комиссия 0.08%/сторона, проскальзывание 0.05%, без плеча, только лонг. Бэктест ≠ гарантия будущей доходности. Реальные деньги задействованы <b>только</b> на вкладке «Реал» (небольшой живой счёт Bybit); всё остальное — симуляция.</p>
   </div>
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1783710132"></script>
+<script src="vizdata.js?v=1783967365"></script>
 <script>
 (function(){
   "use strict";
@@ -554,14 +577,15 @@
   let MARKET = qs.get("market") || localStorage.getItem("term_market") || "crypto";
   let MODE   = qs.get("mode")   || localStorage.getItem("term_mode")   || "live";
   if(!["crypto","stocks","fut"].includes(MARKET)) MARKET="crypto";
-  if(!["live","bt"].includes(MODE)) MODE="live";
-  const PANES=["crypto-live","crypto-bt","stocks-live","stocks-bt","fut-live","fut-bt"];
+  if(!["live","real","bt"].includes(MODE)) MODE="live";
+  const PANES=["crypto-live","crypto-real","crypto-bt","stocks-live","stocks-bt","fut-live","fut-bt"];
   const MODE_MINIS={
-    crypto:{live:"позиции · дни · сигналы",         bt:"v1/v2 · сравнение · по годам"},
+    crypto:{live:"позиции · дни · сигналы",         real:"Bybit · живой счёт", bt:"v1/v2 · сравнение · по годам"},
     stocks:{live:"momentum-ротация · сейчас",       bt:"momentum + setup A · история"},
     fut:   {live:"C2/C3b форвард-тест · открытые",  bt:"брейкаут · walk-forward · портфели"}
   };
   function applyNav(){
+    if(MODE==="real"&&MARKET!=="crypto") MODE="live";   // «Реал» есть только у крипты
     localStorage.setItem("term_market",MARKET);
     localStorage.setItem("term_mode",MODE);
     document.querySelectorAll("#marketRow .tab[data-market]").forEach(b=>b.classList.toggle("on",b.dataset.market===MARKET));
@@ -569,7 +593,9 @@
     const key=MARKET+"-"+MODE;
     PANES.forEach(k=>{ const el=$("pane-"+k); if(el) el.style.display=(k===key)?"":"none"; });
     const hk=document.querySelector(".hero-kpis"); if(hk) hk.style.display=(MARKET==="crypto"&&MODE==="live")?"":"none";
+    if($("modeRealBtn")) $("modeRealBtn").style.display=(MARKET==="crypto")?"":"none";
     if($("modeLiveMini")) $("modeLiveMini").textContent=MODE_MINIS[MARKET].live;
+    if($("modeRealMini")&&MODE_MINIS[MARKET].real) $("modeRealMini").textContent=MODE_MINIS[MARKET].real;
     if($("modeBtMini"))   $("modeBtMini").textContent  =MODE_MINIS[MARKET].bt;
     redrawActive();
   }
@@ -579,17 +605,18 @@
   document.querySelectorAll("#modeRow .tab[data-mode]").forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
 
   // ---------- LIVE POSITIONS (interactive candle charts) ----------
+  // общий рендер позиций+журнала: бумажная вкладка и вкладка «Реал» отличаются только данными и текстами
   const liveCharts=[];
-  function buildLive(){
-    const wrap=$("liveWrap"); wrap.innerHTML="";
-    if(!LIVE.length){
-      wrap.insertAdjacentHTML("beforeend", '<div class="card" style="color:var(--muted);font-size:14px">Сейчас открытых позиций нет — жду сетап по регламенту (риск 0.5–0.75%, фильтр тренда BTC, ATR-кэп 3%).</div>');
+  function buildLiveInto(wrap, POS, CLOSED, chartsReg, opts){
+    wrap.innerHTML="";
+    if(!POS.length){
+      wrap.insertAdjacentHTML("beforeend", '<div class="card" style="color:var(--muted);font-size:14px">'+opts.emptyText+'</div>');
     }
-    LIVE.forEach((p,pi)=>{
+    POS.forEach((p,pi)=>{
       const k=arr(p.candles1h);
       const grid=document.createElement("div"); grid.className="live-grid";
       const chartCard=document.createElement("div"); chartCard.className="card";
-      const cv=document.createElement("canvas"); cv.setAttribute("height","370"); cv.id="live-"+pi;
+      const cv=document.createElement("canvas"); cv.setAttribute("height","370"); cv.id=opts.idPrefix+pi;
       chartCard.appendChild(cv);
       const lg=document.createElement("div"); lg.className="legend";
       lg.innerHTML = `<span><i style="width:14px;height:2px;background:var(--accent);display:inline-block"></i> вход $${fmtP(p.entry)}</span>
@@ -601,7 +628,7 @@
       const last = k.length ? k[k.length-1][4] : p.entry;
       const pnl = p.side==="long" ? (last-p.entry)*p.qty : (p.entry-last)*p.qty;
       const card=document.createElement("div"); card.className="card pcard";
-      card.innerHTML = `<div class="badge"><span class="dot"></span> ОТКРЫТА${p.tp1Done?' · TP1 ВЗЯТ, СТОП В БУ':''}</div>
+      card.innerHTML = `<div class="badge"><span class="dot"></span> ${p.status==="pending"?"ОЖИДАЕТ ИСПОЛНЕНИЯ":"ОТКРЫТА"}${p.tp1Done?' · TP1 ВЗЯТ, СТОП В БУ':''}</div>
         <h3>${p.id} · ${p.side==="long"?"ЛОНГ":"ШОРТ"} ${p.symbol}</h3>
         <div class="pr"><span>Вход (${p.entryUtc} UTC)</span><b>$${fmtP(p.entry)}</b></div>
         <div class="pr"><span>Размер</span><b>${p.qty} ≈ $${Math.round(p.notional).toLocaleString("en-US")}</b></div>
@@ -625,11 +652,12 @@
       const innerWFn=()=> (cv.clientWidth||800)-mL-mR;
       const redraw=()=>drawLiveChart(cv,p,k,st,mL,mR);
       if(k.length){ attachPanZoom(cv,st,fullFn,redraw,mL,innerWFn); }
-      liveCharts.push(redraw);
+      chartsReg.push(redraw);
       redraw();
     });
     // ---- closed live trades ledger (все сделки счёта: прибыльные и убыточные) ----
     {
+      const LC=CLOSED;
       const nWin=LC.filter(t=>t.pnlUsd>0).length, sum=LC.reduce((s,t)=>s+t.pnlUsd,0);
       const sumFees=LC.reduce((s,t)=>s+(t.fees||0),0), sumFund=LC.reduce((s,t)=>s+(t.funding||0),0);
       let html=`<div class="card" style="margin-top:16px">
@@ -638,7 +666,7 @@
         html+=`<p class="sec-note" style="margin:0">Закрытых сделок ещё нет. Бот записывает сюда каждую сделку автоматически — прибыльную и убыточную, с комиссиями Bybit и фандингом.</p></div>`;
         wrap.insertAdjacentHTML("beforeend", html);
       } else {
-      html+=`<p class="sec-note" style="margin:0 0 12px">Фактические сделки бумажного счёта (P&L — чистый: после комиссий Bybit 0.055% и фандинга): ${LC.length} закрыто · ${nWin} прибыльных · итог <b style="color:${sum>=0?'var(--gain)':'var(--loss)'}">${sum>=0?"+":"−"}$${Math.abs(sum).toFixed(2)}</b> · комиссий $${sumFees.toFixed(2)} · фандинг $${sumFund.toFixed(2)}</p>
+      html+=`<p class="sec-note" style="margin:0 0 12px">${opts.ledgerNote}: ${LC.length} закрыто · ${nWin} прибыльных · итог <b style="color:${sum>=0?'var(--gain)':'var(--loss)'}">${sum>=0?"+":"−"}$${Math.abs(sum).toFixed(2)}</b> · комиссий $${sumFees.toFixed(2)} · фандинг $${sumFund.toFixed(2)}</p>
         <div class="tbl-scroll"><table style="min-width:820px"><thead><tr><th>#</th><th></th><th>Актив</th><th>Сторона</th><th>Вход</th><th>Цена входа</th><th>Выход</th><th>Ср. выход</th><th>Причина</th><th>Комиссии</th><th>Фандинг</th><th>R</th><th>P&L чистый</th></tr></thead><tbody>`;
       html+=LC.map((t,i)=>{const win=t.pnlUsd>0;
         return `<tr><td class="num">${i+1}</td>`+
@@ -665,6 +693,48 @@
       wrap.insertAdjacentHTML("beforeend", html);
       }
     }
+  }
+  function buildLive(){
+    buildLiveInto($("liveWrap"), LIVE, LC, liveCharts, {
+      idPrefix:"live-",
+      emptyText:"Сейчас открытых позиций нет — жду сетап по регламенту (риск 1% на сделку, фильтр тренда BTC, ATR-кэп 3%).",
+      ledgerNote:"Фактические сделки бумажного счёта (P&L — чистый: после комиссий Bybit 0.055% и фандинга)"
+    });
+  }
+
+  // ---------- РЕАЛ: живой счёт Bybit (VIZ.realLive, пишет VPS-бот) ----------
+  const RL = VIZ.realLive || null;
+  const realCharts=[];
+  function buildRealPane(){
+    const stEl=$("realStatus"); if(!stEl) return;
+    if(!RL){
+      stEl.innerHTML="<b>Данных реального счёта пока нет.</b> Как только VPS-бот запишет data/live_real, вкладка оживёт автоматически.";
+      return;
+    }
+    const tickMs=RL.lastTickUtc?Date.parse(RL.lastTickUtc.replace(" ","T")+":00Z"):NaN;
+    const ageMin=isFinite(tickMs)?Math.max(0,Math.round((Date.now()-tickMs)/60000)):null;
+    stEl.style.borderLeftColor=RL.halted?"var(--loss)":"var(--accent)";
+    stEl.innerHTML=`<b>РЕАЛЬНЫЕ ДЕНЬГИ.</b> Автобот торгует на живом счёте Bybit (VPS, тик раз в минуту; стоп-лосс всегда лежит на бирже). `+
+      `Последний тик бота: <b class="num">${RL.lastTickUtc||"—"} UTC</b>${ageMin!=null?` · данные на странице ~${ageMin<90?ageMin+" мин":Math.round(ageMin/60)+" ч"} назад`:""}. `+
+      `<span style="color:var(--muted)">Страница пересобирается через GitHub Pages — задержка до ~15 мин это норма.</span>`+
+      (RL.halted?`<br><b style="color:var(--loss)">ВХОДЫ ОСТАНОВЛЕНЫ:</b> ${RL.haltReason||"см. журнал"}`:"");
+    const pnl=RL.equityNow-RL.startEq, pct=RL.startEq?100*pnl/RL.startEq:0;
+    $("realEq").textContent="$"+RL.equityNow.toFixed(2);
+    const pe=$("realPnl"); pe.textContent=(pnl>=0?"+":"−")+"$"+Math.abs(pnl).toFixed(2)+" · "+(pct>=0?"+":"−")+Math.abs(pct).toFixed(2)+"%";
+    pe.className="v num "+(pnl>=0?"pos":"neg");
+    const todayUtc=new Date().toISOString().slice(0,10);
+    const de=$("realDay");
+    if(RL.dayStartDate===todayUtc){ const d=RL.equityNow-RL.dayStartEq; de.textContent=(d>=0?"+":"−")+"$"+Math.abs(d).toFixed(2); de.className="v num "+(d>=0?"pos":"neg"); }
+    else de.textContent="—";
+    $("realPos").textContent=String(arr(RL.openTrades).length);
+    if(RL.pendingIntents>0) $("realPosS").textContent="лимит: 3 · риск 1% · интентов в ожидании: "+RL.pendingIntents;
+    buildLiveInto($("realWrap"), arr(RL.openTrades), arr(RL.closed), realCharts, {
+      idPrefix:"real-",
+      emptyText:"Сейчас открытых позиций нет — бот ждёт сетап по стратегии v2 (те же правила, что и на бумаге). Реальный ордер появится здесь автоматически.",
+      ledgerNote:"Фактические сделки реального счёта Bybit (P&L — чистый: после комиссий и фандинга)"
+    });
+    const hint=$("realEqHint");
+    if(hint) hint.textContent=`Старт лога: $${RL.startEq.toFixed(2)} · пик: $${RL.peak.toFixed(2)} · точек: ${arr(RL.curve).length}. Эквити пишется на каждом событии и раз в 15 минут.`;
   }
   function drawLiveChart(cv,p,k,st,mL,mR){
     const {ctx,w,h}=setupCanvas(cv);
@@ -811,7 +881,7 @@
     const X=ts=>m.l+(ts-t0)/(t1-t0)*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
     ctx.clearRect(0,0,w,h);
     ctx.strokeStyle=C("--hair2"); ctx.lineWidth=1; ctx.fillStyle=C("--faint"); ctx.font=FONT(); ctx.textAlign="left";
-    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4,y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText("$"+Math.round(v/100)/10+"k",m.l+iw+6,y+4); }
+    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4,y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText(v>=2000?("$"+Math.round(v/100)/10+"k"):("$"+v.toFixed(0)),m.l+iw+6,y+4); }
     drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
     let peak=E[0][1],curPk=0,mdd=0,dA=0,dB=0;
     E.forEach((p,i)=>{ if(p[1]>peak){peak=p[1];curPk=i;} const dd=(peak-p[1])/peak; if(dd>mdd){mdd=dd;dA=curPk;dB=i;} });
@@ -925,7 +995,7 @@
     const X=ts=>m.l+(ts-t0)/(t1-t0)*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
     ctx.clearRect(0,0,w,h);
     ctx.strokeStyle=C("--hair2"); ctx.lineWidth=1; ctx.fillStyle=C("--faint"); ctx.font=FONT(); ctx.textAlign="left";
-    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4,y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText("$"+Math.round(v/100)/10+"k",m.l+iw+6,y+4); }
+    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4,y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText(v>=2000?("$"+Math.round(v/100)/10+"k"):("$"+v.toFixed(0)),m.l+iw+6,y+4); }
     drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
     ctx.strokeStyle=C("--hair"); ctx.setLineDash([3,4]); ctx.beginPath(); ctx.moveTo(m.l,Y(10000)); ctx.lineTo(m.l+iw,Y(10000)); ctx.stroke(); ctx.setLineDash([]);
     sers.forEach(s=>{
@@ -1144,6 +1214,7 @@
 
   // ---------- init ----------
   buildLive();
+  buildRealPane();
   buildSignals();
   buildYearly();
   buildStratTabs();
@@ -1175,7 +1246,7 @@
     const X=ts=>m.l+(ts-t0)/(t1-t0)*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
     ctx.clearRect(0,0,w,h);
     ctx.strokeStyle=C("--hair2"); ctx.lineWidth=1; ctx.fillStyle=C("--faint"); ctx.font=FONT(); ctx.textAlign="left";
-    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4,y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText("$"+Math.round(v/100)/10+"k",m.l+iw+6,y+4); }
+    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4,y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText(v>=2000?("$"+Math.round(v/100)/10+"k"):("$"+v.toFixed(0)),m.l+iw+6,y+4); }
     drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
     let peak=E[0][1],curPk=0,mdd=0,dA=0,dB=0;
     E.forEach((p,i)=>{ if(p[1]>peak){peak=p[1];curPk=i;} const dd=(peak-p[1])/peak; if(dd>mdd){mdd=dd;dA=curPk;dB=i;} });
@@ -1552,6 +1623,7 @@
   function redrawActive(){
     const k=MARKET+"-"+MODE;
     if(k==="crypto-live"){ liveCharts.forEach(f=>f()); drawCapCurve(); }
+    else if(k==="crypto-real"){ realCharts.forEach(f=>f()); if(RL&&arr(RL.curve).length>1) drawEqOn("realEqCurve",RL.curve); }
     else if(k==="crypto-bt"){ if(exC)exC.draw(); drawEq(); drawCompare(); drawYearly(); }
     else if(k==="stocks-live"){ drawStocksLiveEq(); }
     else if(k==="stocks-bt"){ if(exM)exM.draw(); if(MOMS)drawEqOn("eqMom",MOMS.equity); }
@@ -1564,7 +1636,7 @@
   // ---------- авто-обновление: замечаем новый билд (build.json) → баннер / reload без кэша ----------
   let lastAct=Date.now(); const loadT=Date.now();
   ["mousemove","mousedown","wheel","keydown","touchstart"].forEach(ev=>addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
-  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1783710132"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
+  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1783967365"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
   function bustReload(v){ const u=new URL(location.href); u.searchParams.set("b", v||Date.now()); location.replace(u.toString()); }
   let updBannerShown=false;
   function showUpdBanner(v){
