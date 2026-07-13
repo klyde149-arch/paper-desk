@@ -13,45 +13,45 @@
     "challenge":  {
                       "start_date_utc":  "2026-07-09",
                       "end_date_utc":  "2026-08-08",
-                      "day_number":  4,
+                      "day_number":  5,
                       "failed":  false,
                       "completed":  false,
-                      "consecutive_stop_losses":  2,
+                      "consecutive_stop_losses":  0,
                       "pause_next_day":  false,
                       "history":  [
 
                                   ]
                   },
-    "balance_usd":  787.06,
-    "equity_usd":  837.36,
+    "balance_usd":  937.47,
+    "equity_usd":  940.09,
     "peak_equity_usd":  1048.91,
-    "day_start_equity_usd":  790.35,
-    "day_start_date_utc":  "2026-07-12",
-    "last_entry_day_utc":  "2026-07-12",
+    "day_start_equity_usd":  836.66,
+    "day_start_date_utc":  "2026-07-13",
+    "last_entry_day_utc":  "2026-07-13",
     "open_position":  {
-                          "id":  "C3",
-                          "symbol":  "ETH-USDT",
-                          "side":  "long",
-                          "entry_utc":  "2026-07-12 01:04",
-                          "signal_bar_utc":  "2026-07-12 00:00",
-                          "entry_ts":  1783818262363,
-                          "entry_price":  1792.557606,
-                          "qty":  3.67,
-                          "notional_usd":  6580.37,
-                          "margin_usd":  438.69,
+                          "id":  "C4",
+                          "symbol":  "AVAX-USDT",
+                          "side":  "short",
+                          "entry_utc":  "2026-07-13 01:04",
+                          "signal_bar_utc":  "2026-07-13 00:00",
+                          "entry_ts":  1783904655595,
+                          "entry_price":  6.437068,
+                          "qty":  815.46,
+                          "notional_usd":  5249.19,
+                          "margin_usd":  349.95,
                           "leverage_effective":  15,
-                          "stop":  1771.027688,
-                          "tp":  1835.617442,
-                          "liq_price":  1682.016554,
-                          "risk_usd":  79.04,
+                          "stop":  6.552351,
+                          "tp":  6.206502,
+                          "liq_price":  6.834021,
+                          "risk_usd":  94.01,
                           "risk_pct_equity":  10,
-                          "max_hold_until_utc":  "2026-07-14 01:04",
-                          "entry_fee_usd":  3.29,
-                          "funding_accrued_usd":  0.2651,
-                          "score":  1.831,
+                          "max_hold_until_utc":  "2026-07-15 01:04",
+                          "entry_fee_usd":  2.62,
+                          "funding_accrued_usd":  0,
+                          "score":  1.137,
                           "thesis":  {
-                                         "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 1.831 из 9 пар",
-                                         "riskPlan":  "риск 79.04$ (10% эквити), стоп 1771.027688 (2×ATR 1h), тейк 1835.617442 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 1682.016554",
+                                         "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 1.137 из 9 пар",
+                                         "riskPlan":  "риск 94.01$ (10% эквити), стоп 6.552351 (2×ATR 1h), тейк 6.206502 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 6.834021",
                                          "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
                                      }
                       },
@@ -101,21 +101,42 @@
                                              "riskPlan":  "риск 89$ (10% эквити), стоп 76.828613 (2×ATR 1h), тейк 80.500001 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 73.239177",
                                              "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
                                          }
+                          },
+                          {
+                              "id":  "C3",
+                              "symbol":  "ETH-USDT",
+                              "side":  "long",
+                              "entry_utc":  "2026-07-12 01:04",
+                              "entry":  1792.557606,
+                              "qty":  3.67,
+                              "exit_utc":  "2026-07-13 00:10",
+                              "exit":  1835.066757,
+                              "reason":  "tp",
+                              "bars_held_h":  23.1,
+                              "pnl_usd":  149.74,
+                              "fees_usd":  6.66,
+                              "funding_usd":  0.39,
+                              "r_multiple":  1.89,
+                              "thesis":  {
+                                             "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 1.831 из 9 пар",
+                                             "riskPlan":  "риск 79.04$ (10% эквити), стоп 1771.027688 (2×ATR 1h), тейк 1835.617442 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 1682.016554",
+                                             "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
+                                         }
                           }
                       ],
     "stats":  {
-                  "trades":  2,
-                  "wins":  0,
+                  "trades":  3,
+                  "wins":  1,
                   "losses":  2,
-                  "total_fees_usd":  9.88,
-                  "total_funding_usd":  -1.56,
-                  "realized_pnl_usd":  -209.65
+                  "total_fees_usd":  13.25,
+                  "total_funding_usd":  -1.17,
+                  "realized_pnl_usd":  -59.91
               },
-    "last_check_utc":  "2026-07-12 23:58",
+    "last_check_utc":  "2026-07-13 01:04",
     "auto":  {
                  "schema":  1,
-                 "last_1m_ts":  1783900620000,
-                 "last_scan_1h_ts":  1783893600000,
+                 "last_1m_ts":  1783901400000,
+                 "last_scan_1h_ts":  1783900800000,
                  "paused_day_utc":  null
              }
 }
