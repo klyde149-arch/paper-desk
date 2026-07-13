@@ -7,7 +7,8 @@ $ErrorActionPreference = 'Stop'
 $dir = Split-Path $PSScriptRoot -Parent   # портируемо: локально и в GitHub Actions
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')  # Get-Klines (Bybit + фолбэки)
 
-$syms = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT')
+$syms = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
+          'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT')
 $prices = [ordered]@{}
 foreach ($s in $syms) {
   $bars = Get-Content (Join-Path $dir "data\$($s.Replace('-','_'))_4h.json") -Raw | ConvertFrom-Json

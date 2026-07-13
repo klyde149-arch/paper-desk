@@ -35,7 +35,7 @@ $EXCLUDED = @('DOGE-USDT')
 # дефолт scan_signals.ps1 = LIVE-универсум (live_engine вызывает сканер без -Symbols),
 # поэтому бумага может расширяться раньше реала (live расширяем отдельно после бэктеста).
 $SYMBOLS = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
-             'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','TON-USDT')
+             'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT')
 
 # ---- челлендж (challenge\strategy.md - ЗАМОРОЖЕНО, менять нельзя) ----
 $CH_FEE=0.0005; $CH_SLIP=0.0003; $CH_STOPSLIP=0.0005; $CH_RISK=0.10; $CH_LEV=15

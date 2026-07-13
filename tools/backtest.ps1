@@ -2,7 +2,8 @@
 # Mechanical version of docs\strategy\strategy.md setup A (trend pullback), risk 1%/trade,
 # TP1 1.5R (close half) -> stop to breakeven -> trail EMA20, F&G filter, honest costs.
 param(
-  [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT'),
+  [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
+                         'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT'),
   [double]$StartEquity = 10000,
   [double]$RiskPct = 0.01,
   [double]$MaxLev = 5,
