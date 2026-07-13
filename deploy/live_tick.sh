@@ -23,8 +23,11 @@ if [ -f data/live_real/.push_now ]; then push_due=1; rm -f data/live_real/.push_
 if [ $((10#$minute % 15)) -eq 0 ]; then push_due=1; fi
 
 if [ "$push_due" -eq 1 ]; then
-  # explicit paths ONLY - never 'git add data' (paper files belong to Actions)
-  git add data/live_real journal_live.md 2>/dev/null
+  # explicit paths ONLY - never 'git add data' (paper files belong to Actions).
+  # journal_live.md may not exist before the first event - add it separately,
+  # otherwise a missing pathspec makes git add fail entirely.
+  git add data/live_real 2>/dev/null
+  [ -f journal_live.md ] && git add journal_live.md
   if ! git diff --cached --quiet 2>/dev/null; then
     git -c user.name='live-desk-bot' -c user.email='live-desk-bot@users.noreply.github.com' \
       commit -m "live tick $(date -u '+%Y-%m-%d %H:%M') UTC" >/dev/null
