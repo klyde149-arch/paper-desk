@@ -31,6 +31,11 @@ $MAXLEV   = 5
 $TPR      = 1.5       # TP1 = 1.5R (закрыть 50%)
 $MIN=[long]60000; $H1=[long]3600000; $H4=[long]14400000; $SLOT8=[long]28800000
 $EXCLUDED = @('DOGE-USDT')
+# бумажный универсум (20 пар, решение пользователя 2026-07-13). Передаётся сканеру ЯВНО:
+# дефолт scan_signals.ps1 = LIVE-универсум (live_engine вызывает сканер без -Symbols),
+# поэтому бумага может расширяться раньше реала (live расширяем отдельно после бэктеста).
+$SYMBOLS = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
+             'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','TON-USDT')
 
 # ---- челлендж (challenge\strategy.md - ЗАМОРОЖЕНО, менять нельзя) ----
 $CH_FEE=0.0005; $CH_SLIP=0.0003; $CH_STOPSLIP=0.0005; $CH_RISK=0.10; $CH_LEV=15
@@ -353,7 +358,7 @@ try {
       $riskMult = if ($pf.auto.soft_dd) { 0.5 } else { 1.0 }
       $scanOk = $true
       try {
-        & (Join-Path $PSScriptRoot 'scan_signals.ps1') -Equity ([math]::Round([double]$pf.equity_usd,2)) -RiskPct ($RISKPCT * $riskMult) | Out-Null
+        & (Join-Path $PSScriptRoot 'scan_signals.ps1') -Symbols $SYMBOLS -Equity ([math]::Round([double]$pf.equity_usd,2)) -RiskPct ($RISKPCT * $riskMult) | Out-Null
       } catch { $scanOk = $false; Write-TickLog $Root "scanner failed: $($_.Exception.Message)" }
       $sig = if ($scanOk) { Read-JsonFile (Join-Path $Root 'data\signals.json') } else { $null }
       if ($sig -and $sig.closedBarUtc -and ((UtcStrToMs ([string]$sig.closedBarUtc)) -eq $closed4h)) {

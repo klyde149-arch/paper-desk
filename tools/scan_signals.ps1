@@ -3,6 +3,8 @@
 #   ATR cap 3%, funding filter (+/-0.05%/8h), F&G extreme filter, R:R >= 1.5 (TP1=1.5R).
 # Decision on the LAST CLOSED 4h bar (classic discipline). Writes data\signals.json.
 param(
+  # ВНИМАНИЕ: дефолт ниже = универсум LIVE-контура (live_engine.ps1 вызывает сканер БЕЗ -Symbols).
+  # Менять только осознанным «live-коммитом» после бэктеста. Бумага (auto_trade.ps1) передаёт свой список явно.
   [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT'),
   [double]$Equity = 10000, [double]$RiskPct = 0.006, [int]$PullbackLookback = 3,
   [string]$OutPath = ''   # куда писать результат; пусто = data/signals.json (paper, как раньше)

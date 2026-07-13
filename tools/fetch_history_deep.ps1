@@ -1,7 +1,8 @@
 # Deep history fetcher: Bybit v5 linear perp klines (4h) + funding history, paginated to listing date.
 # Output schema matches BingX cache: data\deep\SYM_4h.json = [{t,o,h,l,c,v}], SYM_funding.json = [{t,r}]
 param(
-  [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT'),
+  [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
+                         'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','TON-USDT'),
   [string]$Interval = '240',        # bybit interval: 240 = 4h
   [switch]$SkipFunding
 )
