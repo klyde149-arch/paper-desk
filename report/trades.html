@@ -64,7 +64,7 @@
   h2{font-family:var(--serif);font-weight:600;font-size:19px;margin:34px 0 4px}
   .sec-note{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:80ch}
   .card{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
-  canvas{display:block;width:100%;cursor:crosshair;border-radius:8px;touch-action:none}
+  canvas{display:block;width:100%;cursor:crosshair;border-radius:8px;touch-action:pan-y} /* pan-y: свайп по графику скроллит страницу, горизонтальный жест уходит графику */
   .tabs{display:flex;gap:6px;border-bottom:1px solid var(--hair);margin:8px 0 22px}
   .tab{background:none;border:none;border-bottom:2.5px solid transparent;color:var(--muted);padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer;font-family:var(--sans)}
   .tab.on{color:var(--accent);border-bottom-color:var(--accent)}
@@ -166,6 +166,26 @@
   .badge{font-family:var(--jak);letter-spacing:.06em}
   thead th{font-family:var(--jak);font-weight:700;letter-spacing:.1em}
   .foot{position:relative;z-index:1}
+
+  /* ===== mobile layer ===== */
+  @media (max-width:900px){
+    .tabs{display:flex;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{flex:0 0 auto;white-space:nowrap}
+  }
+  @media (max-width:640px){
+    .wrap{padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+    .hkpi .v{font-size:19px} .kpi .v{font-size:17px}
+    .sub,.sec-note{font-size:13px} .hint{font-size:12px}
+    .kpi .l,thead th{font-size:11px}
+    .kpi .s,.legend{font-size:12px}
+    table{font-size:13px} tbody td{padding:8px 9px}
+    .tbl-scroll{-webkit-overflow-scrolling:touch}
+    #rfKpis{grid-template-columns:1fr!important}
+    .pcard .pr{font-size:13.5px}
+    .nav-links{gap:10px}
+    .callout{padding:13px 14px;font-size:13.5px}
+  }
 </style>
 </head>
 <body>
@@ -507,10 +527,16 @@
   const fmtP = v => v>=1000 ? v.toLocaleString("en-US",{maximumFractionDigits:1}) : v>=100 ? v.toFixed(2) : v>=1 ? v.toFixed(3) : v.toFixed(5);
   const showTT=(html,x,y)=>{ tt.innerHTML=html; tt.style.opacity=1; const p=14; let l=x+p,t=y+p; const r=tt.getBoundingClientRect(); if(l+r.width>innerWidth)l=x-r.width-p; if(t+r.height>innerHeight)t=y-r.height-p; tt.style.left=l+"px"; tt.style.top=t+"px"; };
   const hideTT=()=>tt.style.opacity=0;
+  // единый тултип-биндер: мышь (move/leave) + тап на тачскрине (pointerdown, leave при отрыве пальца не прячет)
+  const bindTip=(cv,fn)=>{ cv.onpointermove=cv.onpointerdown=fn;
+    cv.onpointerleave=e=>{ if(e.pointerType!=="touch") hideTT(); }; };
+  addEventListener("pointerdown",e=>{ if(!(e.target&&e.target.tagName==="CANVAS")) hideTT(); },true);
   function setupCanvas(cv){
     const dpr=devicePixelRatio||1;
     if(!cv.dataset.h) cv.dataset.h=cv.getAttribute("height");
-    const h=parseInt(cv.dataset.h), w=cv.clientWidth||800;
+    let h=parseInt(cv.dataset.h);
+    if(innerWidth<640) h=Math.min(h, Math.max(200, Math.round(innerHeight*0.42)));   // телефон: график не выше ~42% экрана
+    const w=cv.clientWidth||800;
     cv.width=w*dpr; cv.height=h*dpr; cv.style.height=h+"px";
     const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0);
     return {ctx,w,h};
@@ -528,9 +554,10 @@
       else { st.t0=Math.max(full[0],n0); st.t1=Math.min(full[1],n1); }
       redraw();
     }, {passive:false});
-    cv.addEventListener("mousedown", e=>{ dragging=true; dragX=e.clientX; });
-    addEventListener("mouseup", ()=>dragging=false);
-    cv.addEventListener("mousemove", e=>{
+    cv.addEventListener("pointerdown", e=>{ dragging=true; dragX=e.clientX; try{cv.setPointerCapture(e.pointerId);}catch(_){} });
+    addEventListener("pointerup", ()=>dragging=false);
+    addEventListener("pointercancel", ()=>dragging=false);
+    cv.addEventListener("pointermove", e=>{
       if(!dragging) return;
       const full=fullFn(); const iw=innerWFn();
       const t0=st.t0??full[0], t1=st.t1??full[1];
@@ -776,14 +803,13 @@
     ctx.fillText("→ $"+fmtP(lc[4]), m.l+iw+6, Y(lc[4])+4);
     // hover
     cv.onmousemove2 = null;
-    cv.addEventListener("mousemove", function hov(e){
-      if(e.buttons) { hideTT(); return; }
+    bindTip(cv, function hov(e){
+      if(e.buttons && e.pointerType!=="touch") { hideTT(); return; }
       const r=cv.getBoundingClientRect(), ts=t0+(e.clientX-r.left-m.l)/iw*(t1-t0);
       let best=null,bd=Infinity;
       vis.forEach(c=>{ const d=Math.abs(c[0]-ts); if(d<bd){bd=d;best=c;} });
       if(best) showTT(`<b>${fmtDT(best[0])}</b><br><span class="k">O</span> ${fmtP(best[1])} <span class="k">H</span> ${fmtP(best[2])}<br><span class="k">L</span> ${fmtP(best[3])} <span class="k">C</span> ${fmtP(best[4])}`, e.clientX, e.clientY);
     });
-    cv.addEventListener("mouseleave", hideTT);
   }
 
   // ---------- EXPLORER FACTORY (backtest trades on price) ----------
@@ -854,8 +880,8 @@
         <span>в окне: <b class="num">${trs.length}</b></span>`;
     }
     attachPanZoom(cv,st,fullFn,draw,mL,innerWFn);
-    cv.addEventListener("mousemove", e=>{
-      if(e.buttons) { hideTT(); return; }
+    bindTip(cv, e=>{
+      if(e.buttons && e.pointerType!=="touch") { hideTT(); return; }
       const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
       let best=null,bd=144;
       markers.forEach(mk=>{ const d=(mk.x-mx)**2+(mk.y-my)**2; if(d<bd){bd=d;best=mk;} });
@@ -866,7 +892,6 @@
           `<span class="k">P&L</span> <b style="color:${t.pnlUsd>0?C("--gain"):C("--loss")}">${t.pnlUsd>0?"+":"−"}$${Math.abs(t.pnlUsd).toFixed(2)}</b>`, e.clientX, e.clientY);
       } else hideTT();
     });
-    cv.addEventListener("mouseleave", hideTT);
     return { draw };
   }
 
@@ -898,13 +923,12 @@
     ctx.fillStyle=C("--accent"); ctx.beginPath(); ctx.arc(X(le[0]),Y(le[1]),4,0,7); ctx.fill();
     ctx.font=FONT("600 "); ctx.textAlign="right"; ctx.fillText("$"+le[1].toLocaleString("en-US",{maximumFractionDigits:0}),X(le[0])-8,Y(le[1])-8);
     ctx.fillStyle=C("--loss"); ctx.textAlign="center"; ctx.fillText("макс. просадка −"+(100*mdd).toFixed(1)+"%",(X(E[dA][0])+X(E[dB][0]))/2,m.t+12);
-    cv.onmousemove=e=>{
+    bindTip(cv, e=>{
       const r=cv.getBoundingClientRect(), ts=t0+(e.clientX-r.left-m.l)/iw*(t1-t0);
       let i=E.findIndex(p=>p[0]>=ts); if(i<0)i=E.length-1;
       const p=E[Math.max(0,i)];
       showTT(`<b>${fmtD(p[0])}</b><br><span class="k">капитал</span> $${p[1].toLocaleString("en-US",{maximumFractionDigits:0})}`,e.clientX,e.clientY);
-    };
-    cv.onmouseleave=hideTT;
+    });
   }
 
   // ---------- tables ----------
@@ -1007,14 +1031,13 @@
       ctx.font=FONT("600 "); ctx.textAlign="right"; ctx.fillText(s.lab+" "+fmtMoney(le[1]), X(le[0])-8, Y(le[1])+(s.dy||-8));
     });
     $(lgId).innerHTML = sers.map(s=>`<span><i style="width:16px;height:2.5px;background:${s.col};display:inline-block;border-radius:2px"></i> ${s.lab} — итог <b class="num">${fmtMoney(s.eq[s.eq.length-1][1])}</b></span>`).join("");
-    cv.onmousemove=e=>{
+    bindTip(cv, e=>{
       const r=cv.getBoundingClientRect(), ts=t0+(e.clientX-r.left-m.l)/iw*(t1-t0);
       let html=`<span class="k">${fmtD(ts)}</span>`;
       sers.forEach(s=>{ let i=s.eq.findIndex(p=>p[0]>=ts); if(i<0)i=s.eq.length-1; const p=s.eq[Math.max(0,i)];
         html+=`<br><i style="width:9px;height:9px;border-radius:3px;background:${s.col};display:inline-block;margin-right:6px"></i>${s.lab}: <b>${fmtMoney(p[1])}</b>`; });
       showTT(html,e.clientX,e.clientY);
-    };
-    cv.onmouseleave=hideTT;
+    });
   }
   function buildCompare(){
     if(!STRATS.length)return;
@@ -1202,10 +1225,9 @@
       ctx.fillText(yr,cx,h-8);
     });
     $(lgId).innerHTML=`<span><i style="width:16px;height:9px;background:${C("--muted")};display:inline-block;border-radius:2px"></i> v1 (действующая)</span> <span><i style="width:16px;height:9px;background:${C("--accent")};display:inline-block;border-radius:2px"></i> v2 (предложение)</span>`;
-    cv.onmousemove=e=>{ const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+    bindTip(cv, e=>{ const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
       const hit=bars.find(b=>mx>=b.x&&mx<=b.x+b.w&&my>=Math.min(b.y,y0)-2&&my<=Math.max(b.y+b.h,y0)+2);
-      if(hit){ showTT(`<b>${hit.yr}</b> · ${hit.lab}<br><b style="color:${hit.col==C("--accent")?'var(--accent)':'var(--ink)'}">${hit.v>=0?"+":""}${hit.v}%</b>`,e.clientX,e.clientY); } else hideTT(); };
-    cv.onmouseleave=hideTT;
+      if(hit){ showTT(`<b>${hit.yr}</b> · ${hit.lab}<br><b style="color:${hit.col==C("--accent")?'var(--accent)':'var(--ink)'}">${hit.v>=0?"+":""}${hit.v}%</b>`,e.clientX,e.clientY); } else hideTT(); });
   }
   function drawYearly(){
     drawYearBars("cmpYear","lgY",byId("live-base"),byId("live-combo"));
@@ -1263,10 +1285,9 @@
     ctx.fillStyle=C("--accent"); ctx.beginPath(); ctx.arc(X(le[0]),Y(le[1]),4,0,7); ctx.fill();
     ctx.font=FONT("600 "); ctx.textAlign="right"; ctx.fillText("$"+le[1].toLocaleString("en-US",{maximumFractionDigits:0}),X(le[0])-8,Y(le[1])-8);
     ctx.fillStyle=C("--loss"); ctx.textAlign="center"; ctx.fillText("макс. просадка −"+(100*mdd).toFixed(1)+"%",(X(E[dA][0])+X(E[dB][0]))/2,m.t+12);
-    cv.onmousemove=e=>{ const r=cv.getBoundingClientRect(), ts=t0+(e.clientX-r.left-m.l)/iw*(t1-t0);
+    bindTip(cv, e=>{ const r=cv.getBoundingClientRect(), ts=t0+(e.clientX-r.left-m.l)/iw*(t1-t0);
       let i=E.findIndex(p=>p[0]>=ts); if(i<0)i=E.length-1; const p=E[Math.max(0,i)];
-      showTT(`<b>${fmtD(p[0])}</b><br><span class="k">капитал</span> $${p[1].toLocaleString("en-US",{maximumFractionDigits:0})}`,e.clientX,e.clientY); };
-    cv.onmouseleave=hideTT;
+      showTT(`<b>${fmtD(p[0])}</b><br><span class="k">капитал</span> $${p[1].toLocaleString("en-US",{maximumFractionDigits:0})}`,e.clientX,e.clientY); });
   }
 
   // portfolio combo curves (log scale) + table + wf + monthly heatmap + per-symbol P&L
@@ -1291,11 +1312,10 @@
       ctx.strokeStyle=FUT_COLS[si%FUT_COLS.length]; ctx.lineWidth=si===3?2.2:1.6; ctx.beginPath();
       ser.forEach((p,i)=>{ const x=X(i),y=Y(p[2]); if(i)ctx.lineTo(x,y); else ctx.moveTo(x,y); }); ctx.stroke(); });
     $("lgFut").innerHTML=S.map((s,si)=>`<span><i style="width:16px;height:9px;background:${FUT_COLS[si%FUT_COLS.length]};display:inline-block;border-radius:2px"></i> ${s.label} · <b class="num">${s.mo}%/мес</b></span>`).join(" ");
-    cv.onmousemove=e=>{ const r=cv.getBoundingClientRect(), i=Math.max(0,Math.min(n-1,Math.round((e.clientX-r.left-m.l)/iw*(n-1))));
+    bindTip(cv, e=>{ const r=cv.getBoundingClientRect(), i=Math.max(0,Math.min(n-1,Math.round((e.clientX-r.left-m.l)/iw*(n-1))));
       const rows=S.map((s,si)=>{ const p=arr(s.series)[i];
         return `<span style="color:${FUT_COLS[si%FUT_COLS.length]}">${s.id}</span> ×${(p[2]/100).toFixed(2)} <span class="k">(${p[1]>0?"+":""}${p[1]}% за мес)</span>`; }).join("<br>");
-      showTT(`<b>${arr(S[0].series)[i][0]}</b><br>${rows}`,e.clientX,e.clientY); };
-    cv.onmouseleave=hideTT;
+      showTT(`<b>${arr(S[0].series)[i][0]}</b><br>${rows}`,e.clientX,e.clientY); });
   }
   function buildCombosTable(){
     if(!FUT||!FUT.combos)return;
@@ -1433,10 +1453,9 @@
     const le=pts[pts.length-1];
     ctx.fillStyle=col; ctx.beginPath(); ctx.arc(X(le[0]),Y(le[1]),4,0,7); ctx.fill();
     ctx.font=FONT("600 "); ctx.textAlign="right"; ctx.fillText("$"+le[1].toLocaleString("en-US",{maximumFractionDigits:0}),X(le[0])-8,Y(le[1])-8);
-    cv.onmousemove=e=>{ const r=cv.getBoundingClientRect(), ts=t0+(e.clientX-r.left-m.l)/iw*(t1-t0);
+    bindTip(cv, e=>{ const r=cv.getBoundingClientRect(), ts=t0+(e.clientX-r.left-m.l)/iw*(t1-t0);
       let i=pts.findIndex(p=>p[0]>=ts); if(i<0)i=pts.length-1; const p=pts[Math.max(0,i)]; const dd=p[1]-base;
-      showTT(`<b>${capPeriod==="today"?fmtDT(p[0]):fmtD(p[0])}</b><br><span class="k">капитал</span> $${p[1].toLocaleString("en-US",{maximumFractionDigits:2})}<br><span class="k">${capPeriod==="today"?"за день":"с старта"}</span> <b style="color:${dd>=0?C("--gain"):C("--loss")}">${dd>=0?"+":"−"}$${Math.abs(dd).toFixed(2)}</b>`,e.clientX,e.clientY); };
-    cv.onmouseleave=hideTT;
+      showTT(`<b>${capPeriod==="today"?fmtDT(p[0]):fmtD(p[0])}</b><br><span class="k">капитал</span> $${p[1].toLocaleString("en-US",{maximumFractionDigits:2})}<br><span class="k">${capPeriod==="today"?"за день":"с старта"}</span> <b style="color:${dd>=0?C("--gain"):C("--loss")}">${dd>=0?"+":"−"}$${Math.abs(dd).toFixed(2)}</b>`,e.clientX,e.clientY); });
   }
   function buildDaily(){
     const tbl=$("tbl-daily"); if(!tbl) return;

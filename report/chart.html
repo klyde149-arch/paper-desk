@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>График — trading-sim</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='19' font-size='19'>📈</text></svg>">
 <style>
@@ -156,6 +156,23 @@
   .os-note{font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.5}
   .os-fibgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:4px}
   .os-fibgrid label{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+  /* ===== mobile layer: тулбар инструментов уезжает полосой вниз, топ-бар ужимается ===== */
+  @media (max-width:640px){
+    .main{flex-direction:column}
+    .tools{flex-direction:row;width:auto;height:48px;flex:0 0 auto;order:2;overflow-x:auto;overflow-y:hidden;
+      border-right:none;border-top:1px solid var(--hair);padding:0 6px calc(env(safe-area-inset-bottom)) 6px;gap:2px}
+    .tgrp{width:1px;height:28px;margin:0 4px}
+    /* icon-only у кнопок с текстом (таймфреймы .tb-btn не трогаем — они текстовые) */
+    #indBtn,#tradesBtn,#replayBtn,a.tb-link{font-size:0;gap:0;padding:6px 8px}
+    .symchip .chg{display:none}
+    .symchip{padding:4px 9px;gap:7px}
+    .topbar{padding:5px 8px;gap:2px}
+    .status{display:none}
+    .panel{max-width:calc(100vw - 20px)}
+    #replayBar{bottom:56px;max-width:calc(100vw - 16px);flex-wrap:wrap}
+  }
+  @supports (height:100dvh){ @media (max-width:640px){ html,body{height:100dvh} } }
 </style>
 </style>
 </head>
@@ -248,7 +265,7 @@
   </div>
 </div>
 
-<script src="vizdata.js?v=1783710132"></script>
+<script src="vizdata.js?v=1783967365"></script>
 <script>
 (function(){
 "use strict";
@@ -1186,6 +1203,51 @@ addEventListener('keydown',e=>{
  }
  if(e.key==='Delete'&&selected>=0){pushUndo();drawings.splice(selected,1);selected=-1;saveDraw();render();}
  if(e.key==='Escape'){if(replay&&replay.picking){exitReplay();return;}pending=null;brushing=false;setTool('cursor');render();}});
+
+/* ===== touch: пан одним пальцем, pinch-зум двумя, тап = кроссхейр. =====
+   preventDefault() в pointerdown гасит compatibility mouse events, поэтому
+   мышиные хендлеры (и рисовалки) для касаний не срабатывают — рисовалки на тачскрине вне скоупа v1. */
+const tpts=new Map(); let pinch0=null, tapInfo=null, tPanX=0;
+cvO.style.touchAction='none';
+cvO.addEventListener('pointerdown',e=>{
+ if(e.pointerType!=='touch')return;
+ e.preventDefault();
+ try{cvO.setPointerCapture(e.pointerId);}catch(_){}
+ tpts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(tpts.size===1){const{x,y}=rel(e);tapInfo={x,y,moved:false};tPanX=x;}
+ else if(tpts.size===2){tapInfo=null;const a=[...tpts.values()];
+  pinch0={d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1,w:view.w,i1:view.i1,
+   fx:Math.max(0,Math.min(1,((a[0].x+a[1].x)/2-cvO.getBoundingClientRect().left)/plotW()))};}
+},{passive:false});
+cvO.addEventListener('pointermove',e=>{
+ if(e.pointerType!=='touch'||!tpts.has(e.pointerId)||!candles.length)return;
+ e.preventDefault();
+ tpts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(tpts.size===2&&pinch0){const a=[...tpts.values()];
+  const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;
+  const anchor=pinch0.i1-(1-pinch0.fx)*pinch0.w;          // тот же якорь, что у wheel-зума
+  view.w=Math.max(15,Math.min(3000,pinch0.w*pinch0.d/d));
+  view.i1=anchor+(1-pinch0.fx)*view.w;
+  clampView();pinned=view.i1>=candles.length-1.01;
+  if(view.i1-view.w<8)loadHistory();
+  render();return;}
+ if(tpts.size===1){const{x,y}=rel(e);
+  if(tapInfo&&Math.hypot(x-tapInfo.x,y-tapInfo.y)>8)tapInfo.moved=true;
+  const di=(tPanX-x)/bw();view.i1+=di;tPanX=x;clampView();pinned=view.i1>=candles.length-1.01;
+  if(view.i1-view.w<8)loadHistory();
+  render();}
+},{passive:false});
+const touchEnd=e=>{
+ if(e.pointerType!=='touch')return;
+ tpts.delete(e.pointerId);
+ if(tpts.size<2)pinch0=null;
+ if(tpts.size===1){const a=[...tpts.values()][0];tPanX=a.x-cvO.getBoundingClientRect().left;}
+ if(e.type==='pointerup'&&tapInfo&&!tapInfo.moved){cross={x:tapInfo.x,y:tapInfo.y,i:I(tapInfo.x)};renderOverlay();updateLegend();}
+ if(tpts.size===0)tapInfo=null;
+};
+cvO.addEventListener('pointerup',touchEnd);
+cvO.addEventListener('pointercancel',touchEnd);
+
 function rel(e){const r=cvO.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 /* TV behaviour: fixed-range volume profile anchors cannot extend past the last (or first) candle */
 function clampVpT(t){if(!candles.length)return t;return Math.max(candles[0].t,Math.min(t,candles[candles.length-1].t));}

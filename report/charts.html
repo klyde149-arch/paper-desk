@@ -50,6 +50,19 @@
   .pane:hover .pane-max{opacity:.92}
   .pane .pane-max:hover{color:var(--accent);border-color:var(--accent)}
   .hint{position:fixed;bottom:10px;right:14px;z-index:50;font-size:11px;color:var(--faint);background:var(--surface);border:1px solid var(--hair);border-radius:8px;padding:4px 10px;opacity:.85;pointer-events:none}
+
+  /* ===== mobile layer ===== */
+  @media (hover:none){ .pane .pane-max{opacity:.92} }  /* тачскрин: кнопка разворота видима всегда */
+  @media (max-width:640px){
+    html,body{height:auto;min-height:100%}
+    body{overflow:auto}
+    .topbar{flex-wrap:wrap;gap:6px}
+    .title .sub{display:none}
+    .grid{grid-template-columns:1fr!important;grid-template-rows:none!important;grid-auto-rows:70vh}
+    .pane{grid-row:auto!important;grid-column:auto!important}
+    .pane.max{top:0}
+    .hint{display:none}
+  }
 </style>
 </head>
 <body>
@@ -76,6 +89,7 @@
   let st;
   try{ st=Object.assign({},DEF,JSON.parse(localStorage.getItem(LS_KEY)||'{}')); }catch(e){ st=Object.assign({},DEF); }
   if(!Array.isArray(st.hashes)||st.hashes.length<4) st.hashes=DEF.hashes.slice();
+  if(innerWidth<640 && !localStorage.getItem(LS_KEY)) st.lay='1';   // первый визит с телефона: одна панель вместо 4 iframe
 
   // page chrome follows the chart theme
   const th=localStorage.getItem('chart_theme'); if(th)document.documentElement.setAttribute('data-theme',th);
