@@ -4,7 +4,8 @@
 # Decision on the LAST CLOSED 4h bar (classic discipline). Writes data\signals.json.
 param(
   [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT'),
-  [double]$Equity = 10000, [double]$RiskPct = 0.006, [int]$PullbackLookback = 3
+  [double]$Equity = 10000, [double]$RiskPct = 0.006, [int]$PullbackLookback = 3,
+  [string]$OutPath = ''   # куда писать результат; пусто = data/signals.json (paper, как раньше)
 )
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $ErrorActionPreference = 'Stop'
@@ -138,7 +139,8 @@ $out=[ordered]@{
   closedBarUtc=[DateTimeOffset]::FromUnixTimeMilliseconds([long]$btc.t[$ci]).UtcDateTime.ToString('yyyy-MM-dd HH:mm')
   signals=[object[]]@($signals|ForEach-Object{$_}); watch=[object[]]@($watch|ForEach-Object{$_})
 }
-$out | ConvertTo-Json -Depth 6 | Out-File (Join-Path $dir 'data\signals.json') -Encoding utf8
+$sigPath = if ($OutPath) { $OutPath } else { Join-Path $dir 'data/signals.json' }
+$out | ConvertTo-Json -Depth 6 | Out-File $sigPath -Encoding utf8
 
 "=== v2 SIGNAL SCAN $($out.scannedUtc) UTC (closed 4h bar $($out.closedBarUtc)) ==="
 "BTC 4h regime: $btcTrend  |  FlatMode blocks all entries: $flatBlock  |  F&G: $fng"

@@ -9,6 +9,13 @@ report/build.json
 data/auto_trade.lock
 *.tmp
 
+# live engine runtime (VPS): log, push-flag and instrument cache are local-only
+data/live_real/tick_log.txt
+data/live_real/.push_now
+data/live_real/instruments.json
+# env with real API keys must never appear in the tree
+trading-live.env
+
 # local shots/scratch
 *.png.tmp
 

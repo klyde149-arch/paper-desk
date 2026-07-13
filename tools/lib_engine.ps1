@@ -295,7 +295,7 @@ function Write-Journal([string]$Root, [string]$Text) {
   [IO.File]::AppendAllText($p, $Text, (New-Object System.Text.UTF8Encoding($false)))
 }
 function Write-TickLog([string]$Root, [string]$Line) {
-  $p = Join-Path $Root 'data\auto_trade_log.txt'
+  $p = Join-Path $Root 'data/auto_trade_log.txt'
   $stamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')
   [IO.File]::AppendAllText($p, "$stamp`Z $Line`r`n", (New-Object System.Text.UTF8Encoding($false)))
   try {
@@ -312,7 +312,7 @@ function Write-TickLog([string]$Root, [string]$Line) {
 
 # ---------- lock ----------
 function Acquire-EngineLock([string]$Root, [switch]$Force) {
-  $lock = Join-Path $Root 'data\auto_trade.lock'
+  $lock = Join-Path $Root 'data/auto_trade.lock'
   if ($Force -and (Test-Path $lock)) { Remove-Item $lock -Force -ErrorAction SilentlyContinue }
   try {
     $fs = [IO.File]::Open($lock, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)

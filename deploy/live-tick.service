@@ -1,0 +1,16 @@
+[Unit]
+Description=paper-desk LIVE tick (Bybit real-money executor)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=trader
+EnvironmentFile=/etc/trading-live.env
+Environment=LC_ALL=C.UTF-8
+WorkingDirectory=/home/trader/paper-desk
+ExecStart=/usr/bin/flock -n /run/lock/live-tick.lock /home/trader/paper-desk/deploy/live_tick.sh
+# hard-kill a hung tick before the next minute fires
+TimeoutStartSec=110
+# the timer is the retry mechanism - never restart a oneshot
+Restart=no
