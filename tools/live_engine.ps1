@@ -29,7 +29,10 @@ $MAXLEV   = 5
 $TPR      = 1.5
 $MIN = [long]60000; $H4 = [long]14400000
 # APT/OP/AAVE: убыточны на бэктесте 2020-26 (PF 0.73/0.57/0.51) - на бумаге форвард-тестятся, в реал не входят
-$EXCLUDED = @('DOGE-USDT','APT-USDT','OP-USDT','AAVE-USDT')
+# 2026-07-14 (решение пользователя, docs/backtests/backtest_current_strategy_2026-07.md): XRP исключён
+# (единственный минус реала: -$1124, WR 37% за 6 лет), DOGE возвращён (+$6544, WR 54%);
+# live-универсум = 16 пар (конфиг noxrp-doge16: +505%, PF 1.40, maxDD 32.5% на 2020-26). Бумага не тронута.
+$EXCLUDED = @('XRP-USDT','APT-USDT','OP-USDT','AAVE-USDT')
 $SYMBOLS  = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
               'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT')
 
