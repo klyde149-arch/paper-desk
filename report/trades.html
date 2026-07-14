@@ -231,6 +231,7 @@
     <button class="tab on" data-market="crypto">Крипта<span class="mini">Bybit · автобот 24/7</span></button>
     <button class="tab" data-market="stocks">Акции<span class="mini">MOEX · momentum-ротация</span></button>
     <button class="tab" data-market="fut">Фьючерсы<span class="mini">MOEX · брейкаут + сателлиты</span></button>
+    <button class="tab" data-market="chal">Челлендж<span class="mini">S4 · $1000 → 30 дней</span></button>
   </nav>
   <nav class="tabs" id="modeRow" style="margin-top:-14px">
     <button class="tab on" data-mode="live">Бумага<span class="mini" id="modeLiveMini">виртуальные $10 000</span></button>
@@ -294,6 +295,28 @@
     <div class="card" style="padding:20px 22px">
       <canvas id="realEqCurve" height="260"></canvas>
       <p class="hint" id="realEqHint"></p>
+    </div>
+  </section>
+
+  <!-- ============ ЧЕЛЛЕНДЖ ($1000 / 30 дней, бумага, S4-пробой) ============ -->
+  <section id="pane-chal-live" style="display:none">
+    <h2>Челлендж — <span class="em">$1000 за 30 дней</span></h2>
+    <div id="chalStatus" class="callout" style="border-left-color:var(--accent)"></div>
+    <div class="kpis" id="chalKpis" style="margin-top:14px;grid-template-columns:repeat(4,1fr)">
+      <div class="kpi"><p class="l">Эквити</p><div class="v num" id="chalEq">—</div><p class="s">старт $1000 · бумага</p></div>
+      <div class="kpi"><p class="l">P&L со старта</p><div class="v num" id="chalPnl">—</div><p class="s">реализованное</p></div>
+      <div class="kpi"><p class="l">День</p><div class="v num" id="chalDay">—</div><p class="s">из 30 · S4 пробой/свип</p></div>
+      <div class="kpi"><p class="l">Сделки (W/L)</p><div class="v num" id="chalWL">—</div><p class="s">1 позиция за раз</p></div>
+    </div>
+
+    <h2>Открытая позиция</h2>
+    <p class="sec-note">Бумажный челлендж: цель — пройти 30 дней от $1000, не опустив счёт до $500. Стратегия S4 (свип-возврат N24, tp 2R), риск 10% на сделку, плечо цель 15×, максимум 1 вход в UTC-день. Настоящих ордеров нет — это симуляция.</p>
+    <div id="chalWrap"></div>
+
+    <h2>Капитал — <span class="em">кривая челленджа</span></h2>
+    <div class="card" style="padding:20px 22px">
+      <canvas id="chalEqCurve" height="260"></canvas>
+      <p class="hint" id="chalEqHint"></p>
     </div>
   </section>
 
@@ -487,7 +510,7 @@
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1783967365"></script>
+<script src="vizdata.js?v=1784044442"></script>
 <script>
 (function(){
   "use strict";
@@ -603,16 +626,18 @@
   })();
   let MARKET = qs.get("market") || localStorage.getItem("term_market") || "crypto";
   let MODE   = qs.get("mode")   || localStorage.getItem("term_mode")   || "live";
-  if(!["crypto","stocks","fut"].includes(MARKET)) MARKET="crypto";
+  if(!["crypto","stocks","fut","chal"].includes(MARKET)) MARKET="crypto";
   if(!["live","real","bt"].includes(MODE)) MODE="live";
-  const PANES=["crypto-live","crypto-real","crypto-bt","stocks-live","stocks-bt","fut-live","fut-bt"];
+  const PANES=["crypto-live","crypto-real","crypto-bt","stocks-live","stocks-bt","fut-live","fut-bt","chal-live"];
   const MODE_MINIS={
     crypto:{live:"позиции · дни · сигналы",         real:"Bybit · живой счёт", bt:"v1/v2 · сравнение · по годам"},
     stocks:{live:"momentum-ротация · сейчас",       bt:"momentum + setup A · история"},
-    fut:   {live:"C2/C3b форвард-тест · открытые",  bt:"брейкаут · walk-forward · портфели"}
+    fut:   {live:"C2/C3b форвард-тест · открытые",  bt:"брейкаут · walk-forward · портфели"},
+    chal:  {live:"S4 пробой/свип · $1000",          bt:"—"}
   };
   function applyNav(){
     if(MODE==="real"&&MARKET!=="crypto") MODE="live";   // «Реал» есть только у крипты
+    if(MARKET==="chal") MODE="live";                    // у челленджа один режим
     localStorage.setItem("term_market",MARKET);
     localStorage.setItem("term_mode",MODE);
     document.querySelectorAll("#marketRow .tab[data-market]").forEach(b=>b.classList.toggle("on",b.dataset.market===MARKET));
@@ -620,6 +645,7 @@
     const key=MARKET+"-"+MODE;
     PANES.forEach(k=>{ const el=$("pane-"+k); if(el) el.style.display=(k===key)?"":"none"; });
     const hk=document.querySelector(".hero-kpis"); if(hk) hk.style.display=(MARKET==="crypto"&&MODE==="live")?"":"none";
+    if($("modeRow")) $("modeRow").style.display=(MARKET==="chal")?"none":"";
     if($("modeRealBtn")) $("modeRealBtn").style.display=(MARKET==="crypto")?"":"none";
     if($("modeLiveMini")) $("modeLiveMini").textContent=MODE_MINIS[MARKET].live;
     if($("modeRealMini")&&MODE_MINIS[MARKET].real) $("modeRealMini").textContent=MODE_MINIS[MARKET].real;
@@ -762,6 +788,32 @@
     });
     const hint=$("realEqHint");
     if(hint) hint.textContent=`Старт лога: $${RL.startEq.toFixed(2)} · пик: $${RL.peak.toFixed(2)} · точек: ${arr(RL.curve).length}. Эквити пишется на каждом событии и раз в 15 минут.`;
+  }
+
+  // ---------- ЧЕЛЛЕНДЖ: бумажный контур $1000/30 дней (VIZ.challenge, S4-пробой) ----------
+  const CH = VIZ.challenge || null;
+  const chalCharts=[];
+  function buildChalPane(){
+    const stEl=$("chalStatus"); if(!stEl) return;
+    if(!CH){ stEl.innerHTML="<b>Данных челленджа пока нет.</b> Как только тик запишет challenge/portfolio.json, вкладка оживёт автоматически."; return; }
+    stEl.style.borderLeftColor=CH.failed?"var(--loss)":(CH.completed?"var(--gain)":"var(--accent)");
+    stEl.innerHTML=`<b>БУМАЖНЫЙ ЧЕЛЛЕНДЖ.</b> Виртуальные $${CH.startEq.toFixed(0)}, цель — пройти ${CH.termDays} дней, не опустив счёт до $500. Стратегия: ${CH.strategy}. `+
+      `Настоящих ордеров нет — это симуляция (последний тик ${CH.lastTickUtc||"—"} UTC).`+
+      (CH.failed?`<br><b style="color:var(--loss)">ЧЕЛЛЕНДЖ ПРОВАЛЕН.</b>`:"")+
+      (CH.completed?`<br><b style="color:var(--gain)">ЧЕЛЛЕНДЖ ПРОЙДЕН.</b>`:"");
+    const pnl=CH.equityNow-CH.startEq, pct=CH.startEq?100*pnl/CH.startEq:0;
+    $("chalEq").textContent="$"+CH.equityNow.toFixed(2);
+    const pe=$("chalPnl"); pe.textContent=(pnl>=0?"+":"−")+"$"+Math.abs(pnl).toFixed(2)+" · "+(pct>=0?"+":"−")+Math.abs(pct).toFixed(2)+"%";
+    pe.className="v num "+(pnl>=0?"pos":"neg");
+    $("chalDay").textContent=CH.dayNumber+" / "+CH.termDays;
+    $("chalWL").textContent=CH.wins+" / "+CH.losses;
+    buildLiveInto($("chalWrap"), arr(CH.openTrades), arr(CH.closed), chalCharts, {
+      idPrefix:"chal-",
+      emptyText:"Сейчас позиция не открыта — движок ждёт лучший сигнал S4 (свип-возврат N24), максимум 1 вход в UTC-день.",
+      ledgerNote:"Сделки бумажного челленджа (P&L — чистый: после комиссий Bybit и фандинга)"
+    });
+    const hint=$("chalEqHint");
+    if(hint) hint.textContent=`Старт $${CH.startEq.toFixed(0)} · пик $${CH.peak.toFixed(2)} · реализованный P&L ${CH.realizedPnl>=0?"+":"−"}$${Math.abs(CH.realizedPnl).toFixed(2)} · комиссии $${CH.fees.toFixed(2)}. Кривая построена по закрытым сделкам.`;
   }
   function drawLiveChart(cv,p,k,st,mL,mR){
     const {ctx,w,h}=setupCanvas(cv);
@@ -1237,6 +1289,7 @@
   // ---------- init ----------
   buildLive();
   buildRealPane();
+  buildChalPane();
   buildSignals();
   buildYearly();
   buildStratTabs();
@@ -1648,6 +1701,7 @@
     else if(k==="stocks-bt"){ if(exM)exM.draw(); if(MOMS)drawEqOn("eqMom",MOMS.equity); }
     else if(k==="fut-live"){ drawRfEq(); drawFutLivePos(); }
     else if(k==="fut-bt"){ if(exF){ exF.draw(); drawCombos(); drawEqOn("eqFut",FUT.equity); } }
+    else if(k==="chal-live"){ chalCharts.forEach(f=>f()); if(CH&&arr(CH.curve).length>1) drawEqOn("chalEqCurve",CH.curve); }
   }
   applyNav();
   addEventListener("resize", redrawActive);
@@ -1655,7 +1709,7 @@
   // ---------- авто-обновление: замечаем новый билд (build.json) → баннер / reload без кэша ----------
   let lastAct=Date.now(); const loadT=Date.now();
   ["mousemove","mousedown","wheel","keydown","touchstart"].forEach(ev=>addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
-  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1783967365"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
+  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1784044442"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
   function bustReload(v){ const u=new URL(location.href); u.searchParams.set("b", v||Date.now()); location.replace(u.toString()); }
   let updBannerShown=false;
   function showUpdBanner(v){
