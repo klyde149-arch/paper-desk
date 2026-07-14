@@ -22,13 +22,39 @@
 
                                   ]
                   },
-    "balance_usd":  838.28,
+    "balance_usd":  833.6,
     "equity_usd":  838.28,
     "peak_equity_usd":  1048.91,
     "day_start_equity_usd":  838.28,
     "day_start_date_utc":  "2026-07-14",
-    "last_entry_day_utc":  "2026-07-13",
-    "open_position":  null,
+    "last_entry_day_utc":  "2026-07-14",
+    "open_position":  {
+                          "id":  "C5",
+                          "symbol":  "BNB-USDT",
+                          "side":  "short",
+                          "entry_utc":  "2026-07-14 06:00",
+                          "signal_bar_utc":  "2026-07-14 05:00",
+                          "entry_ts":  1784008829808,
+                          "entry_price":  569.898979,
+                          "qty":  16.42,
+                          "notional_usd":  9360.23,
+                          "margin_usd":  624.02,
+                          "leverage_effective":  15,
+                          "stop":  575.002857,
+                          "tp":  559.691223,
+                          "liq_price":  605.042749,
+                          "risk_usd":  83.83,
+                          "risk_pct_equity":  10,
+                          "max_hold_until_utc":  "2026-07-16 06:00",
+                          "entry_fee_usd":  4.68,
+                          "funding_accrued_usd":  0,
+                          "score":  0.086,
+                          "thesis":  {
+                                         "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 0.086 из 9 пар",
+                                         "riskPlan":  "риск 83.83$ (10% эквити), стоп 575.002857 (2×ATR 1h), тейк 559.691223 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 605.042749",
+                                         "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
+                                     }
+                      },
     "closed_trades":  [
                           {
                               "id":  "C1",
@@ -127,11 +153,11 @@
                   "total_funding_usd":  -1.01,
                   "realized_pnl_usd":  -161.72
               },
-    "last_check_utc":  "2026-07-14 05:45",
+    "last_check_utc":  "2026-07-14 06:00",
     "auto":  {
                  "schema":  1,
-                 "last_1m_ts":  1784007840000,
-                 "last_scan_1h_ts":  1784001600000,
+                 "last_1m_ts":  1784008740000,
+                 "last_scan_1h_ts":  1784005200000,
                  "paused_day_utc":  null
              }
 }
