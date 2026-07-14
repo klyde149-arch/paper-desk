@@ -128,6 +128,33 @@ switch ($Set) {
       if (Test-Path $src) { Copy-Item $src (Join-Path $v2out "wf_combo_$($f.Substring(3)).json") -Force }
     }
   }
+  'current' {
+    # Full-period backtest of the CURRENT prod strategy (docs\backtests\backtest_current_strategy_2026-07.md):
+    # live-analog gates, risk 1%, MaxConcurrent 3. Three prod universes + a fees/halt sensitivity run.
+    # cur_all20 must reproduce wf_base bit-for-bit (same config) - determinism check.
+    $deep = 'C:\Users\klyde\trading-sim\data\deep'
+    $v2out = 'C:\Users\klyde\trading-sim\data\v2'
+    $all = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
+             'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT')
+    $live16  = @($all | Where-Object { $_ -notin 'DOGE-USDT','APT-USDT','OP-USDT','AAVE-USDT' })
+    $paper19 = @($all | Where-Object { $_ -ne 'DOGE-USDT' })
+    $dcommon = @{ BtcFilter = $true; MaxAtrPct = 3.0; DataDir = $deep; FlatMode = 'skip'; FundingDir = $deep; FundingFilter = $true }
+    $live17 = @($all | Where-Object { $_ -notin 'APT-USDT','OP-USDT','AAVE-USDT' })   # DOGE kept - the pairs-expansion doc's live recommendation
+    $cfgs = @(
+      @{n='live16';      p=@{Symbols=$live16}},
+      @{n='live17';      p=@{Symbols=$live17}},
+      @{n='paper19';     p=@{Symbols=$paper19}},
+      @{n='all20';       p=@{}},
+      @{n='live16_fees'; p=@{Symbols=$live16; FeePct=0.00055; DailyLossHaltPct=0.05}}
+    )
+    foreach ($c in $cfgs) {
+      $rows += RunCfg "cur-$($c.n)" ($dcommon.Clone() + $c.p)
+      foreach ($f in 'bt_trades','bt_equity','bt_monthly') {
+        $src = Join-Path $deep "$f.json"
+        if (Test-Path $src) { Copy-Item $src (Join-Path $v2out "cur_$($c.n)_$($f.Substring(3)).json") -Force }
+      }
+    }
+  }
   'fut' {
     # MOEX FORTS futures research. -Period IS (2020..2023, param selection ONLY here),
     # OOS1 (2024), OOS2 (2025..2026-07, one-shot final), full.
