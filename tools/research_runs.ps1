@@ -1,6 +1,6 @@
 # Research runner: execute backtest.ps1 configs, scrape summary metrics into one table.
 # NOTE: each run overwrites data/bt_*.json - re-run the canonical config after research!
-param([string]$Set = 'flat', [string]$Period = 'IS')
+param([string]$Set = 'flat', [string]$Period = 'IS', [double]$ComboExt = 0, [double]$ComboRsi = 0)
 $ErrorActionPreference = 'Stop'
 $bt = 'C:\Users\klyde\trading-sim\tools\backtest.ps1'
 
@@ -87,6 +87,45 @@ switch ($Set) {
         $src = Join-Path $deep "$f.json"
         if (Test-Path $src) { Copy-Item $src (Join-Path $v2out "$($c.n)_$($f.Substring(3)).json") -Force }
       }
+    }
+  }
+  'antichase' {
+    # Anti-chase walk-forward grid on deep history (protocol: docs\backtests\anti_chase_walkforward.md).
+    # Live-analog gates (BtcFilter + ATR cap 3 + flat-skip + real funding + funding filter) + one knob per run.
+    # Selection happens ONLY on dev windows via tools\analyze_wf_years.ps1; wf_base doubles as the
+    # bit-for-bit regression run for the new default-off params (reference: wf_base0, pre-edit code).
+    $deep = 'C:\Users\klyde\trading-sim\data\deep'
+    $v2out = 'C:\Users\klyde\trading-sim\data\v2'
+    if (-not (Test-Path $v2out)) { New-Item -ItemType Directory -Path $v2out | Out-Null }
+    if (-not (Test-Path (Join-Path $deep 'fng.json'))) { Copy-Item 'C:\Users\klyde\trading-sim\data\fng.json' (Join-Path $deep 'fng.json') }
+    $dcommon = @{ BtcFilter = $true; MaxAtrPct = 3.0; DataDir = $deep; FlatMode = 'skip'; FundingDir = $deep; FundingFilter = $true }
+    $cfgs = @(
+      @{n='base';    p=@{}},
+      @{n='ext1.0';  p=@{MaxExtAtr=1.0}},
+      @{n='ext1.25'; p=@{MaxExtAtr=1.25}},
+      @{n='ext1.5';  p=@{MaxExtAtr=1.5}},
+      @{n='rsi60';   p=@{RsiMaxLong=60}},
+      @{n='rsi65';   p=@{RsiMaxLong=65}}
+    )
+    foreach ($c in $cfgs) {
+      $rows += RunCfg "wf-$($c.n)" ($dcommon.Clone() + $c.p)
+      foreach ($f in 'bt_trades','bt_equity','bt_monthly') {
+        $src = Join-Path $deep "$f.json"
+        if (Test-Path $src) { Copy-Item $src (Join-Path $v2out "wf_$($c.n)_$($f.Substring(3)).json") -Force }
+      }
+    }
+  }
+  'antichase-combo' {
+    # ONE combo run after dev selection: -ComboExt X and/or -ComboRsi Y; stashed as wf_combo_*.
+    $deep = 'C:\Users\klyde\trading-sim\data\deep'
+    $v2out = 'C:\Users\klyde\trading-sim\data\v2'
+    $p = @{ BtcFilter = $true; MaxAtrPct = 3.0; DataDir = $deep; FlatMode = 'skip'; FundingDir = $deep; FundingFilter = $true }
+    if ($ComboExt -gt 0) { $p.MaxExtAtr = $ComboExt }
+    if ($ComboRsi -gt 0) { $p.RsiMaxLong = $ComboRsi }
+    $rows += RunCfg "wf-combo(ext=$ComboExt,rsi=$ComboRsi)" $p
+    foreach ($f in 'bt_trades','bt_equity','bt_monthly') {
+      $src = Join-Path $deep "$f.json"
+      if (Test-Path $src) { Copy-Item $src (Join-Path $v2out "wf_combo_$($f.Substring(3)).json") -Force }
     }
   }
   'fut' {

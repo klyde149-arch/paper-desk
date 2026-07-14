@@ -31,6 +31,8 @@ param(
   [double]$FlatGapPct = 0,    # flat detector override: |EMA20-EMA50|/price*100 < this => flat (0 = flat when index regime == 'range')
   [double]$SlopePctMin = 0,   # per-asset trend strength: require |EMA50 slope| over 10 bars >= this % (0 = off)
   [double]$TrendGapPctMin = 0,# per-asset trend width: require |EMA20-EMA50|/price*100 >= this at entry (0 = off)
+  [double]$MaxExtAtr = 0,     # anti-chase: skip setup-A entries when (close-EMA20)/ATR14 > this in trend direction (0 = off)
+  [double]$RsiMaxLong = 0,    # anti-chase: skip setup-A longs when entry-bar RSI14 > this; shorts mirrored at (100 - this) (0 = off)
   [switch]$EarlyExit,         # v2: close position when 4h close crosses EMA50 against it (regime broken - don't wait for stop)
   [string]$FundingDir = '',   # v2: dir with SYM_funding.json ([{t,r}]) -> real funding costs instead of flat FundingPerBar
   [switch]$FundingFilter,     # v2: block new longs when funding > +0.05%/8h, shorts when < -0.05%/8h (needs FundingDir)
@@ -427,6 +429,17 @@ foreach ($ts in $timeline) {
     }
     if ($TrendGapPctMin -gt 0) { $gapOk = (100*[math]::Abs($e20-$e50)/$cl) -ge $TrendGapPctMin }
 
+    # anti-chase research filters (default off), setup A only: entry-bar extension from EMA20 and RSI cap
+    $extOk = $true; $rsiCapOk = $true
+    if ($MaxExtAtr -gt 0 -and $atr -gt 0) {
+      if ($up)       { $extOk = ((($cl - $e20) / $atr) -le $MaxExtAtr) }
+      elseif ($down) { $extOk = ((($e20 - $cl) / $atr) -le $MaxExtAtr) }
+    }
+    if ($RsiMaxLong -gt 0 -and -not [double]::IsNaN($rsi)) {
+      if ($up)       { $rsiCapOk = ($rsi -le $RsiMaxLong) }
+      elseif ($down) { $rsiCapOk = ($rsi -ge (100 - $RsiMaxLong)) }
+    }
+
     # Donchian breakout setup (-Breakout replaces setup A): close breaks the N-bar channel
     if ($Breakout) {
       if ($i -lt ($BreakoutN + 1)) { continue }
@@ -470,7 +483,7 @@ foreach ($ts in $timeline) {
       $trigger = ($cl -gt $op) -and ($cl -gt $e20) -and ($S[$sym].c[$i-1] -le $S[$sym].ema20[$i-1] -or $S[$sym].rsi[$i-1] -le $rsiCoolTh)
       $fgOk = ($null -eq $fgVal) -or ($fgVal -lt 80)   # block new longs only in extreme greed
       $btcOk = (-not $BtcFilter) -or ($btcTrend -ne 'down')
-      if ($touched -and $rsiCool -and $trigger -and $fgOk -and $btcOk -and $slopeOk -and $gapOk -and $fundOkL) {
+      if ($touched -and $rsiCool -and $trigger -and $fgOk -and $btcOk -and $slopeOk -and $gapOk -and $extOk -and $rsiCapOk -and $fundOkL) {
         $entryRaw = $cl; $entry = $cl * (1 + $SlipPct)
         $swing = ($S[$sym].l[[math]::Max(0,$i-$PullbackLookback)..$i] | Measure-Object -Minimum).Minimum
         $stopDist = [math]::Max($entry - $swing, $AtrStopMult*$atr)
@@ -493,7 +506,7 @@ foreach ($ts in $timeline) {
       $trigger = ($cl -lt $op) -and ($cl -lt $e20) -and ($S[$sym].c[$i-1] -ge $S[$sym].ema20[$i-1] -or $S[$sym].rsi[$i-1] -ge $rsiHotTh)
       $fgOk = ($null -eq $fgVal) -or ($fgVal -gt 20)   # block new shorts only in extreme fear
       $btcOk = (-not $BtcFilter) -or ($btcTrend -ne 'up')
-      if ($touched -and $rsiHot -and $trigger -and $fgOk -and $btcOk -and $slopeOk -and $gapOk -and $fundOkS) {
+      if ($touched -and $rsiHot -and $trigger -and $fgOk -and $btcOk -and $slopeOk -and $gapOk -and $extOk -and $rsiCapOk -and $fundOkS) {
         $entryRaw=$cl; $entry = $cl*(1-$SlipPct)
         $swing = ($S[$sym].h[[math]::Max(0,$i-$PullbackLookback)..$i] | Measure-Object -Maximum).Maximum
         $stopDist=[math]::Max($swing-$entry,$AtrStopMult*$atr)
