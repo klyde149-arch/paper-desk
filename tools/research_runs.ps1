@@ -140,12 +140,16 @@ switch ($Set) {
     $paper19 = @($all | Where-Object { $_ -ne 'DOGE-USDT' })
     $dcommon = @{ BtcFilter = $true; MaxAtrPct = 3.0; DataDir = $deep; FlatMode = 'skip'; FundingDir = $deep; FundingFilter = $true }
     $live17 = @($all | Where-Object { $_ -notin 'APT-USDT','OP-USDT','AAVE-USDT' })   # DOGE kept - the pairs-expansion doc's live recommendation
+    $noxrp15     = @($live16 | Where-Object { $_ -ne 'XRP-USDT' })   # current real universe minus XRP
+    $noxrpDoge16 = @($live17 | Where-Object { $_ -ne 'XRP-USDT' })   # minus XRP, DOGE back in
     $cfgs = @(
-      @{n='live16';      p=@{Symbols=$live16}},
-      @{n='live17';      p=@{Symbols=$live17}},
-      @{n='paper19';     p=@{Symbols=$paper19}},
-      @{n='all20';       p=@{}},
-      @{n='live16_fees'; p=@{Symbols=$live16; FeePct=0.00055; DailyLossHaltPct=0.05}}
+      @{n='live16';       p=@{Symbols=$live16}},
+      @{n='live17';       p=@{Symbols=$live17}},
+      @{n='paper19';      p=@{Symbols=$paper19}},
+      @{n='all20';        p=@{}},
+      @{n='live16_fees';  p=@{Symbols=$live16; FeePct=0.00055; DailyLossHaltPct=0.05}},
+      @{n='noxrp15';      p=@{Symbols=$noxrp15}},
+      @{n='noxrp-doge16'; p=@{Symbols=$noxrpDoge16}}
     )
     foreach ($c in $cfgs) {
       $rows += RunCfg "cur-$($c.n)" ($dcommon.Clone() + $c.p)
