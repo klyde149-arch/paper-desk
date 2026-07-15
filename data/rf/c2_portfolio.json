@@ -12,7 +12,7 @@
                     "core":  {
                                  "equity":  9999.2242466173666,
                                  "month_start_eq":  10000,
-                                 "day_start_eq":  9999.622185059734,
+                                 "day_start_eq":  9999.2242466173666,
                                  "halt_day":  null,
                                  "positions":  [
                                                    {
@@ -25,7 +25,7 @@
                                                        "entry":  3.019094,
                                                        "entry_day":  "2026-07-10",
                                                        "entry_ts":  1783670400000,
-                                                       "stop":  3.2035,
+                                                       "stop":  3.193,
                                                        "tp1":  null,
                                                        "tp1_done":  false,
                                                        "mfe":  2.86,
@@ -34,8 +34,8 @@
                                                        "fees":  0,
                                                        "realized":  0,
                                                        "rolls":  0,
-                                                       "cur":  2.938,
-                                                       "upnl":  101.48
+                                                       "cur":  2.939,
+                                                       "upnl":  100.23
                                                    },
                                                    {
                                                        "id":  "R5",
@@ -56,14 +56,23 @@
                                                        "fees":  0,
                                                        "realized":  0,
                                                        "rolls":  0,
-                                                       "cur":  86,
-                                                       "upnl":  3.44
+                                                       "cur":  86.1,
+                                                       "upnl":  8.07
                                                    }
                                                ],
                                  "pending":  [
-
+                                                 {
+                                                     "kind":  "entry",
+                                                     "sleeve":  "core",
+                                                     "asset":  "RTS",
+                                                     "side":  "short",
+                                                     "created_day":  "2026-07-15",
+                                                     "stop_dist":  7368.571429,
+                                                     "risk_pct":  0.03,
+                                                     "note":  "donchian close 83770 vs [85260 / 106160]"
+                                                 }
                                              ],
-                                 "equity_mtm":  10104.14
+                                 "equity_mtm":  10107.52
                              },
                     "setA":  {
                                  "equity":  9999.5580738563913,
@@ -113,11 +122,11 @@
                                 "equity_mtm":  10000
                             }
                 },
-    "profile_eq":  10181.59,
+    "profile_eq":  10184.97,
     "profile_month_start":  10000,
     "cur_month":  "2026-07",
-    "day_start_eq":  10198.42,
-    "day_start_date":  "2026-07-14",
+    "day_start_eq":  10181.59,
+    "day_start_date":  "2026-07-15",
     "peak_eq":  10254.21,
     "stats":  {
                   "trades":  0,
