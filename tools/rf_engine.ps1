@@ -17,28 +17,21 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')
+. (Join-Path $PSScriptRoot 'lib_rf_signals.ps1')   # сигнальное ядро + константы стратегии + series io (общее с live-контуром)
 
-# ---- константы (эталон: tools\backtest.ps1 futures-набор + backtest_momentum.ps1) ----
+# ---- константы МОДЕЛИ ИСПОЛНЕНИЯ paper (у live-контура свои: реальные комиссии/заявки) ----
 $FUT_FEE = 0.0001; $SLIP = 0.0003; $STOPSLIP = 0.0005
 $MOM_COST = 0.0013
-$ATR_STOP_CORE = 2.0; $ATR_TRAIL = 3.0; $BRK_N = 20; $REARM_N = 10; $REARM_BARS = 15
-$ATR_STOP_A = 1.0; $TPR = 1.5; $PBLOOK = 3; $RSI_TH = 50
-$MAXCONC = 3; $MAXLEV = 3
-$HALT_PCT = 0.06    # DailyLossHalt: репродукция Bfull_r3 показала - 0.06 (замороженный док) ближе к опубликованным C-цифрам
-$MOM_LOOKBACK = 63; $MOM_SKIP = 21; $MOM_TOPK = 4; $MOM_JUMP = 40.0; $IMOEX_EMA = 200
-$ASSETS = @('BR','NG','GOLD','SILV','Si','RTS','CNY','MIX')
-$TICKERS = @('SBER','GAZP','LKOH','ROSN','NVTK','GMKN','TATN','MGNT','VTBR','CHMF','PLZL','YDEX')
 $PROFILES = @(
   @{ id = 'c2';  label = 'C2';  core = 0.03; seta = 0.01; mom = 0.3 },
   @{ id = 'c3b'; label = 'C3b'; core = 0.05; seta = 0.02; mom = 0.5 }
 )
-$H1 = [long]3600000; $DAY = [long]86400000; $MSK = [long]10800000
 
 if ($NowMs -le 0) { $NowMs = UtcNowMs }
 $mskNowMs = $NowMs + $MSK
 $mskToday = MsToUtcDay $mskNowMs
 # дневной бар даты D финален, когда MSK-время >= D+1 00:15 (23:50 закрытие + запас на задержку ISS)
-$completedDay = MsToUtcDay ($mskNowMs - 15 * 60000 - $DAY)
+$completedDay = Get-RfCompletedDay $mskNowMs
 
 $rfDir = Join-Path $Root 'data\rf'
 $serDir = Join-Path $rfDir 'series'
@@ -96,58 +89,7 @@ foreach ($cfg in $PROFILES) {
   $profState[$cfg.id] = $p
 }
 
-# ---- series io: {t,o,h,l,c,v}[] ----
-$script:SER = @{}
-function Get-Ser([string]$Name) {
-  if (-not $script:SER.ContainsKey($Name)) {
-    $raw = Read-JsonFile (Join-Path $serDir "$Name.json")
-    $script:SER[$Name] = New-Object System.Collections.Generic.List[object]
-    foreach ($b in @($raw)) { if ($null -ne $b) { $script:SER[$Name].Add($b) } }
-  }
-  return ,$script:SER[$Name]   # запятая: иначе return разворачивает List в фикс-массив (RemoveAt/Add ломаются)
-}
-function Save-Ser([string]$Name) {
-  if ($script:SER.ContainsKey($Name)) { Write-JsonAtomic (Join-Path $serDir "$Name.json") (ToArr $script:SER[$Name]) 4 }
-}
-function SerDay($bar) { MsToUtcDay ([long]$bar.t) }
-
-# ---- indicators on a series (List[object]) ----
-function Ser-ATR14([System.Collections.Generic.List[object]]$s, [int]$i) {
-  if ($i -lt 14) { return [double]::NaN }
-  $sum = 0.0
-  for ($k = $i - 13; $k -le $i; $k++) {
-    $tr = [double]$s[$k].h - [double]$s[$k].l
-    $a = [math]::Abs([double]$s[$k].h - [double]$s[$k-1].c); if ($a -gt $tr) { $tr = $a }
-    $b = [math]::Abs([double]$s[$k].l - [double]$s[$k-1].c); if ($b -gt $tr) { $tr = $b }
-    $sum += $tr
-  }
-  return $sum / 14.0   # простая средняя TR14 - для живого трейла достаточна (Wilder-сглаживание даёт <2% разницы уровня)
-}
-function Ser-EMA([System.Collections.Generic.List[object]]$s, [int]$p, [int]$i) {
-  if ($i -lt $p - 1) { return [double]::NaN }
-  $k = 2.0 / ($p + 1); $e = 0.0
-  for ($j = 0; $j -lt $p; $j++) { $e += [double]$s[$j].c }
-  $e = $e / $p
-  for ($j = $p; $j -le $i; $j++) { $e = [double]$s[$j].c * $k + $e * (1 - $k) }
-  return $e
-}
-function Ser-RSI14([System.Collections.Generic.List[object]]$s, [int]$i) {
-  if ($i -lt 15) { return [double]::NaN }
-  $g = 0.0; $l = 0.0
-  for ($j = 1; $j -le 14; $j++) { $d = [double]$s[$j].c - [double]$s[$j-1].c; if ($d -gt 0) { $g += $d } else { $l -= $d } }
-  $ag = $g / 14.0; $al = $l / 14.0
-  for ($j = 15; $j -le $i; $j++) {
-    $d = [double]$s[$j].c - [double]$s[$j-1].c
-    $gg = 0.0; $ll = 0.0; if ($d -gt 0) { $gg = $d } else { $ll = -$d }
-    $ag = ($ag * 13 + $gg) / 14.0; $al = ($al * 13 + $ll) / 14.0
-  }
-  if ($al -eq 0) { return 100.0 }
-  return 100.0 - 100.0 / (1.0 + $ag / $al)
-}
-function Ser-IdxOfDay([System.Collections.Generic.List[object]]$s, [string]$day) {
-  for ($i = $s.Count - 1; $i -ge 0; $i--) { $d = SerDay $s[$i]; if ($d -eq $day) { return $i }; if ($d -lt $day) { return -1 } }
-  return -1
-}
+# series io + индикаторы + сигнальные функции - в lib_rf_signals.ps1 (общие с live-контуром)
 
 # ================= ledger / stats =================
 function Rf-CloseFill($cfg, [string]$sleeve, $pos, [double]$px, [long]$tsMsk, [string]$reason, [double]$qty = -1) {
@@ -216,36 +158,14 @@ function Invoke-RfDaily {
   }
   $shared.fronts = [pscustomobject]$frontsRec
 
-  # 2) дотянуть дневные серии до $completedDay
+  # 2) дотянуть дневные серии до $completedDay (общий код с live-контуром - lib_rf_signals)
   $newDays = New-Object System.Collections.Generic.List[string]
   foreach ($a in $ASSETS) {
-    $s = Get-Ser $a
-    # выбросить хвостовые ЧАСТИЧНЫЕ бары (день ещё не завершён на момент прежнего фетча)
-    while ($s.Count -gt 0 -and (SerDay $s[$s.Count - 1]) -gt $completedDay) { $s.RemoveAt($s.Count - 1) }
-    $lastDay = SerDay $s[$s.Count - 1]
-    if ($lastDay -ge $completedDay) { continue }
-    $secid = [string]$shared.active.$a
-    $k = Get-IssCandles 'fut' $secid 24 ((MsToUtc ((UtcStrToMs "$lastDay 00:00") + $DAY)).ToString('yyyy-MM-dd'))
-    foreach ($b in $k) {
-      $d = SerDay $b
-      if ($d -le $lastDay -or $d -gt $completedDay) { continue }
-      $s.Add([pscustomobject]@{ t = [long]$b.t; o = [double]$b.o; h = [double]$b.h; l = [double]$b.l; c = [double]$b.c; v = [double]$b.v })
-    }
-    Save-Ser $a
+    Update-DailySeries $a 'fut' ([string]$shared.active.$a) $completedDay
   }
   foreach ($t in @($TICKERS) + @('IMOEX')) {
-    $s = Get-Ser $t
-    while ($s.Count -gt 0 -and (SerDay $s[$s.Count - 1]) -gt $completedDay) { $s.RemoveAt($s.Count - 1) }
-    $lastDay = SerDay $s[$s.Count - 1]
-    if ($lastDay -ge $completedDay) { continue }
     $kind = if ($t -eq 'IMOEX') { 'index' } else { 'stock' }
-    $k = Get-IssCandles $kind $t 24 ((MsToUtc ((UtcStrToMs "$lastDay 00:00") + $DAY)).ToString('yyyy-MM-dd'))
-    foreach ($b in $k) {
-      $d = SerDay $b
-      if ($d -le $lastDay -or $d -gt $completedDay) { continue }
-      $s.Add([pscustomobject]@{ t = [long]$b.t; o = [double]$b.o; h = [double]$b.h; l = [double]$b.l; c = [double]$b.c; v = [double]$b.v })
-    }
-    Save-Ser $t
+    Update-DailySeries $t $kind $t $completedDay
   }
 
   # 3) хуки: ВСЕ торговые дни в диапазоне (last_daily_day, completedDay] по факту наличия баров в сериях
@@ -319,16 +239,11 @@ function Invoke-RfDayHook([string]$D) {
       foreach ($pos in @($p.sleeves.core.positions | Where-Object { $_.asset -eq $a })) {
         if ([double]$bar.h -gt [double]$pos.mfe -and $pos.side -eq 'long') { $pos.mfe = [double]$bar.h }
         if ([double]$bar.l -lt [double]$pos.mfe -and $pos.side -eq 'short') { $pos.mfe = [double]$bar.l }
-        if (-not [double]::IsNaN($atr)) {
-          if ($pos.side -eq 'long') { $ns = [double]$pos.mfe - $ATR_TRAIL * $atr; if ($ns -gt [double]$pos.stop) { $pos.stop = [math]::Round($ns, 6) } }
-          else { $ns = [double]$pos.mfe + $ATR_TRAIL * $atr; if ($ns -lt [double]$pos.stop) { $pos.stop = [math]::Round($ns, 6) } }
-        }
+        $ns = Get-ChandelierStop ([string]$pos.side) ([double]$pos.mfe) ([double]$pos.stop) $atr
+        if ($null -ne $ns) { $pos.stop = $ns }
       }
       foreach ($pos in @($p.sleeves.setA.positions | Where-Object { $_.asset -eq $a -and $_.tp1_done })) {
-        $e20 = Ser-EMA $s 20 $i
-        if ([double]::IsNaN($e20)) { continue }
-        $brk = if ($pos.side -eq 'long') { [double]$bar.c -lt $e20 } else { [double]$bar.c -gt $e20 }
-        if ($brk) {
+        if (Test-SetAEma20Exit $s $i ([string]$pos.side)) {
           $p.sleeves.setA.pending = ToArr (@($p.sleeves.setA.pending) + [pscustomobject]@{
             kind = 'exit'; pos_id = $pos.id; asset = $a; created_day = $D; reason = 'trail-ema20' })
         }
@@ -338,26 +253,14 @@ function Invoke-RfDayHook([string]$D) {
     # сигналы входа (close-based Donchian, окно без текущего бара) + re-arm
     if ($i -lt ($BRK_N + 1) -or [double]::IsNaN($atr) -or $atr -le 0) { continue }
     $cl = [double]$bar.c
-    $hiN = -1e18; $loN = 1e18
-    for ($k2 = $i - $BRK_N; $k2 -le $i - 1; $k2++) {
-      if ([double]$s[$k2].h -gt $hiN) { $hiN = [double]$s[$k2].h }
-      if ([double]$s[$k2].l -lt $loN) { $loN = [double]$s[$k2].l }
-    }
     foreach ($cfg in $PROFILES) {
       $p = $profState[$cfg.id]
-      # re-arm: укороченный канал в сторону выхода (окно 15 баров этой серии)
-      $chHi = $hiN; $chLo = $loN
+      # re-arm-состояние этого профиля по активу (укороченный канал в сторону выхода)
       $key = "$($cfg.id)_$a"
-      if ($shared.PSObject.Properties['rearm'] -and $shared.rearm.PSObject.Properties[$key]) {
-        $ra = $shared.rearm.$key
-        $exIdx = Ser-IdxOfDay $s ([string]$ra.exit_day)
-        if ($exIdx -ge 0 -and ($i - $exIdx) -ge 1 -and ($i - $exIdx) -le $REARM_BARS -and $i -gt ($REARM_N + 1)) {
-          if ($ra.dir -eq 'long') { $h2 = -1e18; for ($k2 = $i - $REARM_N; $k2 -le $i - 1; $k2++) { if ([double]$s[$k2].h -gt $h2) { $h2 = [double]$s[$k2].h } }; $chHi = $h2 }
-          else { $l2 = 1e18; for ($k2 = $i - $REARM_N; $k2 -le $i - 1; $k2++) { if ([double]$s[$k2].l -lt $l2) { $l2 = [double]$s[$k2].l } }; $chLo = $l2 }
-        }
-      }
-      $side = ''
-      if ($cl -gt $chHi) { $side = 'long' } elseif ($cl -lt $chLo) { $side = 'short' }
+      $ra = if ($shared.PSObject.Properties['rearm'] -and $shared.rearm.PSObject.Properties[$key]) { $shared.rearm.$key } else { $null }
+      $dsig = Get-DonchianSide $s $i $ra
+      $side = [string]$dsig.side
+      $chHi = [double]$dsig.hi; $chLo = [double]$dsig.lo
       if ($side -eq '') { continue }
       $slC = $p.sleeves.core
       if ($slC.halt_day -eq $D) { continue }
@@ -370,44 +273,22 @@ function Invoke-RfDayHook([string]$D) {
       $script:rfEvents.Add("RF SIGNAL [$($cfg.label)/core] $a $side @close $cl")
     }
 
-    # setup A (дневки): тренд + откат к EMA20 + RSI-сброс + триггер
-    $e20d = Ser-EMA $s 20 $i; $e50d = Ser-EMA $s 50 $i; $rsiD = Ser-RSI14 $s $i
-    if (-not ([double]::IsNaN($e20d) -or [double]::IsNaN($e50d) -or [double]::IsNaN($rsiD))) {
-      $up = ($cl -gt $e50d) -and ($e20d -gt $e50d)
-      $dn = ($cl -lt $e50d) -and ($e20d -lt $e50d)
-      $touched = $false; $rsiCool = $false; $rsiHot = $false
-      for ($j = $i - $PBLOOK; $j -lt $i; $j++) {
-        if ($j -lt 0) { continue }
-        $e20j = Ser-EMA $s 20 $j
-        if ([double]::IsNaN($e20j)) { continue }
-        if ($up -and [double]$s[$j].l -le $e20j) { $touched = $true }
-        if ($dn -and [double]$s[$j].h -ge $e20j) { $touched = $true }
-        $rsij = Ser-RSI14 $s $j
-        if (-not [double]::IsNaN($rsij)) { if ($rsij -le $RSI_TH) { $rsiCool = $true }; if ($rsij -ge $RSI_TH) { $rsiHot = $true } }
-      }
-      $e20prev = Ser-EMA $s 20 ($i - 1); $rsiPrev = Ser-RSI14 $s ($i - 1)
-      $op = [double]$bar.o
-      $trigL = $up -and ($cl -gt $op) -and ($cl -gt $e20d) -and (([double]$s[$i-1].c -le $e20prev) -or ($rsiPrev -le $RSI_TH))
-      $trigS = $dn -and ($cl -lt $op) -and ($cl -lt $e20d) -and (([double]$s[$i-1].c -ge $e20prev) -or ($rsiPrev -ge $RSI_TH))
-      $sideA = ''
-      if ($up -and $touched -and $rsiCool -and $trigL) { $sideA = 'long' }
-      elseif ($dn -and $touched -and $rsiHot -and $trigS) { $sideA = 'short' }
-      if ($sideA -ne '') {
-        # свинг-стоп: экстремум последних PBLOOK+1 баров
-        $sw = if ($sideA -eq 'long') { $m = 1e18; for ($j = [math]::Max(0, $i - $PBLOOK); $j -le $i; $j++) { if ([double]$s[$j].l -lt $m) { $m = [double]$s[$j].l } }; $m }
-              else { $m = -1e18; for ($j = [math]::Max(0, $i - $PBLOOK); $j -le $i; $j++) { if ([double]$s[$j].h -gt $m) { $m = [double]$s[$j].h } }; $m }
-        foreach ($cfg in $PROFILES) {
-          $p = $profState[$cfg.id]
-          $slA = $p.sleeves.setA
-          if ($slA.halt_day -eq $D) { continue }
-          $busy = @($slA.positions).Count + @($slA.pending | Where-Object { $_.kind -eq 'entry' }).Count
-          if ($busy -ge $MAXCONC) { continue }
-          if (@($slA.positions | Where-Object { $_.asset -eq $a }).Count -or @($slA.pending | Where-Object { $_.kind -eq 'entry' -and $_.asset -eq $a }).Count) { continue }
-          $slA.pending = ToArr (@($slA.pending) + [pscustomobject]@{
-            kind = 'entry'; sleeve = 'setA'; asset = $a; side = $sideA; created_day = $D
-            swing = [math]::Round($sw, 6); atr = [math]::Round($atr, 6); risk_pct = $cfg.seta; note = 'setup A pullback' })
-          $script:rfEvents.Add("RF SIGNAL [$($cfg.label)/setA] $a $sideA @close $cl")
-        }
+    # setup A (дневки): тренд + откат к EMA20 + RSI-сброс + триггер (lib_rf_signals)
+    $asig = Get-SetupASignal $s $i
+    if ($null -ne $asig) {
+      $sideA = [string]$asig.side
+      $sw = [double]$asig.swing
+      foreach ($cfg in $PROFILES) {
+        $p = $profState[$cfg.id]
+        $slA = $p.sleeves.setA
+        if ($slA.halt_day -eq $D) { continue }
+        $busy = @($slA.positions).Count + @($slA.pending | Where-Object { $_.kind -eq 'entry' }).Count
+        if ($busy -ge $MAXCONC) { continue }
+        if (@($slA.positions | Where-Object { $_.asset -eq $a }).Count -or @($slA.pending | Where-Object { $_.kind -eq 'entry' -and $_.asset -eq $a }).Count) { continue }
+        $slA.pending = ToArr (@($slA.pending) + [pscustomobject]@{
+          kind = 'entry'; sleeve = 'setA'; asset = $a; side = $sideA; created_day = $D
+          swing = [math]::Round($sw, 6); atr = [math]::Round($atr, 6); risk_pct = $cfg.seta; note = 'setup A pullback' })
+        $script:rfEvents.Add("RF SIGNAL [$($cfg.label)/setA] $a $sideA @close $cl")
       }
     }
   }
@@ -418,29 +299,10 @@ function Invoke-RfDayHook([string]$D) {
   if ($ii -gt 0) {
     $prevMonth = (SerDay $ix[$ii - 1]).Substring(0, 7)
     if ($mon -ne $prevMonth) {
-      $gate = $false
-      $ema200 = Ser-EMA $ix $IMOEX_EMA $ii
-      if (-not [double]::IsNaN($ema200)) { $gate = ([double]$ix[$ii].c -gt $ema200) }
-      # скоринг: доходность за 63 дня, заканчивая 21 день назад; только положительные; guard сплитов
-      $scored = New-Object System.Collections.Generic.List[object]
-      foreach ($t in $TICKERS) {
-        $ss = Get-Ser $t
-        $ti = Ser-IdxOfDay $ss $D
-        if ($ti -lt 0) { continue }
-        $iEnd = $ti - $MOM_SKIP; $iBeg = $iEnd - $MOM_LOOKBACK
-        if ($iBeg -lt 1) { continue }
-        $jump = $false
-        for ($j = $iBeg; $j -le $ti; $j++) {
-          $chg = [math]::Abs(100.0 * ([double]$ss[$j].c / [double]$ss[$j-1].c - 1))
-          if ($chg -gt $MOM_JUMP) { $jump = $true; break }
-        }
-        if ($jump) { continue }
-        $score = [double]$ss[$iEnd].c / [double]$ss[$iBeg].c - 1
-        if ($score -le 0) { continue }
-        $scored.Add([pscustomobject]@{ sym = $t; score = $score })
-      }
-      $target = @()
-      if ($gate) { $target = @($scored | Sort-Object score -Descending | Select-Object -First $MOM_TOPK | ForEach-Object { $_.sym }) }
+      # гейт IMOEX>EMA200 + скоринг 63/21 - lib_rf_signals (общий с live-контуром)
+      $msig = Get-MomentumTarget $D
+      $gate = [bool]$msig.gate
+      $target = @($msig.target)
       foreach ($cfg in $PROFILES) {
         $p = $profState[$cfg.id]
         $p.sleeves.mom.pending = ToArr (@($p.sleeves.mom.pending) + [pscustomobject]@{
@@ -460,13 +322,8 @@ function Invoke-RfRoll([string]$a, [string]$fromSec, [string]$toSec, [string]$D,
   if (-not @($kOld).Count -or -not @($kNew).Count) { Write-TickLog $Root "RF roll $a deferred (нет баров $fromSec/$toSec на $D)"; return }
   $pxOld = [double]$kOld[-1].c; $pxNew = [double]$kNew[-1].c
   $ratio = $pxNew / $pxOld
-  # рескейл непрерывной серии: история * ratio (якорь = новый контракт)
-  $s = Get-Ser $a
-  for ($j = 0; $j -lt $s.Count; $j++) {
-    $s[$j].o = [double]$s[$j].o * $ratio; $s[$j].h = [double]$s[$j].h * $ratio
-    $s[$j].l = [double]$s[$j].l * $ratio; $s[$j].c = [double]$s[$j].c * $ratio
-  }
-  Save-Ser $a
+  # рескейл непрерывной серии: история * ratio (якорь = новый контракт) - lib_rf_signals
+  Invoke-SeriesRollRescale $a $ratio
   # позиции: закрыть по старому, переоткрыть по новому (2x комиссия + слип) - честнее бэктеста
   foreach ($cfg in $PROFILES) {
     $p = $profState[$cfg.id]
