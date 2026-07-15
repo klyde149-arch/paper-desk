@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# live_rf_tick.sh - one RF-LIVE tick (T-Invest, C3b) under systemd timer (flock is applied by the unit).
+# Philosophy (same as live_tick.sh): broker safety NEVER depends on git. A failed pull/push only
+# delays state publication; the engine always runs against local state (authoritative for live_rf).
+set -u
+cd "$(dirname "$0")/.."
+
+# 1) pull: receive HALT/HALT_RF_* files and paper-side updates; never block the tick
+if ! git pull --rebase --autostash origin main >/dev/null 2>&1; then
+  git rebase --abort >/dev/null 2>&1 || true
+  echo "WARN: git pull failed - tick continues on local state" >&2
+fi
+
+# 2) the engine (mode is controlled by TINVEST_MODE in /etc/trading-live.env: dryrun|sandbox|prod)
+pwsh -NoProfile -File tools/live_rf_engine.ps1
+rc=$?
+if [ $rc -ne 0 ]; then echo "WARN: live_rf_engine exited rc=$rc" >&2; fi
+
+# 3) push policy: on 15-minute marks; explicit paths ONLY - never 'git add data'
+# (paper files belong to Actions, data/live_real belongs to the Bybit contour)
+minute=$(date -u +%M)
+if [ $((10#$minute % 15)) -eq 0 ]; then
+  git add data/live_rf 2>/dev/null
+  [ -f journal_live_rf.md ] && git add journal_live_rf.md
+  if ! git diff --cached --quiet 2>/dev/null; then
+    git -c user.name='live-desk-bot' -c user.email='live-desk-bot@users.noreply.github.com' \
+      commit -m "rf-live tick $(date -u '+%Y-%m-%d %H:%M') UTC" >/dev/null
+    if ! git push origin main >/dev/null 2>&1; then
+      git fetch origin >/dev/null 2>&1 && git rebase origin/main >/dev/null 2>&1 && git push origin main >/dev/null 2>&1 \
+        || echo "WARN: git push failed - state will retry next tick" >&2
+    fi
+  fi
+fi
+exit 0

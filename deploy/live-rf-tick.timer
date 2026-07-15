@@ -1,0 +1,11 @@
+[Unit]
+Description=paper-desk RF-LIVE tick - every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+# a missed minute must NOT fire late - the next minute covers it
+Persistent=false
+
+[Install]
+WantedBy=timers.target

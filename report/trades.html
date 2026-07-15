@@ -510,7 +510,7 @@
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1784044442"></script>
+<script src="vizdata.js?v=1784142179"></script>
 <script>
 (function(){
   "use strict";
@@ -1569,6 +1569,23 @@
         ${(posRows||holdRows||pendRows)?`<div style="margin-top:8px">${posRows}${holdRows}${pendRows}</div>`:`<p class="s" style="margin-top:8px">позиций нет — бот ждёт сигналы по закрытым дневным барам</p>`}
       </div>`;
     });
+    // РЕАЛ РФ: живой счёт Т-Инвестиций (контур C3b, данные пишет VPS-бот в data/live_rf)
+    const RR = VIZ.rfReal || null;
+    if(RR){
+      const totR=RR.equityNow-RR.startEq, dayR=RR.equityNow-(RR.dayStartEq||RR.startEq);
+      const sgnR=v=>(v>=0?"+":"−")+Math.abs(v).toLocaleString("ru-RU",{maximumFractionDigits:0})+" ₽";
+      const rowSt2='display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--hair2);font-size:12.5px';
+      const posR=(RR.positions||[]).map(x=>`<div style="${rowSt2}"><span>${x.sleeve==="core"?"ядро":"сетап A"} · ${x.asset} <span style="color:var(--faint)">(${x.secid})</span> <b style="color:${x.side==="long"?"var(--gain)":"var(--loss)"}">${x.side==="long"?"ЛОНГ":"ШОРТ"}</b> ${x.lots} лот</span><b>вход ${x.entry}${x.cur!=null?` · тек ${x.cur}`:""}${x.upnl!=null?` · <span class="${x.upnl>=0?"pos":"neg"}">${x.upnl>=0?"+":"−"}${Math.abs(x.upnl).toFixed(0)} ₽</span>`:""} · стоп <span class="neg">${x.stop}</span></b></div>`).join("");
+      const holdR=(RR.holdings||[]).map(h=>`<div style="${rowSt2}"><span>momentum · <b>${h.sym}</b></span><b>${h.lots} лот @ ${h.avg}</b></div>`).join("");
+      const goPct=RR.goBudget>0?Math.round(100*RR.goUsed/RR.goBudget):0;
+      html+=`<div class="kpi" style="padding:16px 18px;border:1px solid #d9a441">
+        <p class="l">РЕАЛ · Т-Инвестиции · C3b${RR.mode!=="prod"?` <span style="color:var(--accent)">[${RR.mode}]</span>`:""}</p>
+        <div class="v ${totR>=0?"pos":"neg"}" style="font-size:24px">${RR.equityNow.toLocaleString("ru-RU",{maximumFractionDigits:0})} ₽</div>
+        <p class="s">всего: <span class="${totR>=0?"pos":"neg"}">${sgnR(totR)}</span> · сегодня: <span class="${dayR>=0?"pos":"neg"}">${sgnR(dayR)}</span> · сделок ${RR.stats?RR.stats.trades:0} (${RR.stats?RR.stats.wins:0}W/${RR.stats?RR.stats.losses:0}L)</p>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--hair);font-size:12px;color:var(--muted)">рукава: ядро ${Math.round(RR.sleeves.core).toLocaleString("ru-RU")} ₽ · сетап A ${Math.round(RR.sleeves.setA).toLocaleString("ru-RU")} ₽ · mom ${Math.round(RR.sleeves.mom).toLocaleString("ru-RU")} ₽ · ГО ${goPct}%${RR.entriesHalt?` · <b style="color:var(--loss)">ВХОДЫ ОСТАНОВЛЕНЫ${RR.haltReason?": "+RR.haltReason:""}</b>`:""}</div>
+        ${(posR||holdR)?`<div style="margin-top:8px">${posR}${holdR}</div>`:`<p class="s" style="margin-top:8px">позиций нет</p>`}
+      </div>`;
+    }
     $("rfKpis").innerHTML=html;
     const wrap=$("rfTradesWrap"); const TR=RF?arr(RF.trades):[];
     if(!TR.length){
@@ -1709,7 +1726,7 @@
   // ---------- авто-обновление: замечаем новый билд (build.json) → баннер / reload без кэша ----------
   let lastAct=Date.now(); const loadT=Date.now();
   ["mousemove","mousedown","wheel","keydown","touchstart"].forEach(ev=>addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
-  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1784044442"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
+  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1784142179"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
   function bustReload(v){ const u=new URL(location.href); u.searchParams.set("b", v||Date.now()); location.replace(u.toString()); }
   let updBannerShown=false;
   function showUpdBanner(v){

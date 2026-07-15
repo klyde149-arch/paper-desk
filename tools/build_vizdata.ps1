@@ -355,6 +355,51 @@ if (Test-Path (Join-Path $rfDir2 'c2_portfolio.json')) {
   }
 }
 
+# ---- РЕАЛ РФ: живой счёт Т-Инвестиций, контур C3b (data\live_rf\*, пишет VPS-бот; опционально) ----
+$rfReal = $null
+$lrDir = Join-Path $dir 'data\live_rf'
+$lrPf = Join-Path $lrDir 'portfolio.json'
+if (Test-Path $lrPf) {
+  $lp = Get-Content $lrPf -Raw -Encoding UTF8 | ConvertFrom-Json
+  $lrCurve = [object[]]@()
+  if (Test-Path (Join-Path $lrDir 'equity.json')) {
+    $lrCurve = [object[]]@((Get-Content (Join-Path $lrDir 'equity.json') -Raw -Encoding UTF8 | ConvertFrom-Json) |
+      Where-Object { $null -ne $_ } | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.total) })
+  }
+  $lrClosed = [object[]]@()
+  if (Test-Path (Join-Path $lrDir 'trades.json')) {
+    $lrClosed = [object[]]@((Get-Content (Join-Path $lrDir 'trades.json') -Raw -Encoding UTF8 | ConvertFrom-Json) | Where-Object { $null -ne $_ })
+  }
+  $lrPos = [object[]]@()
+  foreach ($snName in 'core','setA') {
+    $lrPos += [object[]]@(@($lp.sleeves.$snName.positions) | Where-Object { $null -ne $_ } | ForEach-Object {
+      [ordered]@{ id = $_.id; sleeve = $snName; asset = $_.asset; secid = $_.secid; side = $_.side
+        lots = $_.lots; entry = $_.entry_px_pts; stop = $_.stop_px_pts; tp1 = $_.tp1_px_pts
+        cur = $_.cur_px; upnl = $_.upnl_rub; riskRub = $_.risk_rub; entryDay = $_.entry_day; rolls = $_.rolls } })
+  }
+  $lrHold = [object[]]@(@($lp.sleeves.mom.holdings) | Where-Object { $null -ne $_ } | ForEach-Object {
+    [ordered]@{ sym = $_.sym; lots = $_.lots; lotSize = $_.lot_size; avg = $_.avg_px; last = $_.last_px } })
+  $rfReal = [ordered]@{
+    mode = [string]$lp.mode
+    equityNow = [double]$lp.profile_eq
+    startEq = [double]$lp.meta.base_rub
+    peak = [double]$lp.peak_eq
+    dayStartEq = [double]$lp.day_start_eq
+    entriesHalt = [bool]$lp.entries_halt.active
+    haltReason = [string]$lp.entries_halt.reason
+    goUsed = [double]$lp.go.used_rub
+    goBudget = [double]$lp.go.budget_rub
+    drift = $lp.drift
+    sleeves = [ordered]@{ core = [double]$lp.sleeves.core.equity_mtm; setA = [double]$lp.sleeves.setA.equity_mtm; mom = [double]$lp.sleeves.mom.equity_mtm }
+    positions = $lrPos
+    holdings = $lrHold
+    closed = $lrClosed
+    curve = $lrCurve
+    lastDailyDay = [string]$lp.watermarks.last_daily_day
+    stats = $lp.stats
+  }
+}
+
 # ---- live v2 signal scan (data\signals.json, optional) ----
 $signals = $null
 $sigPath = Join-Path $dir 'data\signals.json'
@@ -576,6 +621,7 @@ $viz = [ordered]@{
   liveClosed = $liveClosed
   liveDaily = $liveDaily
   rfLive = $rfLive
+  rfReal = $rfReal
   failedTrades = $failed
   strategies = $strategies
   deepPrices = $deepPrices
