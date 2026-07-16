@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 117.9,
+  "equity_usd": 117.84,
   "peak_equity_usd": 118.58,
   "day_start_equity_usd": 118.03,
   "day_start_date_utc": "2026-07-16",
@@ -32,7 +32,7 @@
       "risk_usd": 1.18,
       "notional_usd": 40.82,
       "fees_usd": 0.040824,
-      "funding_usd": 0.0194,
+      "funding_usd": 0.0235,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
@@ -71,7 +71,7 @@
       "risk_usd": 0.82,
       "notional_usd": 15.19,
       "fees_usd": 0.015192,
-      "funding_usd": 0.0026,
+      "funding_usd": 0.0041,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
@@ -86,13 +86,52 @@
           "fearGreed": true
         }
       }
+    },
+    {
+      "id": "LT3",
+      "symbol": "LTC-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 1.3,
+      "qty_initial": 1.3,
+      "entry_filled_qty": 0.0,
+      "entry_price": 45.2,
+      "stop": 44.33,
+      "stop0": 44.33,
+      "tp1": 46.51,
+      "tp1_qty": 0.6,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-07-16 16:00",
+      "entry_ts": 1784217604384,
+      "risk_usd": 1.13,
+      "notional_usd": 58.76,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; LTC-USDT 4h up; F&G 25",
+        "riskPlan": "вход ~45.2, стоп 44.33 (1.92%), TP1 46.51 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.13",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
     }
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1784188800000,
-    "last_trail_4h_ts": 1784188800000,
-    "last_exec_ms": 1784188800000,
+    "last_4h_ts": 1784203200000,
+    "last_trail_4h_ts": 1784203200000,
+    "last_exec_ms": 1784217600000,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -107,17 +146,20 @@
       "fcc94e05-9756-4734-bc67-a5360fd7fc6b",
       "7feaac74-03a2-4b2e-b788-35dd9a171cc0",
       "1de313eb-7fa1-4486-9a8c-4ac884391be1",
-      "39fd7598-f18c-4596-82d9-12867596ce02"
+      "39fd7598-f18c-4596-82d9-12867596ce02",
+      "9feb90df-d1e1-4932-8b75-e3240f89e532",
+      "b027598a-9459-4fea-9aef-1332f62809a2"
     ],
-    "next_trade_id": 3,
+    "next_trade_id": 4,
     "halt_day_utc": null,
     "soft_dd": false,
     "consec_api_fail": 0,
     "leverage_set": [
       "BNB-USDT",
-      "SUI-USDT"
+      "SUI-USDT",
+      "LTC-USDT"
     ],
-    "last_tick_utc": "2026-07-16 15:45",
+    "last_tick_utc": "2026-07-16 16:00",
     "last_daily_summary_day": "2026-07-15"
   },
   "week_start_equity_usd": 118.27,
