@@ -142,5 +142,54 @@
                                       "fearGreed":  true
                                   }
                    }
+    },
+    {
+        "id":  "T5",
+        "sym":  "BNB-USDT",
+        "side":  "long",
+        "result":  "loss",
+        "entryUtc":  "2026-07-14 16:04",
+        "entryDay":  "2026-07-14",
+        "entryTs":  1784045078358,
+        "entry":  583.044861,
+        "qty":  6.0886,
+        "exitUtc":  "2026-07-17 07:45",
+        "exitDay":  "2026-07-17",
+        "exitTs":  1784274300000,
+        "exitPx":  566.386665,
+        "exitReason":  "stop",
+        "legs":  [
+                     {
+                         "part":  "stop",
+                         "qty":  6.0886,
+                         "price":  566.386665,
+                         "utc":  "2026-07-17 07:45",
+                         "pnl":  -101.43
+                     }
+                 ],
+        "pnlUsd":  -108.13,
+        "rMultiple":  -1.08,
+        "riskUsd":  99.7,
+        "fees":  3.85,
+        "funding":  2.85,
+        "mfePx":  585.67,
+        "maePx":  566.76,
+        "thesis":  {
+                       "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                       "regime":  "BTC 4h up; BNB-USDT 4h up; F\u0026G 22",
+                       "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-07-14 12:00 UTC",
+                       "indicators":  "RSI 63.1, ATR 0.99% (кэп 3%), фандинг 0.0001/8ч",
+                       "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                       "riskPlan":  "вход ~583.044861, стоп 566.67 (2.78%), TP1 607.607152 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $99.7",
+                       "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                       "checks":  {
+                                      "setupA":  true,
+                                      "btcFilter":  true,
+                                      "flatMode":  true,
+                                      "atrCap":  true,
+                                      "funding":  true,
+                                      "fearGreed":  true
+                                  }
+                   }
     }
 ]
