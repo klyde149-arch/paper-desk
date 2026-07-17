@@ -1,52 +1,52 @@
 {
   "schema": 1,
-  "mode": "dryrun",
+  "mode": "prod",
   "account_id": "2154036525",
   "meta": {
     "profile": "C3b-live",
-    "created": "2026-07-17 13:04",
-    "base_rub": 700000.0,
+    "created": "2026-07-17 16:14",
+    "base_rub": 350000.0,
     "core_risk": 0.05,
     "seta_risk": 0.02,
     "mom_weight": 0.5
   },
   "sleeves": {
     "core": {
-      "eq_rub": 700000.0,
-      "month_start_eq": 700000.0,
-      "day_start_eq": 700000.0,
-      "halt_day": null,
-      "positions": [],
-      "equity_mtm": 700000.0
-    },
-    "setA": {
-      "eq_rub": 700000.0,
-      "month_start_eq": 700000.0,
-      "day_start_eq": 700000.0,
-      "halt_day": null,
-      "positions": [],
-      "equity_mtm": 700000.0
-    },
-    "mom": {
       "eq_rub": 350000.0,
       "month_start_eq": 350000.0,
-      "cash_rub": 350000.0,
+      "day_start_eq": 350000.0,
+      "halt_day": null,
+      "positions": [],
+      "equity_mtm": 350000.0
+    },
+    "setA": {
+      "eq_rub": 350000.0,
+      "month_start_eq": 350000.0,
+      "day_start_eq": 350000.0,
+      "halt_day": null,
+      "positions": [],
+      "equity_mtm": 350000.0
+    },
+    "mom": {
+      "eq_rub": 175000.0,
+      "month_start_eq": 175000.0,
+      "cash_rub": 175000.0,
       "holdings": [],
       "last_rebalance_month": "",
-      "equity_mtm": 350000.0
+      "equity_mtm": 175000.0
     }
   },
-  "profile_eq": 700000.0,
-  "profile_month_start": 700000.0,
+  "profile_eq": 350000.0,
+  "profile_month_start": 350000.0,
   "cur_month": "2026-07",
-  "day_start_eq": 700000.0,
+  "day_start_eq": 350000.0,
   "day_start_date": "2026-07-16",
-  "peak_eq": 700000.0,
+  "peak_eq": 350000.0,
   "watermarks": {
     "last_daily_day": "2026-07-16",
     "last_hour_ts": 1784307600000,
-    "ops_since": "2026-07-17T15:00:32Z",
-    "last_eq_snap": 1784303793155,
+    "ops_since": "2026-07-17T15:15:33Z",
+    "last_eq_snap": 1784304873301,
     "last_report_day": "",
     "orders_day": "",
     "orders_day_n": 0
@@ -119,9 +119,9 @@
   },
   "go": {
     "used_rub": 0.0,
-    "budget_rub": 650000.0,
+    "budget_rub": 300000.0,
     "peak_day_rub": 0.0,
-    "account_liquid_rub": 1414099.51
+    "account_liquid_rub": 1416112.51
   },
   "drift": {
     "D2": 0,
@@ -133,7 +133,7 @@
   },
   "pending_intents": [],
   "next_intent_id": 4,
-  "run_key": "6f7e9e94a25e458ba60a5ea115bad8f3",
+  "run_key": "c0ca6d741c224082b721f593b7a92305",
   "stats": {
     "trades": 0,
     "orders_posted": 0,
