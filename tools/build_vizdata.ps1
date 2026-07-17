@@ -389,6 +389,7 @@ if (Test-Path $lrPf) {
     haltReason = [string]$lp.entries_halt.reason
     goUsed = [double]$lp.go.used_rub
     goBudget = [double]$lp.go.budget_rub
+    accountLiquid = $(if ($lp.go.PSObject.Properties['account_liquid_rub']) { [double]$lp.go.account_liquid_rub } else { $null })
     drift = $lp.drift
     sleeves = [ordered]@{ core = [double]$lp.sleeves.core.equity_mtm; setA = [double]$lp.sleeves.setA.equity_mtm; mom = [double]$lp.sleeves.mom.equity_mtm }
     positions = $lrPos

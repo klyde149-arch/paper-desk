@@ -1582,7 +1582,7 @@
         <p class="l">РЕАЛ · Т-Инвестиции · C3b${RR.mode!=="prod"?` <span style="color:var(--accent)">[${RR.mode}]</span>`:""}</p>
         <div class="v ${totR>=0?"pos":"neg"}" style="font-size:24px">${RR.equityNow.toLocaleString("ru-RU",{maximumFractionDigits:0})} ₽</div>
         <p class="s">всего: <span class="${totR>=0?"pos":"neg"}">${sgnR(totR)}</span> · сегодня: <span class="${dayR>=0?"pos":"neg"}">${sgnR(dayR)}</span> · сделок ${RR.stats?RR.stats.trades:0} (${RR.stats?RR.stats.wins:0}W/${RR.stats?RR.stats.losses:0}L)</p>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--hair);font-size:12px;color:var(--muted)">рукава: ядро ${Math.round(RR.sleeves.core).toLocaleString("ru-RU")} ₽ · сетап A ${Math.round(RR.sleeves.setA).toLocaleString("ru-RU")} ₽ · mom ${Math.round(RR.sleeves.mom).toLocaleString("ru-RU")} ₽ · ГО ${goPct}%${RR.entriesHalt?` · <b style="color:var(--loss)">ВХОДЫ ОСТАНОВЛЕНЫ${RR.haltReason?": "+RR.haltReason:""}</b>`:""}</div>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--hair);font-size:12px;color:var(--muted)">рукава: ядро ${Math.round(RR.sleeves.core).toLocaleString("ru-RU")} ₽ · сетап A ${Math.round(RR.sleeves.setA).toLocaleString("ru-RU")} ₽ · mom ${Math.round(RR.sleeves.mom).toLocaleString("ru-RU")} ₽ · ГО ${goPct}%${RR.accountLiquid!=null?` · счёт (реал): <b>${Math.round(RR.accountLiquid).toLocaleString("ru-RU")} ₽</b>`:""}${RR.entriesHalt?` · <b style="color:var(--loss)">ВХОДЫ ОСТАНОВЛЕНЫ${RR.haltReason?": "+RR.haltReason:""}</b>`:""}</div>
         ${(posR||holdR)?`<div style="margin-top:8px">${posR}${holdR}</div>`:`<p class="s" style="margin-top:8px">позиций нет</p>`}
       </div>`;
     }

@@ -421,6 +421,8 @@ function Update-GoBudget($Margin) {
   if ($null -ne $Margin) {
     if ($Margin.PSObject.Properties['liquid_portfolio']) { $liquid = [double](M2D $Margin.liquid_portfolio).value }
     elseif ($Margin.PSObject.Properties['liquidPortfolio']) { $liquid = [double](M2D $Margin.liquidPortfolio).value }
+    # снапшот РЕАЛЬНОГО счёта для терминала (readonly-данные, обновляется каждый тик)
+    $st.go | Add-Member -NotePropertyName account_liquid_rub -NotePropertyValue ([math]::Round($liquid, 2)) -Force
     $used = 0.0
     if ($Margin.PSObject.Properties['starting_margin']) { $used = [double](M2D $Margin.starting_margin).value }
     elseif ($Margin.PSObject.Properties['startingMargin']) { $used = [double](M2D $Margin.startingMargin).value }
@@ -730,6 +732,24 @@ function Apply-FilledIntent($It) {
     'roll_open' {
       $card = Find-Card ([string]$It.ctx.card_id)
       if ($null -ne $card) { Apply-RollOpen $card $px }
+    }
+    'tp1_fill' {
+      # sandbox-эмуляция TP1 (в проде TP1 - брокерская take-profit заявка, обрабатывается Invoke-Tp1Sync)
+      $card = Find-Card ([string]$It.ctx.card_id)
+      if ($null -ne $card) {
+        if ($px -le 0) { $px = [double]$card.tp1_px_pts }
+        $sm = if ($card.side -eq 'long') { 1.0 } else { -1.0 }
+        $fee = [int]$It.filled_lots * $px * [double]$card.rub_per_pt * [double]$LIVE.fee_est
+        $pnl = $sm * [int]$It.filled_lots * ($px - [double]$card.entry_px_pts) * [double]$card.rub_per_pt - $fee
+        $sl = Get-SleeveRef ([string]$card.sleeve)
+        $sl.eq_rub = [double]$sl.eq_rub + $pnl
+        $card.realized_rub = [double]$card.realized_rub + $pnl
+        $card.fees_rub = [double]$card.fees_rub + $fee
+        $card.lots = [int]$card.lots - [int]$It.filled_lots
+        $card.tp1_done = $true
+        $card.stop_px_pts = [double]$card.entry_px_pts   # стоп в безубыток
+        $script:ev.Add("TP1-emu fill $($card.id) $($card.asset) $([int]$It.filled_lots) лот @$px")
+      }
     }
     'mom_sell' { Apply-MomSell $It $px }
     'mom_buy'  { Apply-MomBuy $It $px }
@@ -1168,6 +1188,19 @@ function Invoke-HourlyPass {
                 side = $dir; lots = [int]$c.lots; ctx = [pscustomobject]@{ card_id = [string]$c.id; reason = 'stop-emu' } }
               Save-State
               [void](Post-IntentMarket $it $dir ([int]$c.lots))
+              continue
+            }
+            # sandbox: эмуляция брокерского TP1 для lots>=2 (в проде это take-profit stop-order)
+            if ($sn -eq 'setA' -and -not $c.tp1_done -and [int]$c.lots_initial -ge 2 -and $null -ne $c.tp1_px_pts) {
+              $hitTp = if ($c.side -eq 'long') { [double]$b.h -ge [double]$c.tp1_px_pts } else { [double]$b.l -le [double]$c.tp1_px_pts }
+              if ($hitTp) {
+                $half = [math]::Floor([int]$c.lots_initial / 2)
+                $dir = if ($c.side -eq 'long') { 'sell' } else { 'buy' }
+                $it = New-Intent 'tp1_fill' @{ sleeve = $sn; asset = $a; ticker = [string]$c.secid; uid = [string]$c.uid
+                  side = $dir; lots = [int]$half; ctx = [pscustomobject]@{ card_id = [string]$c.id } }
+                Save-State
+                [void](Post-IntentMarket $it $dir ([int]$half))
+              }
             }
           }
         }
@@ -1302,9 +1335,11 @@ function Save-EquitySnapshot {
   foreach ($x in @((Read-JsonFile $eqPath))) { if ($null -ne $x) { $eq.Add($x) } }
   $stockVal = 0.0
   foreach ($h in @($st.sleeves.mom.holdings)) { $stockVal += [double]$h.lots * [double]$h.lot_size * [double]$h.last_px }
+  $liq = if ($st.go.PSObject.Properties['account_liquid_rub']) { [double]$st.go.account_liquid_rub } else { $null }
   $eq.Add([pscustomobject]@{ utc = (MsToUtcStr $NowMs); ts = $NowMs
     total = [double]$st.profile_eq; core = [double]$st.sleeves.core.equity_mtm; setA = [double]$st.sleeves.setA.equity_mtm
-    mom = [double]$st.sleeves.mom.equity_mtm; go_used = [double]$st.go.used_rub; stock_val = [math]::Round($stockVal, 0) })
+    mom = [double]$st.sleeves.mom.equity_mtm; go_used = [double]$st.go.used_rub; stock_val = [math]::Round($stockVal, 0)
+    account_liquid = $liq })
   Write-JsonAtomic $eqPath (ToArr $eq) 4
 }
 

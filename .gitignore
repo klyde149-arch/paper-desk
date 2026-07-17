@@ -24,3 +24,13 @@ vps/
 # defense-in-depth: secret files ignored anywhere in the tree
 secrets.txt
 vps_secrets.enc
+
+# T-Invest tokens - local only, NEVER committed (defense vs 'git add -A' in deploy_site)
+.secrets/
+
+# RF-LIVE runtime (VPS): log/cache/lock are local-only; state json IS committed by live_rf_tick.sh
+data/live_rf/tick_log.txt
+data/live_rf/latency_log.csv
+data/live_rf/dryrun_calls.log
+data/live_rf/engine.lock
+data/live_rf/instruments.json

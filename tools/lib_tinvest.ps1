@@ -310,6 +310,36 @@ function Cancel-TiStopOrder([string]$AccId, [string]$StopOrderId) {
   return Invoke-TInvest 'StopOrdersService' 'CancelStopOrder' @{ accountId = $AccId; stopOrderId = $StopOrderId } -Mutating
 }
 
+# ================= песочница (SandboxService; только при TINVEST_MODE=sandbox) =================
+# ВАЖНО: по v2 песочница может жить и на отдельном хосте sandbox-invest-public-api.tinkoff.ru,
+# и на общем invest-public-api.tinkoff.ru (различие - токен). Resolve-TiSandboxBase пробует
+# песочный хост и при сетевой ошибке падает на общий.
+function Resolve-TiSandboxBase {
+  if ($script:TI.mode -ne 'sandbox') { return }
+  try {
+    $null = Invoke-TInvest 'SandboxService' 'GetSandboxAccounts' @{}
+  } catch [System.Net.WebException] {
+    $old = $script:TI.base
+    $script:TI.base = 'https://invest-public-api.tinkoff.ru/rest'
+    try { $null = Invoke-TInvest 'SandboxService' 'GetSandboxAccounts' @{} }
+    catch { $script:TI.base = $old; throw "песочница недоступна ни на sandbox-хосте, ни на общем: $($_.Exception.Message)" }
+  }
+}
+function Get-TiSandboxAccounts { $r = Invoke-TInvest 'SandboxService' 'GetSandboxAccounts' @{}; return @($r.accounts) }
+function Open-TiSandboxAccount([string]$Name = 'rf-live-drill') {
+  $r = Invoke-TInvest 'SandboxService' 'OpenSandboxAccount' @{ name = $Name }
+  return [string]$r.accountId
+}
+function Close-TiSandboxAccount([string]$AccId) {
+  return Invoke-TInvest 'SandboxService' 'CloseSandboxAccount' @{ accountId = $AccId }
+}
+function Invoke-TiSandboxPayIn([string]$AccId, [decimal]$Rub) {
+  $r = Invoke-TInvest 'SandboxService' 'SandboxPayIn' @{ accountId = $AccId
+    amount = @{ units = ([long][math]::Truncate($Rub)).ToString([Globalization.CultureInfo]::InvariantCulture)
+      nano = 0; currency = 'rub' } }
+  return $r
+}
+
 # ================= маппинг статусов заявки -> состояния state machine =================
 # VERIFY точный набор строк статусов REST-gateway
 function ConvertTo-TiOrderPhase([string]$ExecStatus) {
