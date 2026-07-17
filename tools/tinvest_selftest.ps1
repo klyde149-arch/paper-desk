@@ -58,9 +58,9 @@ foreach ($a in $ASSETS) {
       if ($i.PSObject.Properties['lastTradeDate']) { $ltd = ([string]$i.lastTradeDate).Substring(0,10) }
       elseif ($i.PSObject.Properties['last_trade_date']) { $ltd = ([string]$i.last_trade_date).Substring(0,10) }
       $mg = Get-TiFuturesMargin ([string]$i.uid)
-      $goB = (M2D $(if ($mg.PSObject.Properties['initialMarginOnBuy']) { $mg.initialMarginOnBuy } else { $mg.initial_margin_on_buy })).value
-      $amt = Q2D $(if ($mg.PSObject.Properties['minPriceIncrementAmount']) { $mg.minPriceIncrementAmount } else { $mg.min_price_increment_amount })
-      $inc = Q2D $i.min_price_increment
+      $goB = (M2D (Get-TiField $mg 'initial_margin_on_buy')).value
+      $amt = Q2D (Get-TiField $mg 'min_price_increment_amount')
+      $inc = Q2D (Get-TiField $i 'min_price_increment')
       $ltdMatch = if ($ltd -eq [string]$c.lasttrade) { 'ok' } else { "РАСХОЖДЕНИЕ ISS=$($c.lasttrade)" }
       Write-Host ("  {0,-6} uid={1} api={2} lot={3} step={4} step₽={5} ₽/пт={6} ГО={7} ltd={8} [{9}]" -f `
         $c.secid, $i.uid, $flag, $i.lot, $inc, $amt, $(if ($inc -gt 0) { [math]::Round($amt/$inc,4) } else { '?' }), $goB, $ltd, $ltdMatch)
@@ -87,9 +87,9 @@ try {
   $sch = Get-TiTradingSchedules 'FORTS' $from $to
   Write-Host "`nрасписание FORTS (сверить клиринговые окна в live_rf_engine `$CLEARING):"
   foreach ($ex in @($sch.exchanges)) {
-    foreach ($d in @($ex.days | Select-Object -First 3)) {
-      Write-Host ("  {0} trading={1} start={2} end={3} evening={4}-{5} clearing={6}-{7}" -f `
-        ([string]$d.date).Substring(0,10), $d.isTradingDay, $d.startTime, $d.endTime, $d.eveningStartTime, $d.eveningEndTime, $d.clearingStartTime, $d.clearingEndTime)
+    foreach ($d in @($ex.days | Select-Object -First 2)) {
+      # выводим сырой день целиком: фактические имена полей клирингов уточняются по бою
+      Write-Host ("  " + (ConvertTo-Json -InputObject $d -Compress -Depth 4))
     }
   }
 } catch { Write-Warning "TradingSchedules: $($_.Exception.Message)" }

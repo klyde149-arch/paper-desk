@@ -36,9 +36,12 @@ $LIVE = [ordered]@{
   max_orders_day    = 20         # предохранитель флуда (нюанс #11: сделки:заявки не хуже 1:10)
   max_attempts      = 3          # лимит попыток state machine на intent
   fee_est           = 0.0001     # оценка комиссии (модель paper 1bps) до аудита тарифа в Phase 1
-  entry_from = '10:01'; entry_till = '10:15'   # окно входов/выходов «на открытии» (MSK)
-  roll_from  = '10:05'; roll_till  = '18:00'   # окно роллов
-  mom_from   = '10:10'                          # mom-ребаланс
+  # ЕТС-2026 (боевой факт 2026-07-17): торги с 06:00-07:00 MSK (утренняя сессия), paper входит по
+  # open ПЕРВОГО часовика дня -> live-вход с самого утра; TradingStatus-гейт держит интент до
+  # реального открытия инструмента, окно широкое (до 10:15) на случай позднего старта.
+  entry_from = '06:01'; entry_till = '10:15'   # окно входов/выходов «на открытии» (MSK)
+  roll_from  = '06:05'; roll_till  = '18:00'   # окно роллов
+  mom_from   = '06:10'                          # mom-ребаланс
   report_at  = '19:30'                          # дневной отчёт
   whitelist  = @()               # Phase 3: @('CNY','NG'); пусто = весь универсум
   max_lots_override = 0          # Phase 3: 1 (0 = без лимита)
@@ -46,8 +49,9 @@ $LIVE = [ordered]@{
   trade_weekends = $false        # выходные внебиржевые сессии НЕ торгуем (нюанс #8)
   emulate_stops = $false         # sandbox: StopOrders нет -> бот-сайд эмуляция по LastPrices
 }
-# клиринговые паузы MSK (без постановки заявок; точные окна ЕТС-2026 уточняются в Phase 1 по TradingSchedules)
-$CLEARING = @(@('13:58','14:06'), @('18:43','19:06'), @('23:48','23:59'), @('00:00','00:32'))
+# клиринговые паузы MSK. Боевой факт 2026-07-17 (TradingSchedules + бары ISS): в ЕТС промежуточных
+# клирингов НЕТ, только ночной 23:50-00:30 (интервал clearing 20:50-21:30Z).
+$CLEARING = @(@('23:48','23:59'), @('00:00','00:32'))
 
 $lrfDir = Join-Path $Root 'data\live_rf'
 $serDir = Join-Path $lrfDir 'series'   # СОБСТВЕННЫЕ серии live-контура (lib_rf_signals читает $serDir)
@@ -152,7 +156,7 @@ function Get-Inst([string]$Ticker, [string]$Kind) {
   $rec = [pscustomobject]@{
     ticker = $Ticker; kind = $Kind; uid = [string]$info.uid; figi = [string]$info.figi
     lot = [int]$info.lot
-    min_price_increment = [double](Q2D $info.min_price_increment)
+    min_price_increment = [double](Q2D (Get-TiField $info 'min_price_increment'))
     rub_per_pt = 0.0; go_buy = 0.0; go_sell = 0.0
     last_trade_date = ''; expiration = ''
     refreshed = (MsToUtcStr $NowMs)
@@ -165,9 +169,8 @@ function Get-Inst([string]$Ticker, [string]$Kind) {
     if ($rec.go_buy -eq 0 -and $m.PSObject.Properties['initialMarginOnBuy']) { $rec.go_buy = [double](M2D $m.initialMarginOnBuy).value }
     $rec.go_sell = [double](M2D $m.initial_margin_on_sell).value
     if ($rec.go_sell -eq 0 -and $m.PSObject.Properties['initialMarginOnSell']) { $rec.go_sell = [double](M2D $m.initialMarginOnSell).value }
-    $amt = $m.min_price_increment_amount
-    if ($null -eq $amt -and $m.PSObject.Properties['minPriceIncrementAmount']) { $amt = $m.minPriceIncrementAmount }
-    $inc = [double](Q2D $info.min_price_increment)
+    $amt = Get-TiField $m 'min_price_increment_amount'
+    $inc = [double](Q2D (Get-TiField $info 'min_price_increment'))
     $rec.rub_per_pt = if ($inc -gt 0) { [double](Q2D $amt) / $inc } else { 0.0 }
     if ($rec.rub_per_pt -le 0) { throw "инструмент ${Ticker}: не удалось получить стоимость шага (rub_per_pt)" }
   } else {
@@ -189,11 +192,24 @@ function Test-Clearing {
   foreach ($w in $CLEARING) { if ($mskHHmm -ge $w[0] -and $mskHHmm -le $w[1]) { return $true } }
   return $false
 }
-# постановка заявок разрешена: будни, не клиринг, осн.+веч. сессия
+# постановка заявок разрешена: будни, не клиринг, утро+осн.+веч. сессия (ЕТС: торги с ~06:00 MSK)
 function Can-PostOrders {
   if ((Test-Weekend) -and -not $LIVE.trade_weekends) { return $false }
   if (Test-Clearing) { return $false }
-  return ($mskHHmm -ge '10:00' -and $mskHHmm -le '23:47')
+  return ($mskHHmm -ge '06:00' -and $mskHHmm -le '23:47')
+}
+# инструмент реально торгуется сейчас? (утренний старт плавает: гейт держит интенты до открытия)
+$script:tradingStatusCache = @{}
+function Test-InstrumentTrading([string]$Uid) {
+  if ($script:tradingStatusCache.ContainsKey($Uid)) { return $script:tradingStatusCache[$Uid] }
+  $ok = $false
+  try {
+    $r = Get-TiTradingStatus $Uid
+    $stt = [string](Get-TiField $r 'trading_status')
+    $ok = ($stt -eq 'SECURITY_TRADING_STATUS_NORMAL_TRADING')
+  } catch { $ok = $false }   # сбой статуса -> подождать следующего тика (интент живёт до конца окна)
+  $script:tradingStatusCache[$Uid] = $ok
+  return $ok
 }
 
 # ================= intents (write-ahead state machine) =================
@@ -416,17 +432,27 @@ function Invoke-EmergencyClose($Card, [string]$Why) {
 
 # ================= ГО-бюджет =================
 function Update-GoBudget($Margin) {
-  # бюджет = ликвидный портфель - стоимость bot-акций - резерв; used - из MarginAttributes (VERIFY поля)
-  $liquid = 0.0
+  # бюджет = ликвидный портфель - стоимость bot-акций - резерв.
+  # $Margin: объект MarginAttributes ЛИБО @{ liquid; used=$null } из GetPortfolio-фолбэка
+  # (в песочнице MarginAttributes нет - 404, боевой факт 2026-07-17; used тогда = Σ ГО карточек)
   if ($null -ne $Margin) {
-    if ($Margin.PSObject.Properties['liquid_portfolio']) { $liquid = [double](M2D $Margin.liquid_portfolio).value }
-    elseif ($Margin.PSObject.Properties['liquidPortfolio']) { $liquid = [double](M2D $Margin.liquidPortfolio).value }
+    $liquid = 0.0
+    $lp = Get-TiField $Margin 'liquid_portfolio'
+    if ($null -ne $lp) { $liquid = [double](M2D $lp).value }
+    elseif ($Margin.PSObject.Properties['liquid']) { $liquid = [double]$Margin.liquid }
     # снапшот РЕАЛЬНОГО счёта для терминала (readonly-данные, обновляется каждый тик)
     $st.go | Add-Member -NotePropertyName account_liquid_rub -NotePropertyValue ([math]::Round($liquid, 2)) -Force
-    $used = 0.0
-    if ($Margin.PSObject.Properties['starting_margin']) { $used = [double](M2D $Margin.starting_margin).value }
-    elseif ($Margin.PSObject.Properties['startingMargin']) { $used = [double](M2D $Margin.startingMargin).value }
-    $st.go.used_rub = [math]::Round($used, 2)
+    $used = $null
+    $sm = Get-TiField $Margin 'starting_margin'
+    if ($null -ne $sm) { $used = [double](M2D $sm).value }
+    if ($null -eq $used) {
+      # оценка по собственным карточкам (фьючерсы - эксклюзив бота, оценка полна)
+      $used = 0.0
+      foreach ($sn in 'core','setA') {
+        foreach ($c in @($st.sleeves.$sn.positions)) { $used += [double]$c.lots * [double]$c.go_per_lot }
+      }
+    }
+    $st.go.used_rub = [math]::Round([double]$used, 2)
   }
   $stockVal = 0.0
   foreach ($h in @($st.sleeves.mom.holdings)) { $stockVal += [double]$h.lots * [double]$h.lot_size * [double]$h.last_px }
@@ -1023,6 +1049,7 @@ function Invoke-EntryWindow {
   if ($st.entries_halt.active) { return }
   # exits первыми (освобождают ГО), затем entries
   foreach ($it in @($st.pending_intents | Where-Object { $_.kind -eq 'exit' -and $_.state -eq 'INTENT' })) {
+    if (-not (Test-InstrumentTrading ([string]$it.uid))) { continue }   # ждём открытия торгов
     Save-State
     [void](Post-IntentMarket $it ([string]$it.side) ([int]$it.lots))
   }
@@ -1040,6 +1067,7 @@ function Invoke-EntryWindow {
       if ($nx) { $secid = $nx; $inst = Get-Inst $secid 'fut' } else { Set-IntentState $it 'CANCELLED' 'фронт в зоне экспирации'; continue }
     }
     $it.ticker = $secid; $it.uid = [string]$inst.uid
+    if (-not (Test-InstrumentTrading ([string]$inst.uid))) { continue }   # утро: торги ещё не открылись - интент ждёт
     $s = Get-Ser ([string]$it.asset)
     $refPx = [double]$s[$s.Count - 1].c
     $stopDist = [double]$it.ctx.stop_dist
@@ -1082,6 +1110,7 @@ function Invoke-RollWindow {
     foreach ($c in @($st.sleeves.$sn.positions | Where-Object { $_.PSObject.Properties['roll_signal_to'] -and $_.roll_signal_to })) {
       $already = @($st.pending_intents | Where-Object { $_.kind -in @('roll_close','roll_open') -and $_.ctx.card_id -eq $c.id -and $_.state -ne 'EXPIRED' }).Count
       if ($already) { continue }
+      if (-not (Test-InstrumentTrading ([string]$c.uid))) { continue }   # ролл только при открытых торгах
       $toSec = [string]$c.roll_signal_to
       $c.roll_signal_to = $null
       # нога 1: cancel стопа + market-закрытие старого контракта
@@ -1111,6 +1140,7 @@ function Invoke-MomWindow {
     if ($gate -and ($target -contains [string]$h.sym)) { continue }
     $already = @($st.pending_intents | Where-Object { $_.kind -eq 'mom_sell' -and $_.ticker -eq $h.sym -and $_.state -ne 'EXPIRED' }).Count
     if ($already) { $sellsPending = $true; continue }
+    if (-not (Test-InstrumentTrading ([string]$h.uid))) { $sellsPending = $true; continue }   # ждём открытия TQBR
     $it = New-Intent 'mom_sell' @{ sleeve = 'mom'; ticker = [string]$h.sym; uid = [string]$h.uid
       side = 'sell'; lots = [int]$h.lots; ctx = [pscustomobject]@{ ref_px = [double]$h.last_px } }
     Save-State
@@ -1132,6 +1162,7 @@ function Invoke-MomWindow {
         if ($already) { continue }
         $inst = $null
         try { $inst = Get-Inst $n 'share' } catch { $script:ev.Add("MOM SKIP $n : $($_.Exception.Message)"); continue }
+        if (-not (Test-InstrumentTrading ([string]$inst.uid))) { continue }   # buys подождут открытия
         $s = Get-Ser $n
         $px = [double]$s[$s.Count - 1].c
         $lots = [math]::Floor($per / ($px * [double]$inst.lot))
@@ -1382,14 +1413,20 @@ try {
   # 2. выходные: лёгкий тик (сверка раз в ~30 мин, никаких заявок)
   $weekendLight = ((Test-Weekend) -and -not $LIVE.trade_weekends)
 
-  # 3. preflight: маржа/ликвидность; сбой -> тик прерван, вотермарки не двигаются
+  # 3. preflight: маржа/ликвидность; фолбэк MarginAttributes -> GetPortfolio (песочница: 404,
+  # prod без маржиналки: то же); полный сбой -> тик прерван, вотермарки не двигаются
   $margin = $null
   try { $margin = Get-TiMarginAttributes ([string]$st.account_id) } catch {
-    Write-LiveLog "preflight: MarginAttributes недоступны: $($_.Exception.Message)"
-    $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue ([int]$st.consec_fail + 1) -Force
-    if ([int]$st.consec_fail -eq 5) { Alert 'preflight: 5 сбоев подряд' }
-    Save-State
-    return
+    try {
+      $pfPre = Get-TiPortfolio ([string]$st.account_id)
+      $margin = [pscustomobject]@{ liquid = [double](M2D (Get-TiField $pfPre 'total_amount_portfolio')).value }
+    } catch {
+      Write-LiveLog "preflight: маржа и портфель недоступны: $($_.Exception.Message)"
+      $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue ([int]$st.consec_fail + 1) -Force
+      if ([int]$st.consec_fail -eq 5) { Alert 'preflight: 5 сбоев подряд' }
+      Save-State
+      return
+    }
   }
   $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue 0 -Force
   Update-GoBudget $margin

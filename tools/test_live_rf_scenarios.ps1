@@ -106,6 +106,7 @@ function Write-DefaultFixtures([string]$Mock) {
   Write-Json (Join-Path $Mock 'StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @() })
   Write-Json (Join-Path $Mock 'OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @() })
   Write-Json (Join-Path $Mock 'MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @() })
+  Write-Json (Join-Path $Mock 'MarketDataService.GetTradingStatus.json') ([pscustomobject]@{ tradingStatus = 'SECURITY_TRADING_STATUS_NORMAL_TRADING' })
   Write-Json (Join-Path $Mock 'InstrumentsService.FutureBy.json') ([pscustomobject]@{ instrument = [pscustomobject]@{
     uid = 'uid-NGQ6'; figi = 'FUTNG'; ticker = 'NGQ6'; class_code = 'SPBFUT'; lot = 1
     min_price_increment = [pscustomobject]@{ units = '0'; nano = 1000000 }
@@ -450,7 +451,7 @@ function Scn-ClearingGate {
     [pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='10';nano=0} } ) })
   Write-Json (Join-Path $r 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @(
     [pscustomobject]@{ stopOrderId='stop-live-1' } ) })
-  [void](Run-Tick $r '2026-07-15 14:00')
+  [void](Run-Tick $r '2026-07-15 23:50')   # ЕТС: единственный клиринг - ночной 23:50-00:30
   $st = Get-State $r
   Check 'clearing: PostOrder не вызывался' ((Get-Calls $r 'PostOrder').Count -eq 0)
   Check 'clearing: ролл-сигнал не потерян' ([string]@($st.sleeves.core.positions)[0].roll_signal_to -eq 'NGU6')

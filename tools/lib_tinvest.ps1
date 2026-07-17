@@ -137,6 +137,14 @@ function Invoke-TInvest([string]$Service, [string]$Method, $Body = @{}, [switch]
     try {
       $resp = Invoke-WebRequest -Uri $url -Method Post -Headers $headers -Body $bodyJson -TimeoutSec $TimeoutSec -UseBasicParsing
       Write-TiLatency $Service $Method $sw.ElapsedMilliseconds ([string]$resp.StatusCode) $true
+      # PS 5.1 декодирует Content по charset заголовка (часто отсутствует -> latin1 -> кириллица бьётся);
+      # декодируем сырые байты как UTF-8 явно (боевой факт селфтеста 2026-07-17)
+      $raw = $resp.RawContentStream
+      if ($null -ne $raw) {
+        $raw.Position = 0
+        $txt = (New-Object IO.StreamReader($raw, [Text.Encoding]::UTF8)).ReadToEnd()
+        if ($txt) { return ($txt | ConvertFrom-Json) } else { return $null }
+      }
       if ([string]$resp.Content) { return ($resp.Content | ConvertFrom-Json) } else { return $null }
     } catch [System.Net.WebException] {
       $ms = $sw.ElapsedMilliseconds
@@ -186,17 +194,25 @@ function M2D($money) {
   $cur = if ($null -ne $money -and $money.PSObject.Properties['currency']) { [string]$money.currency } else { '' }
   return [pscustomobject]@{ value = (Q2D $money); currency = $cur }
 }
+# поле в snake_case ИЛИ camelCase (REST-gateway отдаёт camelCase - боевой факт селфтеста 2026-07-17)
+function Get-TiField($Obj, [string]$Snake) {
+  if ($null -eq $Obj) { return $null }
+  if ($Obj.PSObject.Properties[$Snake]) { return $Obj.$Snake }
+  $camel = [regex]::Replace($Snake, '_(.)', { $args[0].Groups[1].Value.ToUpper() })
+  if ($Obj.PSObject.Properties[$camel]) { return $Obj.$camel }
+  return $null
+}
 # рублей за 1 пункт цены фьючерса: min_price_increment_amount / min_price_increment
 # КРИТИЧНО для сайзинга (боевой нюанс №1: цены фьючерсов в пунктах, НЕ в рублях)
 function Get-RubPerPoint($futInfo) {
-  $inc = Q2D $futInfo.min_price_increment
-  $amt = Q2D $futInfo.min_price_increment_amount
+  $inc = Q2D (Get-TiField $futInfo 'min_price_increment')
+  $amt = Q2D (Get-TiField $futInfo 'min_price_increment_amount')
   if ($inc -le 0 -or $amt -le 0) { throw "Get-RubPerPoint: нет min_price_increment(_amount) у $($futInfo.ticker)" }
   return $amt / $inc
 }
 function Convert-PtsToRub([decimal]$Pts, $futInfo) { return $Pts * (Get-RubPerPoint $futInfo) }
 function Round-ToIncrement([decimal]$Px, $futInfo) {
-  $inc = Q2D $futInfo.min_price_increment
+  $inc = Q2D (Get-TiField $futInfo 'min_price_increment')
   if ($inc -le 0) { return $Px }
   return [math]::Round([math]::Round($Px / $inc) * $inc, 9)
 }
