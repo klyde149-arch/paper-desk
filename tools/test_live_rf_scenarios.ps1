@@ -209,7 +209,7 @@ function Scn-EntryLostAdopt {
   Check 'lost-adopt: интент LOST после сетевой ошибки' (@($st.pending_intents | Where-Object { $_.state -eq 'LOST' }).Count -eq 1)
   # тик 2: операция в GetOperations -> adopt FILLED
   Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
-    [pscustomobject]@{ id='op1'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_BUY'; quantity='19'
+    [pscustomobject]@{ id='op1'; date='2026-07-15T07:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_BUY'; quantity='19'
       price=[pscustomobject]@{units='2';nano=910000000} } ) })
   # и позиция уже видна у брокера (иначе D2... нет: intent LOST её объясняет)
   [void](Run-Tick $r '2026-07-15 10:06')
@@ -335,7 +335,7 @@ function Scn-D4Confirmed {
   $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
   Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
   Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
-    [pscustomobject]@{ id='op-stop'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='19'
+    [pscustomobject]@{ id='op-stop'; date='2026-07-15T07:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='19'
       price=[pscustomobject]@{units='2';nano=676000000} } ) })
   [void](Run-Tick $r '2026-07-15 11:00')
   $st = Get-State $r
@@ -538,7 +538,7 @@ function Scn-Tp1Sync {
   Write-Json (Join-Path $r 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @(
     [pscustomobject]@{ stopOrderId='stop-live-1' } ) })   # tp-9 исчез = исполнился
   Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
-    [pscustomobject]@{ id='op-tp'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='2'
+    [pscustomobject]@{ id='op-tp'; date='2026-07-15T07:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='2'
       price=[pscustomobject]@{units='3';nano=236000000} } ) })
   [void](Run-Tick $r '2026-07-15 11:00')
   $st = Get-State $r
@@ -633,7 +633,7 @@ function Scn-CrashRecovery {
   Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
   # заявка реально встала и исполнилась: операция есть
   Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
-    [pscustomobject]@{ id='op-c'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_BUY'; quantity='19'
+    [pscustomobject]@{ id='op-c'; date='2026-07-15T07:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_BUY'; quantity='19'
       price=[pscustomobject]@{units='2';nano=908000000} } ) })
   [void](Run-Tick $r '2026-07-15 10:06')   # тик1: POSTED без id -> LOST -> adopt в том же тике полинга
   $st = Get-State $r

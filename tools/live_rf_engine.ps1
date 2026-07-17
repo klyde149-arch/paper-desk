@@ -729,9 +729,21 @@ function Invoke-IntentPolling {
     # исполненные интенты применяем к леджеру/карточкам
     Complete-IntentIfFilled $it
   }
-  # протухшие entry-интенты: живут только свой день до конца окна входов
+  # протухание entry-интентов: paper исполняет ПЕРВЫЙ торговый день ПОСЛЕ created_day (D+1, через
+  # выходные - понедельник). Если в серии уже есть торговый день > created_day и он не сегодня -
+  # окно упущено навсегда; если этот день сегодня - живёт до конца окна входов.
   foreach ($it in @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.state -eq 'INTENT' })) {
-    if ([string]$it.created_day -lt $mskToday -and $mskHHmm -gt [string]$LIVE.entry_till) {
+    if ([string]$it.created_day -ge $mskToday) { continue }
+    $missed = $false
+    try {
+      $sSer = Get-Ser ([string]$it.asset)
+      for ($j = $sSer.Count - 1; $j -ge 0; $j--) {
+        $d = SerDay $sSer[$j]
+        if ($d -le [string]$it.created_day) { break }
+        if ($d -lt $mskToday) { $missed = $true; break }   # торговый день между сигналом и сегодня уже был
+      }
+    } catch {}
+    if ($missed -or ($mskHHmm -gt [string]$LIVE.entry_till)) {
       Set-IntentState $it 'EXPIRED' 'entry window passed'
     }
   }
