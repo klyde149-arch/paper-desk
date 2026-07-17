@@ -16,45 +16,19 @@
                       "day_number":  9,
                       "failed":  false,
                       "completed":  false,
-                      "consecutive_stop_losses":  0,
+                      "consecutive_stop_losses":  1,
                       "pause_next_day":  false,
                       "history":  [
 
                                   ]
                   },
-    "balance_usd":  883.66,
-    "equity_usd":  861.02,
+    "balance_usd":  789.74,
+    "equity_usd":  789.74,
     "peak_equity_usd":  1048.91,
     "day_start_equity_usd":  859.25,
     "day_start_date_utc":  "2026-07-17",
     "last_entry_day_utc":  "2026-07-17",
-    "open_position":  {
-                          "id":  "C7",
-                          "symbol":  "LINK-USDT",
-                          "side":  "long",
-                          "entry_utc":  "2026-07-17 08:58",
-                          "signal_bar_utc":  "2026-07-17 07:00",
-                          "entry_ts":  1784278702083,
-                          "entry_price":  8.173451,
-                          "qty":  657.07,
-                          "notional_usd":  5370.54,
-                          "margin_usd":  358.04,
-                          "leverage_effective":  15,
-                          "stop":  8.038557,
-                          "tp":  8.443239,
-                          "liq_price":  7.669422,
-                          "risk_usd":  88.64,
-                          "risk_pct_equity":  10,
-                          "max_hold_until_utc":  "2026-07-19 08:58",
-                          "entry_fee_usd":  2.69,
-                          "funding_accrued_usd":  0,
-                          "score":  2.191,
-                          "thesis":  {
-                                         "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 2.191 из 9 пар",
-                                         "riskPlan":  "риск 88.64$ (10% эквити), стоп 8.038557 (2×ATR 1h), тейк 8.443239 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 7.669422",
-                                         "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
-                                     }
-                      },
+    "open_position":  null,
     "closed_trades":  [
                           {
                               "id":  "C1",
@@ -185,20 +159,41 @@
                                              "riskPlan":  "риск 74.13$ (10% эквити), стоп 0.169997 (2×ATR 1h), тейк 0.159056 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 0.176608",
                                              "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
                                          }
+                          },
+                          {
+                              "id":  "C7",
+                              "symbol":  "LINK-USDT",
+                              "side":  "long",
+                              "entry_utc":  "2026-07-17 08:58",
+                              "entry":  8.173451,
+                              "qty":  657.07,
+                              "exit_utc":  "2026-07-17 13:11",
+                              "exit":  8.034538,
+                              "reason":  "stop",
+                              "bars_held_h":  4.2,
+                              "pnl_usd":  -96.61,
+                              "fees_usd":  5.33,
+                              "funding_usd":  0,
+                              "r_multiple":  -1.09,
+                              "thesis":  {
+                                             "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 2.191 из 9 пар",
+                                             "riskPlan":  "риск 88.64$ (10% эквити), стоп 8.038557 (2×ATR 1h), тейк 8.443239 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 7.669422",
+                                             "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
+                                         }
                           }
                       ],
     "stats":  {
-                  "trades":  6,
+                  "trades":  7,
                   "wins":  2,
-                  "losses":  4,
-                  "total_fees_usd":  22.26,
+                  "losses":  5,
+                  "total_fees_usd":  24.9,
                   "total_funding_usd":  1,
-                  "realized_pnl_usd":  -113.65
+                  "realized_pnl_usd":  -210.26
               },
-    "last_check_utc":  "2026-07-17 13:04",
+    "last_check_utc":  "2026-07-17 13:13",
     "auto":  {
                  "schema":  1,
-                 "last_1m_ts":  1784293380000,
+                 "last_1m_ts":  1784293860000,
                  "last_scan_1h_ts":  1784289600000,
                  "paused_day_utc":  null
              }
