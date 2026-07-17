@@ -49,8 +49,11 @@ function Test-Converters {
   Check 'RoundInc RTS 85794->85790'  ((Round-ToIncrement ([decimal]85794) $rts) -eq [decimal]85790)
   Check 'RoundInc CNY 11.6864->11.686' ((Round-ToIncrement ([decimal]11.6864) $cny) -eq [decimal]11.686)
 
-  Check 'OrderKey формат' ((New-TiOrderKey 'i0231' 'entry') -eq 'LRF-i0231-entry')
-  Check 'OrderKey <=36 симв' ((New-TiOrderKey 'i999999' 'stopreplace9').Length -le 36)
+  $k1 = New-TiOrderKey 'i0231' 'entry'; $k2 = New-TiOrderKey 'i0231' 'entry'; $k3 = New-TiOrderKey 'i0231' 'fill1'
+  $guidOk = $false; try { [void][guid]::Parse($k1); $guidOk = $true } catch {}
+  Check 'OrderKey: валидный UUID (требование API)' $guidOk
+  Check 'OrderKey: детерминированный (тот же intent -> тот же UUID)' ($k1 -eq $k2)
+  Check 'OrderKey: разные ноги -> разные UUID' ($k1 -ne $k3)
   Check 'phase FILL'    ((ConvertTo-TiOrderPhase 'EXECUTION_REPORT_STATUS_FILL') -eq 'FILLED')
   Check 'phase PARTIAL' ((ConvertTo-TiOrderPhase 'EXECUTION_REPORT_STATUS_PARTIALLYFILL') -eq 'PARTIAL')
   Check 'phase REJECTED'((ConvertTo-TiOrderPhase 'EXECUTION_REPORT_STATUS_REJECTED') -eq 'REJECTED')

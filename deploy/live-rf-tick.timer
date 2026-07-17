@@ -2,7 +2,9 @@
 Description=paper-desk RF-LIVE tick - every minute
 
 [Timer]
-OnCalendar=*-*-* *:*:00
+# :30 - в противофазе с крипто-тиком (live-tick на :00): оба контура делают git pull в одном репо,
+# сдвиг убирает гонку за index.lock
+OnCalendar=*-*-* *:*:30
 AccuracySec=1s
 # a missed minute must NOT fire late - the next minute covers it
 Persistent=false

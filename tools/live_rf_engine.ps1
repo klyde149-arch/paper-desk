@@ -126,6 +126,10 @@ if ($null -eq $st) {
     drift = [pscustomobject]@{ D2 = 0; D4 = 0; D5 = 0; D6 = 0; stocks_deficit = 0; last = '' }
     pending_intents = @()
     next_intent_id = 1
+    # соль идемпотентных order_id: intent-id стартуют с 1 в каждом новом state, а ключи у брокера
+    # глобальны во времени -> без соли пересозданный state ловит «duplicate» на легитимные заявки
+    # (боевой факт песочницы 2026-07-17)
+    run_key = ([guid]::NewGuid().ToString('N'))
     stats = [pscustomobject]@{ trades = 0; orders_posted = 0; fills = 0; wins = 0; losses = 0
       fees_rub = 0.0; realized_rub = 0.0; skipped_qty0 = 0; signal_mismatch = 0 }
   }
@@ -226,7 +230,10 @@ function New-Intent([string]$Kind, [hashtable]$Fields) {
     ctx = $null
   }
   foreach ($k in $Fields.Keys) { $it.$k = $Fields[$k] }
-  $it.order_key = New-TiOrderKey $id ($Kind -replace '_','')
+  if (-not $st.PSObject.Properties['run_key'] -or -not $st.run_key) {
+    $st | Add-Member -NotePropertyName run_key -NotePropertyValue ([guid]::NewGuid().ToString('N')) -Force
+  }
+  $it.order_key = New-TiOrderKey "$($st.run_key)|$id" ($Kind -replace '_','')
   $st.pending_intents = ToArr (@($st.pending_intents) + $it)
   return $it
 }
@@ -253,6 +260,26 @@ function Set-EntriesHalt([string]$Reason) {
   }
 }
 
+# цена филла ЗА ЕДИНИЦУ из ответа PostOrder/GetOrderState. Боевой факт (песочница 2026-07-17):
+# executed_order_price = ИТОГО в РУБЛЯХ за все лоты; пунктовая сумма фьючерса - initial_order_price_pt.
+# Фьючерс -> пункты за 1 лот; акция -> рубли за 1 акцию. $null = не распарсилось (падаем на референс).
+function Get-FillPxPerUnit($It, $Resp, [int]$Lots) {
+  if ($Lots -le 0 -or $null -eq $Resp) { return $null }
+  $isShare = ([string]$It.kind -like 'mom_*')
+  try {
+    if (-not $isShare) {
+      $ptTot = [double](Q2D (Get-TiField $Resp 'initial_order_price_pt'))
+      if ($ptTot -gt 0) { return [math]::Round($ptTot / $Lots, 6) }
+    }
+    $totRub = [double](M2D (Get-TiField $Resp 'executed_order_price')).value
+    if ($totRub -le 0) { return $null }
+    $inst = Get-Inst ([string]$It.ticker) $(if ($isShare) { 'share' } else { 'fut' })
+    if ($isShare) { return [math]::Round($totRub / $Lots / [double]$inst.lot, 6) }
+    if ([double]$inst.rub_per_pt -gt 0) { return [math]::Round($totRub / $Lots / [double]$inst.rub_per_pt, 6) }
+  } catch {}
+  return $null
+}
+
 # постановка market-заявки для intent (write-ahead: Save-State ДО вызова API)
 function Post-IntentMarket($It, [string]$Dir, [int]$Lots) {
   if ((Count-OrdersToday) -ge [int]$LIVE.max_orders_day) { Set-EntriesHalt "orders/day > $($LIVE.max_orders_day)"; return $false }
@@ -268,6 +295,12 @@ function Post-IntentMarket($It, [string]$Dir, [int]$Lots) {
     $script:ev.Add("LOST $($It.id) $($It.kind) $($It.ticker)")
     return $false
   }
+  if ($null -ne $r -and $r.PSObject.Properties['__dup'] -and $r.__dup) {
+    # заявка уже была принята ранее (идемпотентный повтор) - ждём подтверждения через operations
+    Set-IntentState $It 'LOST' 'dup: заявка уже принята, ждём операцию'
+    $script:ev.Add("DUP $($It.id) $($It.kind) $($It.ticker) - adopt по операциям")
+    return $true
+  }
   if ($null -ne $r -and $r.PSObject.Properties['orderId']) { $It.broker_order_id = [string]$r.orderId }
   if ($null -ne $r -and $r.PSObject.Properties['__dryrun'] -and $r.__dryrun) {
     # DRYRUN: внутренняя симуляция - немедленный филл по референс-цене (реального брокера нет)
@@ -280,9 +313,10 @@ function Post-IntentMarket($It, [string]$Dir, [int]$Lots) {
   }
   $phase = if ($null -ne $r -and $r.PSObject.Properties['executionReportStatus']) { ConvertTo-TiOrderPhase ([string]$r.executionReportStatus) } else { 'POSTED' }
   if ($phase -eq 'FILLED') {
-    $It.filled_lots = [int]$It.filled_lots + $Lots   # добор партиала не затирает ранние филлы
-    $px = $null
-    if ($r.PSObject.Properties['executedOrderPrice'] -and $null -ne $r.executedOrderPrice) { $px = [double](M2D $r.executedOrderPrice).value }
+    $execLots = $Lots
+    try { $le = Get-TiField $r 'lots_executed'; if ($null -ne $le -and [int]$le -gt 0) { $execLots = [int]$le } } catch {}
+    $It.filled_lots = [int]$It.filled_lots + $execLots   # добор партиала не затирает ранние филлы
+    $px = Get-FillPxPerUnit $It $r $execLots
     if ($null -ne $px -and $px -gt 0) { $It.avg_fill_px = $px }
     $It.t_fill = $NowMs
     Set-IntentState $It 'FILLED'
@@ -528,8 +562,8 @@ function Invoke-Reconcile($stopIds) {
       $real = if ($brokerFut.ContainsKey([string]$c.uid)) { [double]$brokerFut[[string]$c.uid] } else { 0.0 }
       $want = $sm * [double]$c.lots
       if ($real -eq 0.0) {
-        # D4: вероятно сработала стоп-заявка - подтверждаем по operations
-        $op = Find-FillOperation ([string]$c.uid) $(if ($c.side -eq 'long') { 'sell' } else { 'buy' }) ([int]$c.lots)
+        # D4: вероятно сработала стоп-заявка - подтверждаем по operations (не раньше входа в позицию)
+        $op = Find-FillOperation ([string]$c.uid) $(if ($c.side -eq 'long') { 'sell' } else { 'buy' }) ([int]$c.lots) ([long]$c.entry_ts)
         if ($null -ne $op) {
           $px = [double](M2D $op.price).value
           $fee = [math]::Abs([double]$c.lots) * $px * [double]$c.rub_per_pt * [double]$LIVE.fee_est
@@ -577,13 +611,27 @@ function Get-OpsSince {
   $script:opsCache = @(Get-TiOperations ([string]$st.account_id) ([string]$st.watermarks.ops_since) $to)
   return $script:opsCache
 }
-function Find-FillOperation([string]$Uid, [string]$Dir, [int]$Lots) {
+function Find-FillOperation([string]$Uid, [string]$Dir, [int]$Lots, [long]$SinceMs = 0, [double]$LotSize = 1) {
+  # СТРОГИЙ матчинг (боевой урок 2026-07-17: слабый uid+dir подхватывал СТАРЫЕ операции -> ложные филлы):
+  # инструмент + направление + время (не раньше SinceMs-60с) + количество (лоты или штуки = лоты x лот)
   $want = if ($Dir -eq 'buy') { 'OPERATION_TYPE_BUY' } else { 'OPERATION_TYPE_SELL' }
   foreach ($op in (Get-OpsSince)) {
     if ($null -eq $op) { continue }
-    $ouid = if ($op.PSObject.Properties['instrumentUid']) { [string]$op.instrumentUid } else { [string]$op.instrument_uid }
-    $otype = if ($op.PSObject.Properties['operationType']) { [string]$op.operationType } else { [string]$op.operation_type }
-    if ($ouid -eq $Uid -and $otype -eq $want) { return $op }
+    $ouid = [string](Get-TiField $op 'instrument_uid')
+    $otype = [string](Get-TiField $op 'operation_type')
+    if ($ouid -ne $Uid -or $otype -ne $want) { continue }
+    if ($SinceMs -gt 0) {
+      try {
+        $od = [DateTimeOffset]::Parse([string](Get-TiField $op 'date')).ToUnixTimeMilliseconds()
+        if ($od -lt ($SinceMs - 60000)) { continue }
+      } catch { continue }
+    }
+    if ($Lots -gt 0) {
+      $q = 0.0
+      try { $q = [double][string](Get-TiField $op 'quantity') } catch {}
+      if ($q -ne $Lots -and $q -ne ($Lots * $LotSize)) { continue }
+    }
+    return $op
   }
   return $null
 }
@@ -624,8 +672,7 @@ function Invoke-IntentPolling {
       $phase = ConvertTo-TiOrderPhase ([string]$os.executionReportStatus)
       if ($phase -eq 'FILLED') {
         $it.filled_lots = [int]$it.lots
-        $px = $null
-        if ($os.PSObject.Properties['executedOrderPrice'] -and $null -ne $os.executedOrderPrice) { $px = [double](M2D $os.executedOrderPrice).value }
+        $px = Get-FillPxPerUnit $it $os ([int]$it.lots)
         if ($null -ne $px -and $px -gt 0) { $it.avg_fill_px = $px }
         $it.t_fill = $NowMs
         Set-IntentState $it 'FILLED'
@@ -645,8 +692,11 @@ function Invoke-IntentPolling {
       }
     }
     if ([string]$it.state -eq 'LOST') {
-      # adopt: ищем операцию-исполнение; нет - повторная постановка ТЕМ ЖЕ order_key (идемпотентность)
-      $op = Find-FillOperation ([string]$it.uid) ([string]$it.side) ([int]$it.lots)
+      # adopt: ищем операцию-исполнение НЕ РАНЬШЕ постановки; нет - repost ТЕМ ЖЕ order_key (идемпотентность)
+      $sinceAd = if ([long]$it.t_post -gt 0) { [long]$it.t_post } else { [long]$it.state_ts }
+      $lsAd = 1.0
+      if ([string]$it.kind -like 'mom_*') { try { $lsAd = [double](Get-Inst ([string]$it.ticker) 'share').lot } catch {} }
+      $op = Find-FillOperation ([string]$it.uid) ([string]$it.side) ([int]$it.lots) $sinceAd $lsAd
       if ($null -ne $op) {
         $it.filled_lots = [int]$it.lots
         $it.avg_fill_px = [double](M2D $op.price).value
@@ -1249,7 +1299,7 @@ function Invoke-Tp1Sync($StopIds) {
     # TP1-заявки больше нет: сработала (ищем операцию) или снята
     $dirTp = if ($c.side -eq 'long') { 'sell' } else { 'buy' }
     $half = [math]::Floor([int]$c.lots_initial / 2)
-    $op = Find-FillOperation ([string]$c.uid) $dirTp ([int]$half)
+    $op = Find-FillOperation ([string]$c.uid) $dirTp ([int]$half) ([long]$c.entry_ts)
     if ($null -ne $op) {
       $px = [double](M2D $op.price).value
       $sm = if ($c.side -eq 'long') { 1.0 } else { -1.0 }
@@ -1321,6 +1371,13 @@ function Invoke-Mtm {
 function Invoke-Governors {
   # HARD -35% от пика: закрыть всё + HALT_RF_LIVE (решение пользователя; помнить: бэктест-DD 40-44%)
   $dd = 1.0 - [double]$st.profile_eq / [double]$st.peak_eq
+  if ($dd -gt 0.90) {
+    # санити-гард (урок песочницы 2026-07-17: мусорные котировки дали «DD 25044%»): DD>90% - почти
+    # наверняка ошибка данных, а не рынок -> НЕ флэттенить по ней; стоп входов + ручной разбор
+    Alert ("DD {0:P0} > 90% - похоже на ошибку данных MTM, флэттен НЕ выполняется, входы остановлены" -f $dd)
+    Set-EntriesHalt 'suspicious DD>90% (data error?)'
+    return
+  }
   if ($dd -ge [double]$LIVE.hard_dd) {
     Alert ("HARD-HALT: DD {0:P1} от пика - закрываю всё и останавливаюсь" -f $dd)
     foreach ($sn in 'core','setA') {

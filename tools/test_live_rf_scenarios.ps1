@@ -89,7 +89,7 @@ function New-EntryIntent([string]$Sleeve, [string]$Asset, [string]$Side, [double
   [pscustomobject]@{
     id = 'i00001'; kind = 'entry'; sleeve = $Sleeve; asset = $Asset; ticker = ''; uid = ''
     side = $Side; lots = 0; filled_lots = 0; avg_fill_px = $null
-    order_key = 'LRF-i00001-entry'; broker_order_id = ''
+    order_key = (New-TiOrderKey 'i00001' 'entry'); broker_order_id = ''
     state = 'INTENT'; attempts = 0
     t_signal = (UtcStrToMs '2026-07-14 23:50'); t_post = [long]0; t_ack = [long]0; t_fill = [long]0
     created_day = '2026-07-14'; state_ts = (UtcStrToMs '2026-07-15 00:25'); last_error = ''
@@ -115,9 +115,11 @@ function Write-DefaultFixtures([string]$Mock) {
     initial_margin_on_buy  = [pscustomobject]@{ units = '6340'; nano = 0; currency = 'rub' }
     initial_margin_on_sell = [pscustomobject]@{ units = '6340'; nano = 0; currency = 'rub' }
     min_price_increment_amount = [pscustomobject]@{ units = '7'; nano = 749120000 } })
+  # семантика боевого API: executedOrderPrice = ИТОГО ₽ за все лоты; initialOrderPricePt = пункты за все лоты
   Write-Json (Join-Path $Mock 'OrdersService.PostOrder.json') ([pscustomobject]@{
-    orderId = 'ord-default'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'
-    executedOrderPrice = [pscustomobject]@{ units = '2'; nano = 905000000; currency = 'rub' } })
+    orderId = 'ord-default'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '19'
+    initialOrderPricePt = [pscustomobject]@{ units = '55'; nano = 195000000 }   # 2.905 x 19
+    executedOrderPrice = [pscustomobject]@{ units = '427675'; nano = 0; currency = 'rub' } })
   Write-Json (Join-Path $Mock 'StopOrdersService.PostStopOrder.json') ([pscustomobject]@{ stopOrderId = 'stop-new-1' })
   Write-Json (Join-Path $Mock 'OrdersService.CancelOrder.json') ([pscustomobject]@{})
   Write-Json (Join-Path $Mock 'StopOrdersService.CancelStopOrder.json') ([pscustomobject]@{})
@@ -234,7 +236,8 @@ function Scn-EntryLostRepost {
   if ($posts.Count -eq 2) {
     $k1 = ($posts[0].body | ConvertFrom-Json).orderId
     $k2 = ($posts[1].body | ConvertFrom-Json).orderId
-    Check 'lost-repost: тот же идемпотентный order_key' ($k1 -eq $k2 -and $k1 -eq 'LRF-i00001-entry')
+    $guidOk = $false; try { [void][guid]::Parse($k1); $guidOk = $true } catch {}
+    Check 'lost-repost: тот же идемпотентный order_key (UUID)' ($k1 -eq $k2 -and $guidOk)
   }
 }
 
@@ -560,14 +563,14 @@ function Scn-RollFlow {
     [pscustomobject]@{ stopOrderId='stop-live-1' } ) })
   Set-Queue $r @(
     [pscustomobject]@{ service='OrdersService'; method='PostOrder'; body_like='SELL'
-      response=[pscustomobject]@{ orderId='ord-rc'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'
-        executedOrderPrice=[pscustomobject]@{units='2';nano=900000000} } },
+      response=[pscustomobject]@{ orderId='ord-rc'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'; lotsExecuted='10'
+        initialOrderPricePt=[pscustomobject]@{units='29';nano=0} } },   # 2.9 x 10
     [pscustomobject]@{ service='InstrumentsService'; method='FutureBy'; body_like='NGU6'
       response=[pscustomobject]@{ instrument=[pscustomobject]@{ uid='uid-NGU6'; figi='FUTNGU'; ticker='NGU6'; class_code='SPBFUT'; lot=1
         min_price_increment=[pscustomobject]@{units='0';nano=1000000}; api_trade_available_flag=$true; last_trade_date='2026-09-28T00:00:00Z' } } },
     [pscustomobject]@{ service='OrdersService'; method='PostOrder'; body_like='BUY'
-      response=[pscustomobject]@{ orderId='ord-ro'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'
-        executedOrderPrice=[pscustomobject]@{units='2';nano=950000000} } }
+      response=[pscustomobject]@{ orderId='ord-ro'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'; lotsExecuted='10'
+        initialOrderPricePt=[pscustomobject]@{units='29';nano=500000000} } }   # 2.95 x 10
   )
   [void](Run-Tick $r '2026-07-15 10:30')
   $st = Get-State $r
@@ -593,15 +596,18 @@ function Scn-MomRebalance {
   Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = @(
     [pscustomobject]@{ instrumentUid='uid-GAZP'; instrumentType='share'; quantityLots=[pscustomobject]@{units='100';nano=0} } ) })
   Set-Queue $r @(
+    [pscustomobject]@{ service='InstrumentsService'; method='ShareBy'; body_like='GAZP'
+      response=[pscustomobject]@{ instrument=[pscustomobject]@{ uid='uid-GAZP'; figi='SGAZP'; ticker='GAZP'; class_code='TQBR'; lot=10
+        min_price_increment=[pscustomobject]@{units='0';nano=10000000}; api_trade_available_flag=$true } } },
     [pscustomobject]@{ service='OrdersService'; method='PostOrder'; body_like='SELL'
-      response=[pscustomobject]@{ orderId='ord-ms'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'
-        executedOrderPrice=[pscustomobject]@{units='125';nano=0} } },
+      response=[pscustomobject]@{ orderId='ord-ms'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'; lotsExecuted='100'
+        executedOrderPrice=[pscustomobject]@{units='125000';nano=0} } },   # 100 лот x lot10 x 125₽
     [pscustomobject]@{ service='InstrumentsService'; method='ShareBy'; body_like='SBER'
       response=[pscustomobject]@{ instrument=[pscustomobject]@{ uid='uid-SBER'; figi='SSBER'; ticker='SBER'; class_code='TQBR'; lot=10
         min_price_increment=[pscustomobject]@{units='0';nano=10000000}; api_trade_available_flag=$true } } },
     [pscustomobject]@{ service='OrdersService'; method='PostOrder'; body_like='BUY'
-      response=[pscustomobject]@{ orderId='ord-mb'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'
-        executedOrderPrice=[pscustomobject]@{units='321';nano=0} } }
+      response=[pscustomobject]@{ orderId='ord-mb'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'; lotsExecuted='110'
+        executedOrderPrice=[pscustomobject]@{units='352000';nano=0} } }   # ~110 лот x lot10 x 320₽
   )
   [void](Run-Tick $r '2026-07-15 10:12')
   $st = Get-State $r

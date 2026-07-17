@@ -163,12 +163,21 @@ function Invoke-TInvest([string]$Service, [string]$Method, $Body = @{}, [switch]
       }
       $msg = $respBody
       try { $j = $respBody | ConvertFrom-Json; if ($j.message) { $msg = [string]$j.message } } catch {}
-      if ($http -eq 429 -and $try -lt $maxTry) {
+      # REST-gateway кладёт текст ошибки в grpc-trailer-message при пустом теле (боевой факт 2026-07-17)
+      if (-not $msg) { try { $msg = [string]$wr.Headers['grpc-trailer-message'] } catch {} }
+      if ($http -eq 429) {
         $reset = 5
         try { $h = $wr.Headers['x-ratelimit-reset']; if ($h) { $reset = [math]::Min([int]$h, 60) } } catch {}
-        Start-Sleep -Seconds $reset; continue
+        # мутации на 429 повторять БЕЗОПАСНО: order_id идемпотентен (подтверждено песочницей 2026-07-17
+        # «The order is a duplicate») - один повтор с тем же ключом после паузы
+        if ($Mutating -and $try -eq 1) { Start-Sleep -Seconds $reset; $maxTry = 2; continue }
+        if ($try -lt $maxTry) { Start-Sleep -Seconds $reset; continue }
       }
       if ($http -ge 500 -and $try -lt $maxTry -and -not $Mutating) { Start-Sleep -Seconds (2 * $try); continue }
+      # повтор идемпотентного order_id: «duplicate» = заявка уже принята (боевой факт 2026-07-17,
+      # вариант «...but the order report was not found») -> НЕ ошибка: state machine дождётся
+      # подтверждения через operations (adopt)
+      if ($Mutating -and $msg -match 'duplicate') { return [pscustomobject]@{ __dup = $true; error = $msg } }
       throw "TINVEST_HTTP_$http" + ": $Service.$Method $msg"
     }
   }
@@ -278,9 +287,14 @@ function Get-TiOperations([string]$AccId, [string]$FromIso, [string]$ToIso) {
 }
 
 # ================= ордера =================
-# Клиентский идемпотентный ключ заявки: детерминированный от intent'а, <=36 символов.
-# ПОВТОРНАЯ постановка с тем же orderId НЕ создаёт дубль (VERIFY семантику в Phase 1 - п.1 реестра).
-function New-TiOrderKey([string]$IntentId, [string]$Leg) { return "LRF-$IntentId-$Leg" }
+# Клиентский идемпотентный ключ заявки. Боевой факт (песочница 2026-07-17): orderId ОБЯЗАН быть UUID
+# («order id has invalid UUID format») -> детерминированный UUID из MD5("LRF-{intent}-{leg}"):
+# повтор того же intent+leg даёт ТОТ ЖЕ UUID (идемпотентность сохранена), формат валиден.
+function New-TiOrderKey([string]$IntentId, [string]$Leg) {
+  $md5 = [Security.Cryptography.MD5]::Create()
+  $bytes = $md5.ComputeHash([Text.Encoding]::UTF8.GetBytes("LRF-$IntentId-$Leg"))
+  return (New-Object Guid (,$bytes)).ToString()
+}
 
 function Post-TiMarketOrder([string]$AccId, [string]$Uid, [string]$Dir, [int]$Lots, [string]$OrderKey) {
   $body = @{ accountId = $AccId; instrumentId = $Uid; quantity = ([long]$Lots).ToString()
