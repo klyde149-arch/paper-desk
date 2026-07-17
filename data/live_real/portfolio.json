@@ -2,52 +2,13 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 115.94,
+  "equity_usd": 115.82,
   "peak_equity_usd": 118.58,
   "day_start_equity_usd": 116.66,
   "day_start_date_utc": "2026-07-17",
   "trading_halted": false,
   "entries_halt_reason": "",
   "open_trades": [
-    {
-      "id": "LT1",
-      "symbol": "BNB-USDT",
-      "side": "long",
-      "status": "open",
-      "qty": 0.07,
-      "qty_initial": 0.07,
-      "entry_filled_qty": 0.07,
-      "entry_price": 583.2,
-      "stop": 566.4,
-      "stop0": 566.4,
-      "tp1": 608.4,
-      "tp1_qty": 0.03,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": false,
-      "entry_utc": "2026-07-14 16:00",
-      "entry_ts": 1784044803633,
-      "risk_usd": 1.18,
-      "notional_usd": 40.82,
-      "fees_usd": 0.040824,
-      "funding_usd": 0.0251,
-      "legs": [],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h up; BNB-USDT 4h up; F&G 22",
-        "riskPlan": "вход ~583.2, стоп 566.4 (2.8%), TP1 608.4 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.18",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      }
-    },
     {
       "id": "LT2",
       "symbol": "SUI-USDT",
@@ -131,7 +92,7 @@
   "auto": {
     "last_4h_ts": 1784246400000,
     "last_trail_4h_ts": 1784246400000,
-    "last_exec_ms": 1784246400000,
+    "last_exec_ms": 1784274343491,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -152,7 +113,13 @@
       "67193433-f9a0-50cf-a57e-4e99e7463d62",
       "fe40b782-fa29-403e-b74f-4d55a060995b",
       "a61bb35d-87ad-4f83-a866-f8a65fa217c5",
-      "10e85240-a621-4e09-a825-d23f53b6b376"
+      "10e85240-a621-4e09-a825-d23f53b6b376",
+      "3e187473-2ef2-5d00-8b1b-76a5db595bbe",
+      "191576e8-edaa-53ee-accd-cd8f537aaf76",
+      "9802d0b6-453e-5604-a7ea-0cbed2fffbcf",
+      "dfd12268-0cfb-5547-93b5-796f872fd36c",
+      "9d915e84-72a7-59ac-932e-cbdee73c735c",
+      "a6dc7845-b145-548c-b1b1-30a03973eed9"
     ],
     "next_trade_id": 4,
     "halt_day_utc": null,
@@ -163,7 +130,7 @@
       "SUI-USDT",
       "LTC-USDT"
     ],
-    "last_tick_utc": "2026-07-17 07:45",
+    "last_tick_utc": "2026-07-17 07:46",
     "last_daily_summary_day": "2026-07-16"
   },
   "week_start_equity_usd": 118.27,
