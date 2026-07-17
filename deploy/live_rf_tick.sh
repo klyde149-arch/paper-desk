@@ -4,11 +4,14 @@
 # delays state publication; the engine always runs against local state (authoritative for live_rf).
 set -u
 cd "$(dirname "$0")/.."
+. "$(dirname "$0")/git_sync_watch.sh"
 
 # 1) pull: receive HALT/HALT_RF_* files and paper-side updates; never block the tick
+pull_ok=1
 if ! git pull --rebase --autostash origin main >/dev/null 2>&1; then
   git rebase --abort >/dev/null 2>&1 || true
   echo "WARN: git pull failed - tick continues on local state" >&2
+  pull_ok=0
 fi
 
 # 2) the engine (mode is controlled by TINVEST_MODE in /etc/trading-live.env: dryrun|sandbox|prod)
@@ -31,4 +34,8 @@ if [ $((10#$minute % 15)) -eq 0 ]; then
     fi
   fi
 fi
+
+# 4) publication watchdog: alert to Telegram if our state stops reaching GitHub.
+# Never fails the tick; state timer is gitignored and local to this VPS.
+git_sync_watch "RF T-Invest" "data/live_rf/.git_sync_state" "$pull_ok" "live-rf-tick"
 exit 0

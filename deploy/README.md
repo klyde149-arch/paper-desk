@@ -101,6 +101,7 @@ journalctl -u live-tick -f        # смотреть тики; лог движк
 | Ручная остановка тиков | `sudo systemctl stop live-tick.timer` |
 | Аварийно с телефона | приложение Bybit → закрыть позиции руками (ключ бота этому не мешает) |
 | Снять халт после HALT_CLOSE / −35% | остановить таймер → удалить файл HALT_CLOSE → в `data/live_real/portfolio.json` выставить `"trading_halted": false` и `"entries_halt_reason": ""` → запустить таймер |
+| Алерт «дашборд онемел» | `deploy/git_sync_watch.sh` шлёт в Telegram, если состояние перестало доходить до GitHub (застрявший `git pull`/`push`) дольше `GIT_ALERT_AFTER_MIN` (деф. 30 мин); при восстановлении — «восстановлено». Заглушить: пустые `TG_*` в `/etc/trading-live.env`. Пороги: `GIT_ALERT_AFTER_MIN` / `GIT_ALERT_REPEAT_MIN`. Торговлю НЕ трогает (тик всегда `exit 0`), состояние-таймер `data/live_real/.git_sync_state` — local-only (gitignored). |
 
 ## Гейт масштабирования
 
