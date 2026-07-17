@@ -237,6 +237,11 @@ function Get-TiInstrument([string]$Ticker, [string]$Kind) {
     return $r.instrument
   }
 }
+function Get-TiInstrumentByUid([string]$Uid) {
+  # generic-инструмент по uid (валюты/металлы/что угодно) - для funding-продаж
+  $r = Invoke-TInvest 'InstrumentsService' 'GetInstrumentBy' @{ idType = 'INSTRUMENT_ID_TYPE_UID'; id = $Uid }
+  return $r.instrument
+}
 function Get-TiFuturesMargin([string]$Uid) {
   # initial_margin_on_buy/sell (MoneyValue), min_price_increment_amount (Quotation)
   return Invoke-TInvest 'InstrumentsService' 'GetFuturesMargin' @{ instrumentId = $Uid }

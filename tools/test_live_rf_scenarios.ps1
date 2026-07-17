@@ -107,6 +107,8 @@ function Write-DefaultFixtures([string]$Mock) {
   Write-Json (Join-Path $Mock 'OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @() })
   Write-Json (Join-Path $Mock 'MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @() })
   Write-Json (Join-Path $Mock 'MarketDataService.GetTradingStatus.json') ([pscustomobject]@{ tradingStatus = 'SECURITY_TRADING_STATUS_NORMAL_TRADING' })
+  Write-Json (Join-Path $Mock 'OperationsService.GetPositions.json') ([pscustomobject]@{
+    money = @([pscustomobject]@{ currency = 'rub'; units = '700000'; nano = 0 }) })
   Write-Json (Join-Path $Mock 'InstrumentsService.FutureBy.json') ([pscustomobject]@{ instrument = [pscustomobject]@{
     uid = 'uid-NGQ6'; figi = 'FUTNG'; ticker = 'NGQ6'; class_code = 'SPBFUT'; lot = 1
     min_price_increment = [pscustomobject]@{ units = '0'; nano = 1000000 }
@@ -641,6 +643,36 @@ function Scn-CrashRecovery {
   Check 'crash: PostOrder НЕ дублировался' ((Get-Calls $r 'PostOrder').Count -eq 0)
 }
 
+# --- 25b. funding: рублей нет -> бот продаёт серебро под ГО и входит
+function Scn-Funding {
+  $r = New-Scenario 'funding'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{ funding = @('uid-XAG') })
+  Write-Json (Join-Path $r 'mock\InstrumentsService.GetInstrumentBy.json') ([pscustomobject]@{ instrument = [pscustomobject]@{
+    uid = 'uid-XAG'; ticker = 'SLVRUB_TOM'; class_code = 'CETS'; lot = 100
+    min_price_increment = [pscustomobject]@{ units = '0'; nano = 50000000 }
+    api_trade_available_flag = $true } })
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @(
+    [pscustomobject]@{ instrumentUid = 'uid-XAG'; price = [pscustomobject]@{ units = '139'; nano = 100000000 } } ) })
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = @(
+    [pscustomobject]@{ instrumentUid = 'uid-XAG'; instrumentType = 'currency'; quantityLots = [pscustomobject]@{ units = '18'; nano = 0 } } ) })
+  Set-Queue $r @(
+    [pscustomobject]@{ service='OperationsService'; method='GetPositions'
+      response=[pscustomobject]@{ money = @([pscustomobject]@{ currency='rub'; units='1000'; nano=0 }) } },
+    [pscustomobject]@{ service='OperationsService'; method='GetPositions'
+      response=[pscustomobject]@{ money = @([pscustomobject]@{ currency='rub'; units='300000'; nano=0 }) } }
+  )
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $posts = Get-Calls $r 'PostOrder'
+  $sellXag = @($posts | Where-Object { $_.body -match 'uid-XAG' -and $_.body -match 'SELL' })
+  Check 'funding: серебро продано под ГО' ($sellXag.Count -eq 1)
+  Check 'funding: вход состоялся после продажи' (@($st.sleeves.core.positions).Count -eq 1)
+  Check 'funding: funding-интент погашен' (@($st.pending_intents | Where-Object { $_.kind -eq 'funding_sell' }).Count -eq 0)
+}
+
 # --- 26. DRYRUN e2e: полный цикл входа БЕЗ ЕДИНОГО мутирующего вызова наружу
 function Scn-DryrunE2e {
   $r = New-Scenario 'dryrun-e2e'
@@ -673,6 +705,6 @@ $scenarios = @(
   ${function:Scn-D6Repost}, ${function:Scn-D6Fail}, ${function:Scn-StocksDeficit}, ${function:Scn-StocksSurplus},
   ${function:Scn-ClearingGate}, ${function:Scn-Weekend}, ${function:Scn-HaltEntriesFile}, ${function:Scn-HaltCloseFile},
   ${function:Scn-FloodCap}, ${function:Scn-Tp1Sync}, ${function:Scn-RollFlow}, ${function:Scn-MomRebalance},
-  ${function:Scn-CrashRecovery}, ${function:Scn-DryrunE2e}
+  ${function:Scn-CrashRecovery}, ${function:Scn-Funding}, ${function:Scn-DryrunE2e}
 )
 foreach ($fn in $scenarios) { & $fn }

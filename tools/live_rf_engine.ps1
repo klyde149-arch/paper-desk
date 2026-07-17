@@ -48,6 +48,11 @@ $LIVE = [ordered]@{
   mom_enabled = $true            # Phase 3: $false
   trade_weekends = $false        # выходные внебиржевые сессии НЕ торгуем (нюанс #8)
   emulate_stops = $false         # sandbox: StopOrders нет -> бот-сайд эмуляция по LastPrices
+  # авто-финансирование (решение пользователя 2026-07-17): рублей на счёте почти нет, ликвидность
+  # лежит в USD и серебре; перед сделкой бот продаёт funding-инструменты НА НУЖНУЮ СУММУ.
+  # Список uid в порядке приоритета продажи. USD (CNGDOTC) через API НЕ торгуется - при нехватке
+  # сверх funding-пула бот шлёт Telegram-алерт «продайте вручную».
+  funding = @()
 }
 # клиринговые паузы MSK. Боевой факт 2026-07-17 (TradingSchedules + бары ISS): в ЕТС промежуточных
 # клирингов НЕТ, только ночной 23:50-00:30 (интервал clearing 20:50-21:30Z).
@@ -464,6 +469,83 @@ function Invoke-EmergencyClose($Card, [string]$Why) {
   Set-EntriesHalt "emergency close $($Card.id): $Why"
 }
 
+# ================= авто-финансирование (продажа USD/серебра под сделку) =================
+function Get-FreeRub {
+  try {
+    $ps = Get-TiPositions ([string]$st.account_id)
+    foreach ($m in @($ps.money)) {
+      if ($null -eq $m) { continue }
+      $v = M2D $m
+      if ([string]$v.currency -eq 'rub') { return [double]$v.value }
+    }
+  } catch { Write-LiveLog "Get-FreeRub: $($_.Exception.Message)" }
+  return 0.0
+}
+$script:instUidCache = @{}
+function Get-InstUid([string]$Uid) {
+  if ($script:instUidCache.ContainsKey($Uid)) { return $script:instUidCache[$Uid] }
+  $i = Get-TiInstrumentByUid $Uid
+  $script:instUidCache[$Uid] = $i
+  return $i
+}
+# Обеспечить NeedRub свободных рублей: продать funding-инструменты (конфиг, приоритет по порядку)
+# ровно на дефицит. false = рублей пока нет (интент останется INTENT и ретраится следующим тиком).
+function Ensure-RubFunding([double]$NeedRub, [string]$Why) {
+  $free = Get-FreeRub
+  if ($free -ge $NeedRub) { return $true }
+  if ($mode -eq 'dryrun') { return $true }   # dryrun: финансирование виртуально
+  $deficit = $NeedRub - $free
+  $soldAny = $false
+  foreach ($fu in @($LIVE.funding)) {
+    if ($deficit -le 0) { break }
+    $uid = [string]$fu
+    # уже висит непогашенная funding-продажа? не дублировать
+    if (@($st.pending_intents | Where-Object { $_.kind -eq 'funding_sell' -and $_.uid -eq $uid -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count) { $soldAny = $true; continue }
+    $inst = $null
+    try { $inst = Get-InstUid $uid } catch { Write-LiveLog "funding: инструмент $uid недоступен: $($_.Exception.Message)"; continue }
+    $apiOk = (Get-TiField $inst 'api_trade_available_flag')
+    if ($apiOk -ne $true) { Write-LiveLog "funding: $($inst.ticker) api_trade=false - пропуск"; continue }
+    $lotSize = [double]$inst.lot
+    # сколько есть у пользователя
+    $availLots = 0.0
+    try {
+      $pfF = Get-TiPortfolio ([string]$st.account_id)
+      foreach ($p in @($pfF.positions)) {
+        if ($null -ne $p -and [string](Get-TiField $p 'instrument_uid') -eq $uid) { $availLots = [double](Q2D (Get-TiField $p 'quantity_lots')) }
+      }
+    } catch {}
+    if ($availLots -lt 1) { continue }
+    $px = 0.0
+    try {
+      foreach ($lp in (Get-TiLastPrices @($uid))) { if ($null -ne $lp) { $px = [double](Q2D $lp.price) } }
+    } catch {}
+    if ($px -le 0) { continue }
+    $lotRub = $px * $lotSize
+    $sellLots = [math]::Ceiling($deficit / $lotRub)
+    if ($sellLots -gt $availLots) { $sellLots = [math]::Floor($availLots) }
+    if ($sellLots -lt 1) { continue }
+    $it = New-Intent 'funding_sell' @{ sleeve = 'funding'; asset = [string]$inst.ticker; ticker = [string]$inst.ticker
+      uid = $uid; side = 'sell'; lots = [int]$sellLots
+      ctx = [pscustomobject]@{ why = $Why; ref_px = $px; lot_rub = [math]::Round($lotRub, 2) } }
+    Save-State
+    $script:ev.Add("FUNDING SELL $($inst.ticker) $sellLots лот (~$([math]::Round($sellLots*$lotRub,0)) ₽) для: $Why")
+    [void](Post-IntentMarket $it 'sell' ([int]$sellLots))
+    $soldAny = $true
+    $deficit -= $sellLots * $lotRub * 0.995
+  }
+  if ($soldAny) {
+    Start-Sleep -Seconds 3   # внутренние конверсии зачисляются быстро; иначе вход ретраится тиком
+    if ((Get-FreeRub) -ge $NeedRub) { return $true }
+  }
+  # рублей всё ещё не хватает: троттленный алерт (не чаще раза в час) - доллары продаются только вручную
+  $lastAl = if ($st.PSObject.Properties['last_funding_alert']) { [long]$st.last_funding_alert } else { [long]0 }
+  if (($NowMs - $lastAl) -gt 3600000) {
+    $st | Add-Member -NotePropertyName last_funding_alert -NotePropertyValue $NowMs -Force
+    Alert ("не хватает рублей под '{0}': нужно ~{1} ₽, свободно {2} ₽. Продайте USD вручную в приложении (через API внутренний обмен недоступен)." -f $Why, [math]::Round($NeedRub, 0), [math]::Round($free, 0))
+  }
+  return $false
+}
+
 # ================= ГО-бюджет =================
 function Update-GoBudget($Margin) {
   # бюджет = ликвидный портфель - стоимость bot-акций - резерв.
@@ -841,6 +923,11 @@ function Apply-FilledIntent($It) {
     }
     'mom_sell' { Apply-MomSell $It $px }
     'mom_buy'  { Apply-MomBuy $It $px }
+    'funding_sell' {
+      # конверсия юзерского актива в рубли под сделку: НЕ P&L бота, только журнал
+      $script:ev.Add("FUNDING done $($It.ticker) $([int]$It.filled_lots) лот @$px")
+      $script:jr.Add(("`r`n## {0} MSK — RF-LIVE: продан {1} ({2} лот @{3}) под ликвидность: {4}`r`n" -f (MsToUtcStr $mskNowMs), $It.ticker, [int]$It.filled_lots, $px, $It.ctx.why))
+    }
   }
 }
 function Find-Card([string]$CardId) {
@@ -1162,6 +1249,8 @@ function Invoke-EntryWindow {
     $it.ctx | Add-Member -NotePropertyName risk_rub -NotePropertyValue ([math]::Round($riskRub, 2)) -Force
     $it.ctx | Add-Member -NotePropertyName stop_dist -NotePropertyValue ([math]::Round($stopDist, 6)) -Force
     $it.ctx.ref_px = $refPx
+    # рубли под ГО: при нехватке продаётся funding (серебро); не вышло - интент ждёт следующего тика
+    if (-not (Ensure-RubFunding ($lots * $goPer + 1500.0) "вход $($it.asset) $lots лот")) { continue }
     Save-State
     [void](Post-IntentMarket $it ([string]$it.side) ([int]$lots))
   }
@@ -1229,6 +1318,7 @@ function Invoke-MomWindow {
         $px = [double]$s[$s.Count - 1].c
         $lots = [math]::Floor($per / ($px * [double]$inst.lot))
         if ($lots -lt 1) { $script:ev.Add("MOM SKIP qty0 $n (на имя $([math]::Round($per,0)) ₽, лот $([math]::Round($px*[double]$inst.lot,0)) ₽)"); continue }
+        if (-not (Ensure-RubFunding ($lots * $px * [double]$inst.lot + 1500.0) "mom-покупка $n")) { continue }
         $it = New-Intent 'mom_buy' @{ sleeve = 'mom'; ticker = $n; uid = [string]$inst.uid
           side = 'buy'; lots = [int]$lots; ctx = [pscustomobject]@{ ref_px = $px } }
         Save-State
