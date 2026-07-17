@@ -23,6 +23,8 @@ if [ $rc -ne 0 ]; then echo "WARN: live_rf_engine exited rc=$rc" >&2; fi
 # (paper files belong to Actions, data/live_real belongs to the Bybit contour)
 minute=$(date -u +%M)
 if [ $((10#$minute % 15)) -eq 0 ]; then
+  # bake T-Invest candles for the dashboard charts (readonly; never fails the tick)
+  pwsh -NoProfile -File tools/bake_rf_candles.ps1 >/dev/null 2>&1 || echo "WARN: bake_rf_candles failed" >&2
   git add data/live_rf 2>/dev/null
   [ -f journal_live_rf.md ] && git add journal_live_rf.md
   if ! git diff --cached --quiet 2>/dev/null; then

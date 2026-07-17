@@ -87,7 +87,12 @@ function Write-LiveLog([string]$Line) {
 function Write-LiveJournal([string]$Text) {
   [IO.File]::AppendAllText((Join-Path $Root 'journal_live_rf.md'), $Text, (New-Object System.Text.UTF8Encoding($false)))
 }
-function Alert([string]$Text) { $script:ev.Add("ALERT $Text"); try { Send-TgAlert "RF-LIVE: $Text" | Out-Null } catch {} }
+function Alert([string]$Text) {
+  $script:ev.Add("ALERT $Text")
+  try { Send-TgAlert "RF-LIVE: $Text" | Out-Null } catch {}
+  # фан-аут второму получателю (только фьючерсы) - если задан TG_CHAT_ID_FUT
+  if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert "RF-LIVE: $Text" -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
+}
 
 # ================= состояние =================
 $stPath = Join-Path $lrfDir 'portfolio.json'
@@ -575,6 +580,32 @@ function Update-GoBudget($Margin) {
   # бот работает «свободными деньгами»: бюджет от СВОЕЙ базы, а не от всего счёта (счёт основной, есть чужие активы)
   $st.go.budget_rub = [math]::Round([double]$LIVE.base_rub - $stockVal - [double]$LIVE.reserve_rub, 2)
   if ([double]$st.go.used_rub -gt [double]$st.go.peak_day_rub) { $st.go.peak_day_rub = [double]$st.go.used_rub }
+}
+# Точный капитал бота (сверено на боевом счёте 2026-07-17): валюты (рубли+USD+серебро) +
+# фьючерсы + momentum-акции бота. Чужие акции/облигации пользователя автоматически ВНЕ:
+# их нет в total_amount_currencies и они не куплены ботом (mom.holdings). Серебро SLVRUB_TOM
+# T-Invest классифицирует как currency -> уже в total_amount_currencies. Маржа на счёте
+# отключена (GetMarginAttributes -> 400), поэтому берём всё из GetPortfolio, НЕ из маржи.
+function Set-BotCapital($Pf) {
+  if ($mode -eq 'dryrun') { return }   # dryrun: реального портфеля нет
+  if ($null -eq $Pf) {
+    try { $Pf = Get-TiPortfolio ([string]$st.account_id) }
+    catch { Write-LiveLog "Set-BotCapital: портфель недоступен: $($_.Exception.Message)"; return }
+  }
+  $curRub = 0.0; $futRub = 0.0; $totRub = 0.0
+  $c = Get-TiField $Pf 'total_amount_currencies'; if ($null -ne $c) { $curRub = [double](M2D $c).value }
+  $f = Get-TiField $Pf 'total_amount_futures';    if ($null -ne $f) { $futRub = [double](M2D $f).value }
+  $t = Get-TiField $Pf 'total_amount_portfolio';  if ($null -ne $t) { $totRub = [double](M2D $t).value }
+  $momRub = 0.0
+  foreach ($h in @($st.sleeves.mom.holdings)) { $momRub += [double]$h.lots * [double]$h.lot_size * [double]$h.last_px }
+  $cap = [math]::Round($curRub + $futRub + $momRub, 2)
+  if ($cap -le 0 -and $totRub -gt 0) { $cap = [math]::Round($totRub, 2) }   # sandbox/фолбэк: нет разбивки -> весь портфель
+  $userRub = [math]::Round($totRub - $curRub - $futRub - $momRub, 2)         # чужие акции+облигации (для сверки)
+  $st.go | Add-Member -NotePropertyName bot_capital_rub -NotePropertyValue $cap -Force
+  $st | Add-Member -NotePropertyName capital_breakdown -NotePropertyValue ([pscustomobject]@{
+    currencies = [math]::Round($curRub, 2); futures = [math]::Round($futRub, 2)
+    mom_shares = [math]::Round($momRub, 2); user_assets = $userRub; portfolio_total = [math]::Round($totRub, 2)
+  }) -Force
 }
 function Test-GoAllows([double]$AddGoRub) {
   return (([double]$st.go.used_rub + $AddGoRub) -le ([double]$LIVE.go_cap_pct * [double]$st.go.budget_rub))
@@ -1526,10 +1557,11 @@ function Save-EquitySnapshot {
   $stockVal = 0.0
   foreach ($h in @($st.sleeves.mom.holdings)) { $stockVal += [double]$h.lots * [double]$h.lot_size * [double]$h.last_px }
   $liq = if ($st.go.PSObject.Properties['account_liquid_rub']) { [double]$st.go.account_liquid_rub } else { $null }
+  $cap = if ($st.go.PSObject.Properties['bot_capital_rub']) { [double]$st.go.bot_capital_rub } else { $null }
   $eq.Add([pscustomobject]@{ utc = (MsToUtcStr $NowMs); ts = $NowMs
     total = [double]$st.profile_eq; core = [double]$st.sleeves.core.equity_mtm; setA = [double]$st.sleeves.setA.equity_mtm
     mom = [double]$st.sleeves.mom.equity_mtm; go_used = [double]$st.go.used_rub; stock_val = [math]::Round($stockVal, 0)
-    account_liquid = $liq })
+    account_liquid = $liq; bot_capital = $cap })
   Write-JsonAtomic $eqPath (ToArr $eq) 4
 }
 
@@ -1543,6 +1575,8 @@ function Invoke-DailyReport {
     $st.go.peak_day_rub, $ratio, $st.drift.D2, $st.drift.D4, $st.drift.D5, $st.drift.D6, $st.stats.skipped_qty0)
   $script:jr.Add("`r`n## $(MsToUtcStr $mskNowMs) MSK — $txt`r`n")
   try { Send-TgAlert $txt | Out-Null } catch {}
+  # фан-аут дневного отчёта второму получателю (только фьючерсы)
+  if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert $txt -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
 }
 
 # ================= RUN: пайплайн тика =================
@@ -1575,6 +1609,7 @@ try {
   # 3. preflight: маржа/ликвидность; фолбэк MarginAttributes -> GetPortfolio (песочница: 404,
   # prod без маржиналки: то же); полный сбой -> тик прерван, вотермарки не двигаются
   $margin = $null
+  $pfPre = $null   # снимок портфеля для расчёта точного капитала (переиспользуем фолбэк-фетч)
   try { $margin = Get-TiMarginAttributes ([string]$st.account_id) } catch {
     try {
       $pfPre = Get-TiPortfolio ([string]$st.account_id)
@@ -1589,6 +1624,7 @@ try {
   }
   $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue 0 -Force
   Update-GoBudget $margin
+  Set-BotCapital $pfPre   # $null если маржа сработала -> функция дотянет GetPortfolio сама
 
   # 4. сверка (полная, каждый тик - нюансы #3/#4/#13): снимок стоп-заявок -> TP1-sync (ДО D5,
   # иначе усечение лотов опередит объяснение частичного филла) -> reconcile

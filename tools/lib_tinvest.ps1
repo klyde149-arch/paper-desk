@@ -273,6 +273,32 @@ function Get-TiLastPrices([string[]]$Uids) {
 function Get-TiOrderBook([string]$Uid, [int]$Depth = 10) {
   return Invoke-TInvest 'MarketDataService' 'GetOrderBook' @{ instrumentId = $Uid; depth = $Depth }
 }
+# Свечи T-Invest для графиков дашборда (печём на VPS - токен только там; браузер/Actions без токена).
+# Возврат: строки {t,o,h,l,c,v,end} как Get-IssCandles (lib_engine.ps1). КРИТИЧНО: T-Invest отдаёт
+# истинный UTC, а серии проекта и маркеры входа (entry_ts/entry_day) - MSK; поэтому t = UTC-время
+# свечи + 3ч (MSK-как-UTC), иначе РФ-свечи съедут на 3ч относительно уровней/маркеров.
+# Interval: enum-строки T-Invest, напр. CANDLE_INTERVAL_HOUR / CANDLE_INTERVAL_DAY.
+function Get-TiCandles([string]$Uid, [string]$Interval, [string]$FromIso, [string]$ToIso) {
+  $r = Invoke-TInvest 'MarketDataService' 'GetCandles' @{ instrumentId = $Uid; from = $FromIso; to = $ToIso; interval = $Interval }
+  $out = New-Object System.Collections.Generic.List[object]
+  foreach ($c in @($r.candles)) {
+    if ($null -eq $c) { continue }
+    $tm = Get-TiField $c 'time'
+    if (-not $tm) { continue }
+    $dto = [DateTimeOffset]::Parse([string]$tm, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal)
+    $ms = [long]$dto.ToUnixTimeMilliseconds() + 10800000   # +3ч: истинный UTC -> MSK-как-UTC
+    $out.Add([pscustomobject]@{
+      t = $ms
+      o = [double](Q2D (Get-TiField $c 'open'))
+      h = [double](Q2D (Get-TiField $c 'high'))
+      l = [double](Q2D (Get-TiField $c 'low'))
+      c = [double](Q2D (Get-TiField $c 'close'))
+      v = [double](Get-TiField $c 'volume')
+      end = ''
+    })
+  }
+  return ,$out.ToArray()
+}
 
 # ================= счёт / портфель =================
 function Get-TiAccounts { $r = Invoke-TInvest 'UsersService' 'GetAccounts' @{}; return @($r.accounts) }

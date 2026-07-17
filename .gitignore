@@ -4,6 +4,9 @@ strategy_lab/
 # build artifact - rebuilt by every tick, never committed
 report/vizdata.js
 report/build.json
+# T-Invest candles copied under report/ by build_vizdata for chart.html (baked on VPS into
+# data/live_rf/candles, which IS committed; the report/ copy is a build artifact like vizdata.js)
+report/rf_candles/
 
 # engine runtime
 data/auto_trade.lock

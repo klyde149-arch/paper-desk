@@ -265,7 +265,7 @@
   </div>
 </div>
 
-<script src="vizdata.js?v=1784142179"></script>
+<script src="vizdata.js?v=1784317590"></script>
 <script>
 (function(){
 "use strict";
@@ -383,6 +383,11 @@ async function futFront(){
  return sym.secid;
 }
 async function loadFut(fromDate){
+ // испечённые свечи T-Invest (VPS), точнее MOEX ISS; только начальная загрузка 1h/1D
+ if(!fromDate&&(tf.id==='1h'||tf.id==='1D')){
+  try{const j=await jget('rf_candles/'+sym.id+'_'+tf.id+'.json');
+   if(Array.isArray(j)&&j.length)return j.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).sort((a,b)=>a.t-b.t);}catch(e){}
+ }
  const secid=await futFront();
  if(!secid)throw new Error('нет активного контракта '+sym.id);
  const iv=tf.mo;const out=[];
@@ -399,6 +404,11 @@ async function loadFut(fromDate){
  return out.sort((a,b)=>a.t-b.t);
 }
 async function loadMoex(fromDate){
+ // испечённые свечи T-Invest (VPS) для акций TQBR; индекс IMOEX остаётся на ISS
+ if(!fromDate&&!sym.index&&(tf.id==='1h'||tf.id==='1D')){
+  try{const j=await jget('rf_candles/'+sym.id+'_'+tf.id+'.json');
+   if(Array.isArray(j)&&j.length)return j.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).sort((a,b)=>a.t-b.t);}catch(e){}
+ }
  const iv=tf.mo;const out=[];
  let from=fromDate||(tf.id==='1D'?'2023-07-01':new Date(Date.now()-120*864e5).toISOString().slice(0,10));
  let start=0;

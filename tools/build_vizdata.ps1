@@ -362,20 +362,39 @@ $lrPf = Join-Path $lrDir 'portfolio.json'
 if (Test-Path $lrPf) {
   $lp = Get-Content $lrPf -Raw -Encoding UTF8 | ConvertFrom-Json
   $lrCurve = [object[]]@()
+  $lrCapCurve = [object[]]@()   # кривая ТОЧНОГО капитала бота (колонка bot_capital, есть не во всех строках)
   if (Test-Path (Join-Path $lrDir 'equity.json')) {
-    $lrCurve = [object[]]@((Get-Content (Join-Path $lrDir 'equity.json') -Raw -Encoding UTF8 | ConvertFrom-Json) |
-      Where-Object { $null -ne $_ } | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.total) })
+    $eqRows = @((Get-Content (Join-Path $lrDir 'equity.json') -Raw -Encoding UTF8 | ConvertFrom-Json) | Where-Object { $null -ne $_ })
+    $lrCurve = [object[]]@($eqRows | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.total) })
+    $lrCapCurve = [object[]]@($eqRows | Where-Object { $_.PSObject.Properties['bot_capital'] -and $null -ne $_.bot_capital } |
+      ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.bot_capital) })
   }
   $lrClosed = [object[]]@()
   if (Test-Path (Join-Path $lrDir 'trades.json')) {
     $lrClosed = [object[]]@((Get-Content (Join-Path $lrDir 'trades.json') -Raw -Encoding UTF8 | ConvertFrom-Json) | Where-Object { $null -ne $_ })
   }
+  $lrCandDir = Join-Path $lrDir 'candles'
   $lrPos = [object[]]@()
   foreach ($snName in 'core','setA') {
     $lrPos += [object[]]@(@($lp.sleeves.$snName.positions) | Where-Object { $null -ne $_ } | ForEach-Object {
+      $asset = [string]$_.asset; $secid = [string]$_.secid
+      $rpp = [double]$_.rub_per_pt
+      $notional = [math]::Round([double]$_.lots * [double]$_.entry_px_pts * $rpp, 0)
+      $pct = $(if ($null -ne $_.cur_px -and [double]$_.entry_px_pts -ne 0) { [math]::Round(([double]$_.cur_px / [double]$_.entry_px_pts - 1) * 100, 2) } else { $null })
+      # часовые свечи: сперва испечённый T-Invest файл (VPS), иначе фолбэк на MOEX ISS
+      $c1h = [object[]]@()
+      $cf = Join-Path $lrCandDir ("{0}_1h.json" -f $asset)
+      if (Test-Path $cf) { try { $c1h = [object[]]@((Get-Content $cf -Raw -Encoding UTF8 | ConvertFrom-Json)) } catch {} }
+      elseif ($secid) {
+        try {
+          $fromDay = ([datetime]$_.entry_day).AddDays(-3).ToString('yyyy-MM-dd')
+          $c1h = [object[]]@((Get-IssCandles 'fut' $secid 60 $fromDay) | ForEach-Object { ,[object[]]@([long]$_.t, [double]$_.o, [double]$_.h, [double]$_.l, [double]$_.c) })
+        } catch { Write-Warning "rfReal candles $secid`: $_" }
+      }
       [ordered]@{ id = $_.id; sleeve = $snName; asset = $_.asset; secid = $_.secid; side = $_.side
         lots = $_.lots; entry = $_.entry_px_pts; stop = $_.stop_px_pts; tp1 = $_.tp1_px_pts
-        cur = $_.cur_px; upnl = $_.upnl_rub; riskRub = $_.risk_rub; entryDay = $_.entry_day; rolls = $_.rolls } })
+        cur = $_.cur_px; upnl = $_.upnl_rub; riskRub = $_.risk_rub; entryDay = $_.entry_day; entryTs = $_.entry_ts
+        rolls = $_.rolls; rubPerPt = $rpp; notional = $notional; pctChg = $pct; candles1h = $c1h } })
   }
   $lrHold = [object[]]@(@($lp.sleeves.mom.holdings) | Where-Object { $null -ne $_ } | ForEach-Object {
     [ordered]@{ sym = $_.sym; lots = $_.lots; lotSize = $_.lot_size; avg = $_.avg_px; last = $_.last_px } })
@@ -390,12 +409,15 @@ if (Test-Path $lrPf) {
     goUsed = [double]$lp.go.used_rub
     goBudget = [double]$lp.go.budget_rub
     accountLiquid = $(if ($lp.go.PSObject.Properties['account_liquid_rub']) { [double]$lp.go.account_liquid_rub } else { $null })
+    capitalNow = $(if ($lp.go.PSObject.Properties['bot_capital_rub']) { [double]$lp.go.bot_capital_rub } else { [double]$lp.profile_eq })
+    capitalBreakdown = $(if ($lp.PSObject.Properties['capital_breakdown']) { $lp.capital_breakdown } else { $null })
     drift = $lp.drift
     sleeves = [ordered]@{ core = [double]$lp.sleeves.core.equity_mtm; setA = [double]$lp.sleeves.setA.equity_mtm; mom = [double]$lp.sleeves.mom.equity_mtm }
     positions = $lrPos
     holdings = $lrHold
     closed = $lrClosed
     curve = $lrCurve
+    capitalCurve = $lrCapCurve
     lastDailyDay = [string]$lp.watermarks.last_daily_day
     stats = $lp.stats
   }
@@ -634,6 +656,17 @@ $viz = [ordered]@{
 $json = $viz | ConvertTo-Json -Depth 8 -Compress
 $out = Join-Path $dir 'report\vizdata.js'
 [IO.File]::WriteAllText($out, "const VIZ = $json;", (New-Object System.Text.UTF8Encoding($false)))
+
+# копия испечённых свечей T-Invest под report/ (браузер и Pages-артефакт видят ТОЛЬКО report/;
+# фетч ../data/... даёт 404). chart.html читает report/rf_candles/<CODE>_<tf>.json с ISS-фолбэком.
+# Это build-артефакт как vizdata.js -> gitignored.
+$rfCandSrc = Join-Path $dir 'data\live_rf\candles'
+$rfCandDst = Join-Path $dir 'report\rf_candles'
+if (Test-Path $rfCandSrc) {
+  if (-not (Test-Path $rfCandDst)) { New-Item -ItemType Directory -Force $rfCandDst | Out-Null }
+  Copy-Item (Join-Path $rfCandSrc '*.json') $rfCandDst -Force -ErrorAction SilentlyContinue
+  "  rf_candles -> report/ ({0} файлов)" -f @(Get-ChildItem $rfCandDst -Filter *.json -ErrorAction SilentlyContinue).Count
+}
 
 # sanity checks
 $txt = [IO.File]::ReadAllText($out)

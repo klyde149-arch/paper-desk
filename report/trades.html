@@ -448,6 +448,30 @@
     <div id="rfTradesWrap"></div>
   </section>
 
+  <!-- ============ FUTURES · REAL (живой счёт Т-Инвестиции, C3b) ============ -->
+  <section id="pane-fut-real" style="display:none">
+    <h2>Реальный счёт — <span class="em">Т-Инвестиции · C3b</span></h2>
+    <div id="futRealStatus" class="callout" style="border-left-color:#d9a441"></div>
+    <div class="kpis" id="futRealKpis" style="margin-top:14px;grid-template-columns:repeat(4,1fr)">
+      <div class="kpi"><p class="l">Капитал бота</p><div class="v num" id="frCap">—</div><p class="s" id="frCapS">рубли+USD+серебро+фьючерсы</p></div>
+      <div class="kpi"><p class="l">P&L сделок</p><div class="v num" id="frPnl">—</div><p class="s" id="frPnlS">реализованный</p></div>
+      <div class="kpi"><p class="l">P&L сегодня</p><div class="v num" id="frDay">—</div><p class="s">МСК-день</p></div>
+      <div class="kpi"><p class="l">Открытых позиций</p><div class="v num" id="frPos">—</div><p class="s" id="frPosS">ГО —</p></div>
+    </div>
+    <div id="frBreakdown" class="card" style="margin-top:12px;padding:12px 16px;font-size:12.5px;color:var(--muted)"></div>
+
+    <h2>Открытые позиции</h2>
+    <p class="sec-note">Реальные фьючерсные позиции на счёте Т-Инвестиций. Нажмите на строку — раскроются график (свечи T-Инвест), сумма, тейк, стоп и дата захода. Стопы лежат на бирже брокерскими заявками.</p>
+    <div id="futRealWrap"></div>
+
+    <h2>Капитал — <span class="em">кривая</span></h2>
+    <div class="card" style="padding:20px 22px">
+      <canvas id="futRealEqCurve" height="260"></canvas>
+      <p class="hint" id="futRealEqHint"></p>
+    </div>
+    <div id="futRealClosed"></div>
+  </section>
+
   <!-- ============ FUTURES · BACKTEST ============ -->
   <section id="pane-fut-bt" style="display:none">
 
@@ -510,7 +534,7 @@
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1784142179"></script>
+<script src="vizdata.js?v=1784317590"></script>
 <script>
 (function(){
   "use strict";
@@ -628,15 +652,15 @@
   let MODE   = qs.get("mode")   || localStorage.getItem("term_mode")   || "live";
   if(!["crypto","stocks","fut","chal"].includes(MARKET)) MARKET="crypto";
   if(!["live","real","bt"].includes(MODE)) MODE="live";
-  const PANES=["crypto-live","crypto-real","crypto-bt","stocks-live","stocks-bt","fut-live","fut-bt","chal-live"];
+  const PANES=["crypto-live","crypto-real","crypto-bt","stocks-live","stocks-bt","fut-live","fut-real","fut-bt","chal-live"];
   const MODE_MINIS={
     crypto:{live:"позиции · дни · сигналы",         real:"Bybit · живой счёт", bt:"v1/v2 · сравнение · по годам"},
     stocks:{live:"momentum-ротация · сейчас",       bt:"momentum + setup A · история"},
-    fut:   {live:"C2/C3b форвард-тест · открытые",  bt:"брейкаут · walk-forward · портфели"},
+    fut:   {live:"C2/C3b форвард-тест · открытые",  real:"Т-Инвест · живой счёт", bt:"брейкаут · walk-forward · портфели"},
     chal:  {live:"S4 пробой/свип · $1000",          bt:"—"}
   };
   function applyNav(){
-    if(MODE==="real"&&MARKET!=="crypto") MODE="live";   // «Реал» есть только у крипты
+    if(MODE==="real"&&MARKET!=="crypto"&&MARKET!=="fut") MODE="live";   // «Реал» есть у крипты и фьючерсов
     if(MARKET==="chal") MODE="live";                    // у челленджа один режим
     localStorage.setItem("term_market",MARKET);
     localStorage.setItem("term_mode",MODE);
@@ -646,7 +670,7 @@
     PANES.forEach(k=>{ const el=$("pane-"+k); if(el) el.style.display=(k===key)?"":"none"; });
     const hk=document.querySelector(".hero-kpis"); if(hk) hk.style.display=(MARKET==="crypto"&&MODE==="live")?"":"none";
     if($("modeRow")) $("modeRow").style.display=(MARKET==="chal")?"none":"";
-    if($("modeRealBtn")) $("modeRealBtn").style.display=(MARKET==="crypto")?"":"none";
+    if($("modeRealBtn")) $("modeRealBtn").style.display=(MARKET==="crypto"||MARKET==="fut")?"":"none";
     if($("modeLiveMini")) $("modeLiveMini").textContent=MODE_MINIS[MARKET].live;
     if($("modeRealMini")&&MODE_MINIS[MARKET].real) $("modeRealMini").textContent=MODE_MINIS[MARKET].real;
     if($("modeBtMini"))   $("modeBtMini").textContent  =MODE_MINIS[MARKET].bt;
@@ -1569,21 +1593,13 @@
         ${(posRows||holdRows||pendRows)?`<div style="margin-top:8px">${posRows}${holdRows}${pendRows}</div>`:`<p class="s" style="margin-top:8px">позиций нет — бот ждёт сигналы по закрытым дневным барам</p>`}
       </div>`;
     });
-    // РЕАЛ РФ: живой счёт Т-Инвестиций (контур C3b, данные пишет VPS-бот в data/live_rf)
-    const RR = VIZ.rfReal || null;
-    if(RR){
-      const totR=RR.equityNow-RR.startEq, dayR=RR.equityNow-(RR.dayStartEq||RR.startEq);
-      const sgnR=v=>(v>=0?"+":"−")+Math.abs(v).toLocaleString("ru-RU",{maximumFractionDigits:0})+" ₽";
-      const rowSt2='display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--hair2);font-size:12.5px';
-      const posR=(RR.positions||[]).map(x=>`<div style="${rowSt2}"><span>${x.sleeve==="core"?"ядро":"сетап A"} · ${x.asset} <span style="color:var(--faint)">(${x.secid})</span> <b style="color:${x.side==="long"?"var(--gain)":"var(--loss)"}">${x.side==="long"?"ЛОНГ":"ШОРТ"}</b> ${x.lots} лот</span><b>вход ${x.entry}${x.cur!=null?` · тек ${x.cur}`:""}${x.upnl!=null?` · <span class="${x.upnl>=0?"pos":"neg"}">${x.upnl>=0?"+":"−"}${Math.abs(x.upnl).toFixed(0)} ₽</span>`:""} · стоп <span class="neg">${x.stop}</span></b></div>`).join("");
-      const holdR=(RR.holdings||[]).map(h=>`<div style="${rowSt2}"><span>momentum · <b>${h.sym}</b></span><b>${h.lots} лот @ ${h.avg}</b></div>`).join("");
-      const goPct=RR.goBudget>0?Math.round(100*RR.goUsed/RR.goBudget):0;
+    // РЕАЛ РФ (живой счёт Т-Инвестиций, C3b) переехал в отдельную вкладку «Фьючерсы → Реал»
+    // (mode=real): полный капитал, позиции с деталями, кривая. См. buildFutRealPane().
+    if(VIZ.rfReal){
       html+=`<div class="kpi" style="padding:16px 18px;border:1px solid #d9a441">
-        <p class="l">РЕАЛ · Т-Инвестиции · C3b${RR.mode!=="prod"?` <span style="color:var(--accent)">[${RR.mode}]</span>`:""}</p>
-        <div class="v ${totR>=0?"pos":"neg"}" style="font-size:24px">${RR.equityNow.toLocaleString("ru-RU",{maximumFractionDigits:0})} ₽</div>
-        <p class="s">всего: <span class="${totR>=0?"pos":"neg"}">${sgnR(totR)}</span> · сегодня: <span class="${dayR>=0?"pos":"neg"}">${sgnR(dayR)}</span> · сделок ${RR.stats?RR.stats.trades:0} (${RR.stats?RR.stats.wins:0}W/${RR.stats?RR.stats.losses:0}L)</p>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--hair);font-size:12px;color:var(--muted)">рукава: ядро ${Math.round(RR.sleeves.core).toLocaleString("ru-RU")} ₽ · сетап A ${Math.round(RR.sleeves.setA).toLocaleString("ru-RU")} ₽ · mom ${Math.round(RR.sleeves.mom).toLocaleString("ru-RU")} ₽ · ГО ${goPct}%${RR.accountLiquid!=null?` · счёт (реал): <b>${Math.round(RR.accountLiquid).toLocaleString("ru-RU")} ₽</b>`:""}${RR.entriesHalt?` · <b style="color:var(--loss)">ВХОДЫ ОСТАНОВЛЕНЫ${RR.haltReason?": "+RR.haltReason:""}</b>`:""}</div>
-        ${(posR||holdR)?`<div style="margin-top:8px">${posR}${holdR}</div>`:`<p class="s" style="margin-top:8px">позиций нет</p>`}
+        <p class="l">РЕАЛ · Т-Инвестиции · C3b${VIZ.rfReal.mode!=="prod"?` <span style="color:var(--accent)">[${VIZ.rfReal.mode}]</span>`:""}</p>
+        <div class="v" style="font-size:24px">${Math.round(+VIZ.rfReal.capitalNow||0).toLocaleString("ru-RU")} ₽</div>
+        <p class="s">Живой счёт вынесен на вкладку <b>«Реал»</b> (переключатель режимов вверху) — там капитал, позиции с графиками и кривая.</p>
       </div>`;
     }
     $("rfKpis").innerHTML=html;
@@ -1679,6 +1695,118 @@
   }
   buildRfLive();
 
+  // ---------- ФЬЮЧЕРСЫ · РЕАЛ: живой счёт Т-Инвестиций (VIZ.rfReal, пишет VPS-бот) ----------
+  const RFR = VIZ.rfReal || null;
+  const futRealCharts=[];
+  const fmtRub=v=>Math.round(v||0).toLocaleString("ru-RU")+" ₽";
+  const sgnRub=v=>(v>=0?"+":"−")+Math.round(Math.abs(v||0)).toLocaleString("ru-RU")+" ₽";
+  function mskDayStartUtcMs(){ const d=new Date(); const msk=new Date(d.getTime()+3*36e5); return Date.UTC(msk.getUTCFullYear(),msk.getUTCMonth(),msk.getUTCDate())-3*36e5; }
+  function buildFutRealPane(){
+    const stEl=$("futRealStatus"); if(!stEl) return;
+    if(!RFR){ stEl.innerHTML="<b>Данных реального счёта фьючерсов пока нет.</b> Как только VPS-бот запишет data/live_rf, вкладка оживёт автоматически."; return; }
+    stEl.style.borderLeftColor=RFR.entriesHalt?"var(--loss)":"#d9a441";
+    stEl.innerHTML=`<b>РЕАЛЬНЫЕ ДЕНЬГИ · Т-Инвестиции (контур C3b).</b> ${RFR.mode!=="prod"?`<b style="color:var(--accent)">[${RFR.mode}]</b> `:""}Бот торгует фьючерсами на живом счёте (VPS, тик по расписанию МСК; стопы лежат на бирже). Последний дневной проход: <b class="num">${RFR.lastDailyDay||"—"}</b>.`+(RFR.entriesHalt?`<br><b style="color:var(--loss)">ВХОДЫ ОСТАНОВЛЕНЫ:</b> ${RFR.haltReason||"см. журнал"}`:"");
+    const cap=+RFR.capitalNow||0, S=RFR.stats||{};
+    const real=(S.realized_rub!=null)?+S.realized_rub:0;
+    $("frCap").textContent=fmtRub(cap);
+    $("frCapS").textContent="весь счёт: "+(RFR.accountLiquid!=null?fmtRub(RFR.accountLiquid):"—");
+    const pe=$("frPnl"); pe.textContent=sgnRub(real); pe.className="v num "+(real>=0?"pos":"neg");
+    $("frPnlS").textContent="комиссии "+fmtRub(S.fees_rub||0);
+    const cc=arr(RFR.capitalCurve), de=$("frDay");
+    if(cc.length){ const d0=mskDayStartUtcMs(), first=cc.find(p=>p[0]>=d0), base=first?first[1]:cc[0][1], dv=cap-base; de.textContent=sgnRub(dv); de.className="v num "+(dv>=0?"pos":"neg"); }
+    else { de.textContent="—"; de.className="v num"; }
+    $("frPos").textContent=String(arr(RFR.positions).length);
+    const goPct=RFR.goBudget>0?Math.round(100*RFR.goUsed/RFR.goBudget):0;
+    $("frPosS").textContent="ГО "+goPct+"% · сделок "+(S.trades||0)+" ("+(S.wins||0)+"W/"+(S.losses||0)+"L)";
+    const b=RFR.capitalBreakdown;
+    $("frBreakdown").innerHTML = b ? `<b style="color:var(--ink)">Состав капитала бота:</b> деньги+валюты+серебро <b>${fmtRub(b.currencies)}</b> · фьючерсы <b>${fmtRub(b.futures)}</b> · momentum-акции <b>${fmtRub(b.mom_shares)}</b> = <b style="color:var(--ink)">${fmtRub(cap)}</b>.<br><span style="color:var(--faint)">Ваши акции и облигации ${fmtRub(b.user_assets)} — вне капитала бота. Весь счёт у брокера: ${fmtRub(b.portfolio_total)}.</span>` : `Капитал бота = деньги+валюты+серебро + открытые фьючерсы + momentum-акции бота. Ваши акции/облигации исключены.`;
+    buildFutRealPositions();
+    buildFutRealClosed();
+    drawFutRealEq();
+  }
+  function buildFutRealPositions(){
+    const wrap=$("futRealWrap"); if(!wrap) return;
+    futRealCharts.length=0;
+    const POS=RFR?arr(RFR.positions):[];
+    if(!POS.length){ wrap.innerHTML='<div class="card" style="color:var(--muted);font-size:14px">Открытых фьючерсных позиций сейчас нет — бот ждёт сигналы по закрытым дневным барам MOEX.</div>'; return; }
+    wrap.innerHTML="";
+    POS.forEach((p,pi)=>{
+      const cur=(p.cur!=null)?+p.cur:null;
+      const pct=(p.pctChg!=null)?+p.pctChg:((cur!=null&&p.entry)?(cur/p.entry-1)*100:null);
+      const up=(p.upnl!=null)?+p.upnl:null;
+      const row=document.createElement("div"); row.className="card"; row.style.cssText="margin-bottom:10px;padding:0;overflow:hidden";
+      const head=document.createElement("div"); head.style.cssText="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;flex-wrap:wrap;cursor:pointer";
+      head.innerHTML=`<div style="font-size:13.5px"><b>${p.sleeve==="core"?"ядро":"сетап A"} · ${p.asset}</b> <span style="color:var(--faint)">(${p.secid})</span> <b style="color:${p.side==="long"?"var(--gain)":"var(--loss)"}">${p.side==="long"?"ЛОНГ":"ШОРТ"}</b> · ${p.lots} лот</div>
+        <div style="text-align:right;font-size:13.5px"><b>${Math.round(p.notional||0).toLocaleString("ru-RU")} ₽</b>${pct!=null?` · <span class="${pct>=0?"pos":"neg"}">${pct>=0?"+":""}${pct.toFixed(2)}%</span>`:""}${up!=null?` · <span class="${up>=0?"pos":"neg"}">${up>=0?"+":"−"}${Math.round(Math.abs(up)).toLocaleString("ru-RU")} ₽</span>`:""} <span class="frCaret" style="color:var(--faint)">▾</span></div>`;
+      const body=document.createElement("div"); body.style.cssText="display:none;padding:0 16px 16px";
+      row.appendChild(head); row.appendChild(body);
+      let built=false;
+      head.onclick=()=>{
+        const open=body.style.display==="none";
+        body.style.display=open?"":"none";
+        head.querySelector(".frCaret").textContent=open?"▴":"▾";
+        if(open&&!built){ built=true; buildFutRealDetail(body,p,pi); }
+        else if(open){ futRealCharts.forEach(f=>f()); }
+      };
+      wrap.appendChild(row);
+    });
+  }
+  function buildFutRealDetail(body,p,pi){
+    const k=arr(p.candles1h);
+    const cur=(p.cur!=null)?+p.cur:(k.length?k[k.length-1][4]:+p.entry);
+    const card=document.createElement("div"); card.className="card pcard";
+    card.innerHTML=`<div class="badge"><span class="dot"></span> ОТКРЫТА</div>
+      <h3>${p.sleeve==="core"?"ядро":"сетап A"} · ${p.side==="long"?"ЛОНГ":"ШОРТ"} ${p.asset}</h3>
+      <div class="pr"><span>Контракт</span><b>${p.secid}</b></div>
+      <div class="pr"><span>Вход (${p.entryDay||"—"})</span><b>${fmtP(p.entry)}</b></div>
+      <div class="pr"><span>Размер</span><b>${p.lots} лот ≈ ${Math.round(p.notional||0).toLocaleString("ru-RU")} ₽</b></div>
+      <div class="pr"><span>Текущая цена</span><b>${fmtP(cur)}</b></div>
+      <div class="pr"><span>Стоп-лосс</span><b class="neg">${fmtP(p.stop)}</b></div>
+      ${(p.tp1!=null)?`<div class="pr"><span>Тейк-профит</span><b class="pos">${fmtP(p.tp1)}</b></div>`:""}
+      <div class="pr"><span>Плавающий P&L</span><b class="${(p.upnl||0)>=0?"pos":"neg"}">${(p.upnl||0)>=0?"+":"−"}${Math.round(Math.abs(p.upnl||0)).toLocaleString("ru-RU")} ₽</b></div>
+      <div class="pr"><span>Риск на сделку</span><b>${Math.round(p.riskRub||0).toLocaleString("ru-RU")} ₽</b></div>
+      <div style="margin-top:10px"><a href="chart.html#${p.asset}/1h" style="display:inline-block;padding:7px 14px;border-radius:8px;background:var(--accent-soft);color:var(--accent);text-decoration:none;font-size:13px;font-weight:600">📊 Открыть на графике</a></div>`;
+    if(k.length){
+      const grid=document.createElement("div"); grid.className="live-grid";
+      const chartCard=document.createElement("div"); chartCard.className="card";
+      const cv=document.createElement("canvas"); cv.setAttribute("height","300"); cv.id="futreal-"+pi; chartCard.appendChild(cv);
+      const hint=document.createElement("p"); hint.className="hint"; hint.textContent="Часовые свечи T-Инвест · вход, стоп, тейк и текущая цена · зум колесом, двойной клик — сброс";
+      chartCard.appendChild(hint);
+      grid.appendChild(chartCard); grid.appendChild(card); body.appendChild(grid);
+      const adapt={entry:+p.entry, stop:+p.stop, tp1:(p.tp1!=null?+p.tp1:+p.entry), qty:+p.lots, side:p.side, entryUtc:(p.entryTs?new Date(+p.entryTs+3*36e5).toISOString().slice(0,16).replace("T"," "):(p.entryDay||"")+" 00:00"), symbol:p.asset};
+      const st={t0:null,t1:null}, mL=8, mR=66;
+      const redraw=()=>drawLiveChart(cv,adapt,k,st,mL,mR);
+      const fullFn=()=>[k[0][0],k[k.length-1][0]]; const innerWFn=()=>(cv.clientWidth||800)-mL-mR;
+      attachPanZoom(cv,st,fullFn,redraw,mL,innerWFn); redraw();
+      futRealCharts.push(redraw);
+    } else { body.appendChild(card); }
+  }
+  function drawFutRealEq(){
+    const cv=$("futRealEqCurve"); if(!cv) return;
+    const cc=RFR?arr(RFR.capitalCurve):[], hint=$("futRealEqHint");
+    if(cc.length<2){ const {ctx,w,h}=setupCanvas(cv); ctx.clearRect(0,0,w,h); ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("кривая появится после нескольких тиков бота",20,40); if(hint)hint.textContent=""; return; }
+    drawEqOn("futRealEqCurve", cc);
+    if(hint) hint.textContent=`Точный капитал бота (деньги+валюты+серебро + фьючерсы + акции бота), точка раз в 15 минут. Точек: ${cc.length}.`;
+  }
+  function buildFutRealClosed(){
+    const wrap=$("futRealClosed"); if(!wrap) return;
+    const TR=RFR?arr(RFR.closed):[];
+    if(!TR.length){ wrap.innerHTML='<div class="card" style="margin-top:14px;color:var(--muted);font-size:13.5px">Закрытых сделок по фьючерсам ещё нет — каждая появится здесь автоматически.</div>'; return; }
+    let t=`<div class="card" style="margin-top:14px"><h3 style="font-family:var(--serif);margin:0 0 8px;font-size:16px">Закрытые сделки (${TR.length})</h3><div class="tbl-scroll"><table style="min-width:760px"><thead><tr><th></th><th>Рукав</th><th>Актив</th><th>Сторона</th><th>Вход</th><th>Выход</th><th>Причина</th><th>Комиссии</th><th>P&L</th></tr></thead><tbody>`;
+    t+=TR.slice().reverse().map(x=>{const win=(+x.pnlRub||0)>0;
+      return `<tr><td><span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:${win?'var(--gain-soft)':'var(--loss-soft)'};color:${win?'var(--gain)':'var(--loss)'}">${win?"WIN":"LOSS"}</span></td>`+
+        `<td style="color:var(--muted)">${x.sleeve||""}</td><td>${x.asset||x.secid||""}</td>`+
+        `<td style="color:${x.side==="long"?"var(--gain)":"var(--loss)"};font-weight:600">${x.side==="long"?"ЛОНГ":"ШОРТ"}</td>`+
+        `<td>${x.entryDay||""} · ${fmtP(x.entry)}</td><td>${x.exitDay||""} · ${fmtP(x.exitPx)}</td>`+
+        `<td style="color:var(--muted);font-size:11.5px">${x.exitReason||""}</td>`+
+        `<td class="num">${Math.round(x.feesRub||0).toLocaleString("ru-RU")} ₽</td>`+
+        `<td style="color:${win?'var(--gain)':'var(--loss)'};font-weight:700">${(+x.pnlRub||0)>=0?"+":"−"}${Math.round(Math.abs(+x.pnlRub||0)).toLocaleString("ru-RU")} ₽</td></tr>`;
+    }).join("");
+    t+=`</tbody></table></div></div>`;
+    wrap.innerHTML=t;
+  }
+  buildFutRealPane();
+
   // ---------- STOCKS LIVE: живой momentum-портфель (рукав mom профилей C2/C3b) ----------
   function buildStocksLive(){
     if(!$("stkKpis")) return;
@@ -1717,6 +1845,7 @@
     else if(k==="stocks-live"){ drawStocksLiveEq(); }
     else if(k==="stocks-bt"){ if(exM)exM.draw(); if(MOMS)drawEqOn("eqMom",MOMS.equity); }
     else if(k==="fut-live"){ drawRfEq(); drawFutLivePos(); }
+    else if(k==="fut-real"){ futRealCharts.forEach(f=>f()); drawFutRealEq(); }
     else if(k==="fut-bt"){ if(exF){ exF.draw(); drawCombos(); drawEqOn("eqFut",FUT.equity); } }
     else if(k==="chal-live"){ chalCharts.forEach(f=>f()); if(CH&&arr(CH.curve).length>1) drawEqOn("chalEqCurve",CH.curve); }
   }
@@ -1726,7 +1855,7 @@
   // ---------- авто-обновление: замечаем новый билд (build.json) → баннер / reload без кэша ----------
   let lastAct=Date.now(); const loadT=Date.now();
   ["mousemove","mousedown","wheel","keydown","touchstart"].forEach(ev=>addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
-  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1784142179"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
+  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1784317590"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
   function bustReload(v){ const u=new URL(location.href); u.searchParams.set("b", v||Date.now()); location.replace(u.toString()); }
   let updBannerShown=false;
   function showUpdBanner(v){
