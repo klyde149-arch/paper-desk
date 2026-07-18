@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 115.85,
+  "equity_usd": 116.16,
   "peak_equity_usd": 118.58,
   "day_start_equity_usd": 115.44,
   "day_start_date_utc": "2026-07-18",
@@ -53,26 +53,34 @@
       "symbol": "LTC-USDT",
       "side": "long",
       "status": "open",
-      "qty": 1.1,
+      "qty": 0.6,
       "qty_initial": 1.1,
       "entry_filled_qty": 1.1,
       "entry_price": 45.03,
-      "stop": 44.06,
+      "stop": 45.03,
       "stop0": 44.06,
       "tp1": 46.49,
       "tp1_qty": 0.5,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
+      "tp1_filled_qty": 0.5,
+      "tp1_done": true,
+      "be_done": true,
       "close_reason": null,
       "sl_exec": false,
       "entry_utc": "2026-07-17 20:00",
       "entry_ts": 1784318403423,
       "risk_usd": 1.07,
       "notional_usd": 49.53,
-      "fees_usd": 0.049533,
+      "fees_usd": 0.0579012,
       "funding_usd": 0.0003,
-      "legs": [],
+      "legs": [
+        {
+          "part": "TP1",
+          "qty": 0.5,
+          "price": 46.49,
+          "utc": "2026-07-18 14:53",
+          "pnl": 0.73
+        }
+      ],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
         "regime": "BTC 4h up; LTC-USDT 4h up; F&G 27",
@@ -131,7 +139,7 @@
   "auto": {
     "last_4h_ts": 1784361600000,
     "last_trail_4h_ts": 1784361600000,
-    "last_exec_ms": 1784361600000,
+    "last_exec_ms": 1784386388992,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -169,7 +177,8 @@
       "856bb82b-ea40-5d74-bfa0-2026add39685",
       "3dfd0917-12a1-4340-a610-c38372dfe71a",
       "71c7a893-253d-4e3a-bc86-43be908c7c11",
-      "5213fe9c-3e5e-4b6a-91f8-31c91f50f5cd"
+      "5213fe9c-3e5e-4b6a-91f8-31c91f50f5cd",
+      "02708554-94fb-5a24-a48b-857b0c199079"
     ],
     "next_trade_id": 6,
     "halt_day_utc": null,
@@ -181,7 +190,7 @@
       "LTC-USDT",
       "UNI-USDT"
     ],
-    "last_tick_utc": "2026-07-18 14:45",
+    "last_tick_utc": "2026-07-18 14:54",
     "last_daily_summary_day": "2026-07-17"
   },
   "week_start_equity_usd": 118.27,
