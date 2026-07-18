@@ -2,10 +2,10 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 115.43,
+  "equity_usd": 115.44,
   "peak_equity_usd": 118.58,
-  "day_start_equity_usd": 116.66,
-  "day_start_date_utc": "2026-07-17",
+  "day_start_equity_usd": 115.44,
+  "day_start_date_utc": "2026-07-18",
   "trading_halted": false,
   "entries_halt_reason": "",
   "open_trades": [
@@ -32,7 +32,7 @@
       "risk_usd": 0.82,
       "notional_usd": 15.19,
       "fees_usd": 0.015192,
-      "funding_usd": 0.0045,
+      "funding_usd": 0.006,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
@@ -86,13 +86,52 @@
           "fearGreed": true
         }
       }
+    },
+    {
+      "id": "LT5",
+      "symbol": "UNI-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 5.6,
+      "qty_initial": 5.6,
+      "entry_filled_qty": 0.0,
+      "entry_price": 3.639,
+      "stop": 3.437,
+      "stop0": 3.437,
+      "tp1": 3.942,
+      "tp1_qty": 2.8,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-07-18 00:00",
+      "entry_ts": 1784332803509,
+      "risk_usd": 1.13,
+      "notional_usd": 20.38,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; UNI-USDT 4h up; F&G 25",
+        "riskPlan": "вход ~3.639, стоп 3.437 (5.5%), TP1 3.942 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.13",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
     }
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1784304000000,
-    "last_trail_4h_ts": 1784304000000,
-    "last_exec_ms": 1784318427162,
+    "last_4h_ts": 1784318400000,
+    "last_trail_4h_ts": 1784318400000,
+    "last_exec_ms": 1784332800000,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -124,19 +163,21 @@
       "44823b07-695d-4e9e-afc9-4e855f25693b",
       "54ae34e1-e965-5288-8695-7aec7264fd23",
       "4db63dde-6243-47ee-9db8-950ebc32cb0b",
-      "e16996d8-6e88-5ec1-8706-99dabb411cdc"
+      "e16996d8-6e88-5ec1-8706-99dabb411cdc",
+      "0541b399-dad7-4575-84ec-23d40829c95e"
     ],
-    "next_trade_id": 5,
+    "next_trade_id": 6,
     "halt_day_utc": null,
     "soft_dd": false,
     "consec_api_fail": 0,
     "leverage_set": [
       "BNB-USDT",
       "SUI-USDT",
-      "LTC-USDT"
+      "LTC-USDT",
+      "UNI-USDT"
     ],
-    "last_tick_utc": "2026-07-17 23:45",
-    "last_daily_summary_day": "2026-07-16"
+    "last_tick_utc": "2026-07-18 00:00",
+    "last_daily_summary_day": "2026-07-17"
   },
   "week_start_equity_usd": 118.27,
   "week_start_date_utc": "2026-07-13"
