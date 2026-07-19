@@ -32,6 +32,11 @@ vps_secrets.enc
 # T-Invest tokens - local only, NEVER committed (defense vs 'git add -A' in deploy_site)
 .secrets/
 
+# assistant: local VPS address/key for tools/ask.ps1, and __pycache__
+tools/ask.config.json
+assistant/__pycache__/
+**/__pycache__/
+
 # RF-LIVE runtime (VPS): log/cache/lock are local-only; state json IS committed by live_rf_tick.sh
 data/live_rf/tick_log.txt
 data/live_rf/latency_log.csv

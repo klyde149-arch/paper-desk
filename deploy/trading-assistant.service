@@ -1,0 +1,38 @@
+[Unit]
+Description=paper-desk AI assistant (Telegram long-polling)
+Documentation=file:///home/trader/paper-desk/deploy/README_ASSISTANT.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=trader
+WorkingDirectory=/home/trader/paper-desk
+# Основной env читает systemd от root (файл 0600 root:root, trader его не видит).
+EnvironmentFile=/etc/trading-live.env
+# Ключ OpenRouter лежит отдельно (0640 root:trader), чтобы CLI по ssh тоже работал.
+EnvironmentFile=-/etc/trading-assistant.env
+Environment=LC_ALL=C.UTF-8
+Environment=PYTHONUNBUFFERED=1
+# flock: ДВА процесса getUpdates на одном токене несовместимы (Telegram отдаёт 409).
+ExecStart=/usr/bin/flock -n /run/lock/trading-assistant.lock /usr/bin/python3 -m assistant.bot
+Restart=always
+RestartSec=10
+StateDirectory=trading-assistant
+
+# Ресурсы: у торговых тиков бюджет 110 с, ассистент не должен с ними конкурировать.
+MemoryMax=300M
+CPUQuota=40%
+
+# Ужесточение: ассистенту нужны только чтение репо и запись своего состояния.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ReadWritePaths=/home/trader/paper-desk /var/lib/trading-assistant
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target
