@@ -204,6 +204,30 @@ class TestToolsSmoke(unittest.TestCase):
         self.assertLess(len(s), 3000)
 
 
+class TestKeyValidation(unittest.TestCase):
+    """Регресс: placeholder с кириллицей давал невнятный 'latin-1 codec' из urllib."""
+
+    def test_cyrillic_placeholder(self):
+        from assistant import llm
+        with self.assertRaises(llm.LLMError) as cm:
+            llm._check_key('sk-or-v1-ВСТАВЬ_СЮДА_СВОЙ_КЛЮЧ')
+        self.assertIn('заглушка', str(cm.exception))
+
+    def test_empty_key(self):
+        from assistant import llm
+        with self.assertRaises(llm.LLMError):
+            llm._check_key('')
+
+    def test_wrong_prefix(self):
+        from assistant import llm
+        with self.assertRaises(llm.LLMError):
+            llm._check_key('my-secret-key-that-is-long-enough-but-wrong')
+
+    def test_valid_key_passes(self):
+        from assistant import llm
+        llm._check_key('sk-or-v1-' + 'a' * 64)  # не должно бросить
+
+
 class TestAgentLoop(unittest.TestCase):
     """Полный цикл на мок-модели: без ключа, без сети, без денег."""
 

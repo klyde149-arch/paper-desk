@@ -15,6 +15,27 @@ class LLMError(Exception):
     pass
 
 
+def _check_key(key):
+    """Внятно отбить незаполненный ключ.
+
+    Без этой проверки urllib падает на сборке заголовка с бесполезным
+    "'latin-1' codec can't encode characters in position 16-21" — так и было,
+    когда в /etc/trading-assistant.env остался placeholder с кириллицей.
+    """
+    if not key:
+        raise LLMError('OPENROUTER_API_KEY не задан. Проверь /etc/trading-assistant.env '
+                       '(права 640 root:trader) и что systemd его читает.')
+    try:
+        key.encode('ascii')
+    except UnicodeEncodeError:
+        raise LLMError('OPENROUTER_API_KEY содержит не-ASCII символы — в '
+                       '/etc/trading-assistant.env остался текст-заглушка, а не настоящий '
+                       'ключ. Настоящий выглядит как sk-or-v1-<64 hex-символа>.')
+    if not key.startswith('sk-or-') or len(key) < 30:
+        raise LLMError('OPENROUTER_API_KEY не похож на ключ OpenRouter (ожидается '
+                       'sk-or-v1-... длиной от 30 символов, получено %d символов).' % len(key))
+
+
 def _post(url, payload, headers, timeout):
     data = json.dumps(payload).encode('utf-8')
     req = urllib.request.Request(url, data=data, headers=headers, method='POST')
@@ -32,8 +53,7 @@ def chat(messages, tools=None, model=None, max_tokens=None):
         from .mock_llm import mock_chat
         return mock_chat(messages, tools)
 
-    if not config.API_KEY:
-        raise LLMError('OPENROUTER_API_KEY не задан')
+    _check_key(config.API_KEY)
 
     headers = {
         'Authorization': 'Bearer ' + config.API_KEY,
