@@ -204,6 +204,54 @@ class TestToolsSmoke(unittest.TestCase):
         self.assertLess(len(s), 3000)
 
 
+class TestMarketContext(unittest.TestCase):
+    """Регресс: в воскресенье модель принимала норму за аварию и слала копать логи."""
+
+    def test_context_in_snapshot(self):
+        s = snapshot.build()
+        self.assertIn('MSK', s)
+        self.assertTrue(any(d in s for d in snapshot._DAYS), 'нет дня недели')
+
+    def test_weekend_says_norm(self):
+        import time as _t
+        real = snapshot.time.gmtime
+        try:
+            # воскресенье 2026-07-19 12:00 MSK
+            snapshot.time.gmtime = lambda *a: _t.strptime('2026-07-19 12:00', '%Y-%m-%d %H:%M')
+            ctx = snapshot.market_context()
+            self.assertIn('ЗАКРЫТА', ctx)
+            self.assertIn('НОРМА', ctx)
+        finally:
+            snapshot.time.gmtime = real
+
+    def test_weekday_says_trading(self):
+        import time as _t
+        real = snapshot.time.gmtime
+        try:
+            # среда 2026-07-15 12:00 MSK
+            snapshot.time.gmtime = lambda *a: _t.strptime('2026-07-15 12:00', '%Y-%m-%d %H:%M')
+            self.assertIn('идут торги', snapshot.market_context())
+        finally:
+            snapshot.time.gmtime = real
+
+
+class TestStripMarkdown(unittest.TestCase):
+    """Telegram шлётся без parse_mode — разметка видна как мусор."""
+
+    def test_bold(self):
+        self.assertEqual(agent.strip_markdown('**Вывод:** всё ок'), 'Вывод: всё ок')
+
+    def test_headers_and_code(self):
+        self.assertEqual(agent.strip_markdown('### Итог\n`data/HALT`'), 'Итог\ndata/HALT')
+
+    def test_keeps_plain_text(self):
+        txt = 'риск 0.6% на сделку, стоп 2*ATR'
+        self.assertEqual(agent.strip_markdown(txt), txt)
+
+    def test_none_safe(self):
+        self.assertIsNone(agent.strip_markdown(None))
+
+
 class TestKeyValidation(unittest.TestCase):
     """Регресс: placeholder с кириллицей давал невнятный 'latin-1 codec' из urllib."""
 

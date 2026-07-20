@@ -5,6 +5,7 @@
 """
 import json
 import os
+import re
 import time
 
 from . import config, llm, memory, snapshot
@@ -12,6 +13,22 @@ from . import tools_impl as T
 from .scrub import scrub
 
 _PROMPT_CACHE = {}
+
+# Модели упорно размечают ответ Markdown'ом вопреки промпту, а Telegram шлётся
+# без parse_mode (иначе падает на '_' и '.' в путях и тикерах) — звёздочки видны
+# как мусор. Чистим кодом, а не уговорами.
+_MD_BOLD = re.compile(r'\*\*(.+?)\*\*', re.S)
+_MD_HEAD = re.compile(r'^#{1,6}\s*', re.M)
+_MD_CODE = re.compile(r'`([^`]*)`')
+
+
+def strip_markdown(text):
+    if not text:
+        return text
+    text = _MD_BOLD.sub(r'\1', text)
+    text = _MD_CODE.sub(r'\1', text)
+    text = _MD_HEAD.sub('', text)
+    return text
 
 
 def load_prompt():
@@ -81,7 +98,7 @@ def run_turn(chat_id, user_text, on_progress=None):
         turn_msgs.append(clean)
 
         if not calls:
-            answer = scrub((msg.get('content') or '').strip())
+            answer = strip_markdown(scrub((msg.get('content') or '').strip()))
             return _finish(chat_id, history, turn_msgs, answer, tools_used, usage_total, started)
 
         for call in calls:
@@ -108,7 +125,7 @@ def run_turn(chat_id, user_text, on_progress=None):
     try:
         msg, usage = llm.chat(messages, tools=None)
         usage_total['completion_tokens'] += usage.get('completion_tokens') or 0
-        answer = scrub((msg.get('content') or '').strip())
+        answer = strip_markdown(scrub((msg.get('content') or '').strip()))
     except Exception as e:
         answer = 'Не удалось завершить разбор: %s\n\n%s' % (e, snapshot.build())
     return _finish(chat_id, history, turn_msgs, answer, tools_used, usage_total, started)
