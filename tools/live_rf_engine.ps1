@@ -298,7 +298,23 @@ function Post-IntentMarket($It, [string]$Dir, [int]$Lots) {
   Set-IntentState $It 'POSTED'
   Save-State                       # write-ahead: intent в POSTED до сети
   Bump-OrdersToday
-  $r = Post-TiMarketOrder ([string]$st.account_id) ([string]$It.uid) $Dir $Lots ([string]$It.order_key)
+  $r = $null
+  try { $r = Post-TiMarketOrder ([string]$st.account_id) ([string]$It.uid) $Dir $Lots ([string]$It.order_key) }
+  catch {
+    # Отказ брокера - судьба ИНТЕНТА, а не смерть тика. Инцидент 2026-07-20: HTTP 400 на
+    # funding_sell (серебро) валил каждый тик с 07:00 MSK и замораживал state machine.
+    $emsg = [string]$_.Exception.Message
+    if ($emsg -match '^TINVEST_HTTP_4') {
+      Set-IntentState $It 'REJECTED' $emsg
+      $script:ev.Add("REJECTED(4xx) $($It.id) $($It.kind) $($It.ticker)")
+      Alert "заявка $($It.id) $($It.kind) $($It.ticker) отклонена брокером: $emsg"
+    } else {
+      # 5xx/неожиданное: заявка МОГЛА встать у брокера - LOST, adopt/repost разберётся
+      Set-IntentState $It 'LOST' $emsg
+      $script:ev.Add("LOST(err) $($It.id) $($It.kind) $($It.ticker)")
+    }
+    return $false
+  }
   $It.t_ack = if ($NowMs -eq $It.t_post) { $NowMs + 1 } else { $NowMs }
   if ($null -ne $r -and $r.PSObject.Properties['__lost'] -and $r.__lost) {
     Set-IntentState $It 'LOST' ([string]$r.error)
@@ -402,7 +418,9 @@ function Post-CardStop($Card) {
   $px = Round-ToIncrement ([decimal][double]$Card.stop_px_pts) ([pscustomobject]@{
     min_price_increment = [pscustomobject](D2Q ([decimal][double]$inst.min_price_increment)) })
   for ($try = 1; $try -le 3; $try++) {
-    $r = Post-TiStopOrder ([string]$st.account_id) ([string]$Card.uid) $dir ([int]$Card.lots) $px 'stop_loss'
+    $r = $null
+    try { $r = Post-TiStopOrder ([string]$st.account_id) ([string]$Card.uid) $dir ([int]$Card.lots) $px 'stop_loss' }
+    catch { Write-LiveLog "PostStopOrder $($Card.id) (попытка $try): $($_.Exception.Message)" }
     if ($null -ne $r -and -not ($r.PSObject.Properties['__lost'] -and $r.__lost)) {
       $sid = if ($r.PSObject.Properties['stopOrderId']) { [string]$r.stopOrderId } else { '' }
       $Card.stop_order_id = $sid
@@ -441,7 +459,14 @@ function Replace-CardStop($Card, [double]$NewStopPts) {
     ctx = [pscustomobject]@{ card_id = [string]$Card.id; new_stop = [math]::Round($NewStopPts, 6) } }
   Save-State
   if ([string]$Card.stop_order_id) {
-    $rc = Cancel-TiStopOrder ([string]$st.account_id) ([string]$Card.stop_order_id)
+    $rc = $null
+    try { $rc = Cancel-TiStopOrder ([string]$st.account_id) ([string]$Card.stop_order_id) }
+    catch {
+      # 4xx на отмене (например, стоп уже исполнился/снят) - как cancel lost: D6 следующего тика разрулит
+      Write-LiveLog "Cancel stop $($Card.id): $($_.Exception.Message)"
+      Set-IntentState $it 'LOST' "cancel: $($_.Exception.Message)"
+      return $false
+    }
     if ($null -ne $rc -and $rc.PSObject.Properties['__lost'] -and $rc.__lost) {
       # отмена потерялась: стоп либо жив, либо отменён - D6-watchdog следующего тика разрулит
       Set-IntentState $it 'LOST' 'cancel lost'
@@ -676,7 +701,13 @@ function Invoke-Reconcile($stopIds) {
       $want = $sm * [double]$c.lots
       if ($real -eq 0.0) {
         # D4: вероятно сработала стоп-заявка - подтверждаем по operations (не раньше входа в позицию)
-        $op = Find-FillOperation ([string]$c.uid) $(if ($c.side -eq 'long') { 'sell' } else { 'buy' }) ([int]$c.lots) ([long]$c.entry_ts)
+        $op = $null
+        try { $op = Find-FillOperation ([string]$c.uid) $(if ($c.side -eq 'long') { 'sell' } else { 'buy' }) ([int]$c.lots) ([long]$c.entry_ts) }
+        catch {
+          # operations недоступны: НЕ кварантинить по отсутствию данных - проверка на следующем тике
+          Write-LiveLog "D4 $($c.id): operations недоступны ($($_.Exception.Message)) - проверка отложена"
+          continue
+        }
         if ($null -ne $op) {
           $px = [double](M2D $op.price).value
           $fee = [math]::Abs([double]$c.lots) * $px * [double]$c.rub_per_pt * [double]$LIVE.fee_est
@@ -809,7 +840,13 @@ function Invoke-IntentPolling {
       $sinceAd = if ([long]$it.t_post -gt 0) { [long]$it.t_post } else { [long]$it.state_ts }
       $lsAd = 1.0
       if ([string]$it.kind -like 'mom_*') { try { $lsAd = [double](Get-Inst ([string]$it.ticker) 'share').lot } catch {} }
-      $op = Find-FillOperation ([string]$it.uid) ([string]$it.side) ([int]$it.lots) $sinceAd $lsAd
+      $op = $null
+      try { $op = Find-FillOperation ([string]$it.uid) ([string]$it.side) ([int]$it.lots) $sinceAd $lsAd }
+      catch {
+        # operations недоступны: репост БЕЗ adopt-проверки опасен (двойной филл) - ждём следующего тика
+        Write-LiveLog "adopt $($it.id): operations недоступны ($($_.Exception.Message)) - репост отложен"
+        continue
+      }
       if ($null -ne $op) {
         $it.filled_lots = [int]$it.lots
         $it.avg_fill_px = [double](M2D $op.price).value
@@ -1671,7 +1708,10 @@ try {
   Write-LiveLog ("tick ok: {0} | eq={1} go={2}/{3}" -f $evTxt, $st.profile_eq, $st.go.used_rub, $st.go.budget_rub)
   "RF-LIVE тик: $evTxt | eq $($st.profile_eq)"
 } catch {
-  Write-LiveLog ("tick ERROR: " + $_.Exception.Message + ' @ ' + ($_.ScriptStackTrace -split "`n")[0])
+  # два кадра стека: видно и место броска, и вызывающего (инцидент 2026-07-20: один кадр
+  # показывал только Invoke-TInvest, виновный вызов пришлось восстанавливать форензикой)
+  $frames = @($_.ScriptStackTrace -split "`n" | Select-Object -First 2) -join ' <- '
+  Write-LiveLog ("tick ERROR: " + $_.Exception.Message + ' @ ' + $frames)
   try { Save-State } catch {}
   Write-Warning "RF-LIVE: тик отменён: $($_.Exception.Message)"
 } finally {

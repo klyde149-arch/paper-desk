@@ -697,6 +697,53 @@ function Scn-DryrunE2e {
   Check 'dryrun: WOULD CALL записаны (>=2: market + stop)' (@($would).Count -ge 2)
 }
 
+# --- 28. PostOrder HTTP 400: отказ брокера = судьба ИНТЕНТА (REJECTED), тик ЖИВ.
+# Инцидент 2026-07-20: 400 на funding_sell валил каждый тик, state machine замерзала.
+function Scn-Post400 {
+  $r = New-Scenario 'post-400'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Set-Queue $r @([pscustomobject]@{ service='OrdersService'; method='PostOrder'; http = 400; message = 'mock broker reject' })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  # лог движка - UTF-8; PS 5.1 без -Encoding читает ANSI и кириллица в -match ломается
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  # Get-Calls возвращает ,$rows: СНАЧАЛА присвоить (снимает обёртку), ПОТОМ пайпить -
+  # прямой пайп функции отдаёт внутренний массив одним элементом (Count всегда 1)
+  $ret = Get-Calls $r 'PostOrder'
+  $posts = @($ret | Where-Object { $null -ne $_ })
+  Check 'post-400: тик выжил (tick ok в логе)' ([string]$log -match 'tick ok')
+  Check 'post-400: тик НЕ упал (нет tick ERROR)' ([string]$log -notmatch 'tick ERROR')
+  Check 'post-400: карточек нет' (@($st.sleeves.core.positions).Count -eq 0)
+  Check 'post-400: интенты вычищены (REJECTED убран cleanup-ом)' (@($st.pending_intents).Count -eq 0)
+  Check 'post-400: попытка PostOrder была ровно одна' ($posts.Count -eq 1)
+}
+
+# --- 29. operations падают в adopt: LOST остаётся LOST, репоста НЕТ (риск двойного филла), тик ЖИВ
+function Scn-AdoptOpsFail {
+  $r = New-Scenario 'adopt-ops-fail'
+  $s = New-BaseState $r
+  $it = New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05
+  $it.state = 'LOST'; $it.attempts = 1; $it.lots = 3
+  $it.ticker = 'NGQ6'; $it.uid = 'uid-NGQ6'
+  $it.t_post = (UtcStrToMs '2026-07-15 07:02'); $it.state_ts = (UtcStrToMs '2026-07-15 07:02')
+  $s.pending_intents = @($it)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Set-Queue $r @([pscustomobject]@{ service='OperationsService'; method='GetOperations'; http = 400; message = 'mock ops fail' })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  $lost = @($st.pending_intents | Where-Object { $_.state -eq 'LOST' })
+  $ret = Get-Calls $r 'PostOrder'
+  $posts = @($ret | Where-Object { $null -ne $_ })
+  Check 'adopt-fail: тик выжил (tick ok в логе)' ([string]$log -match 'tick ok')
+  Check 'adopt-fail: интент остался LOST' ($lost.Count -eq 1)
+  Check 'adopt-fail: attempts не вырос (репоста не было)' ($lost.Count -eq 1 -and [int]$lost[0].attempts -eq 1)
+  Check 'adopt-fail: ноль PostOrder в транспорт' ($posts.Count -eq 0)
+  Check 'adopt-fail: причина в логе (репост отложен)' ([string]$log -match 'репост отложен')
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryFill}, ${function:Scn-EntryReject}, ${function:Scn-EntryLostAdopt}, ${function:Scn-EntryLostRepost},
@@ -705,6 +752,7 @@ $scenarios = @(
   ${function:Scn-D6Repost}, ${function:Scn-D6Fail}, ${function:Scn-StocksDeficit}, ${function:Scn-StocksSurplus},
   ${function:Scn-ClearingGate}, ${function:Scn-Weekend}, ${function:Scn-HaltEntriesFile}, ${function:Scn-HaltCloseFile},
   ${function:Scn-FloodCap}, ${function:Scn-Tp1Sync}, ${function:Scn-RollFlow}, ${function:Scn-MomRebalance},
-  ${function:Scn-CrashRecovery}, ${function:Scn-Funding}, ${function:Scn-DryrunE2e}
+  ${function:Scn-CrashRecovery}, ${function:Scn-Funding}, ${function:Scn-DryrunE2e},
+  ${function:Scn-Post400}, ${function:Scn-AdoptOpsFail}
 )
 foreach ($fn in $scenarios) { & $fn }

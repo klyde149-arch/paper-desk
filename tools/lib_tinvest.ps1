@@ -103,6 +103,18 @@ function Invoke-TiMock([string]$Service, [string]$Method, [string]$BodyJson) {
 }
 
 # ================= транспорт =================
+# Заголовок из ответа при ошибке: PS 5.1 отдаёт WebHeaderCollection (индексатор),
+# pwsh 7 - HttpResponseHeaders (только TryGetValues). Никогда не бросает.
+function Get-TiHeader($Hdrs, [string]$Name) {
+  if ($null -eq $Hdrs) { return '' }
+  try {
+    if ($Hdrs -is [System.Net.WebHeaderCollection]) { return [string]$Hdrs[$Name] }
+    $vals = $null
+    if ($Hdrs.TryGetValues($Name, [ref]$vals)) { return [string](@($vals)[0]) }
+  } catch {}
+  return ''
+}
+
 # Возврат: объект ответа. Для -Mutating при сетевом сбое: [pscustomobject]@{ __lost = $true; error = '...' }
 # (заявка МОГЛА встать у брокера - разрешает state machine). HTTP 4xx -> исключение "TINVEST_HTTP_код: сообщение".
 function Invoke-TInvest([string]$Service, [string]$Method, $Body = @{}, [switch]$Mutating,
@@ -146,28 +158,42 @@ function Invoke-TInvest([string]$Service, [string]$Method, $Body = @{}, [switch]
         if ($txt) { return ($txt | ConvertFrom-Json) } else { return $null }
       }
       if ([string]$resp.Content) { return ($resp.Content | ConvertFrom-Json) } else { return $null }
-    } catch [System.Net.WebException] {
+    } catch {
+      # PS 5.1 кидает WebException, pwsh 7 (VPS) - HttpResponseException; типизированный
+      # catch [WebException] на pwsh 7 МЁРТВ. Боевой инцидент 2026-07-20: каждый RF-тик
+      # падал с нечитаемым «400 ()» - тело не читалось, latency-лог/ретраи/__lost/__dup
+      # не работали. Разбираем оба вида динамически, тип в catch не указываем
+      # (HttpResponseException не резолвится в PS 5.1).
       $ms = $sw.ElapsedMilliseconds
-      $http = 0; $respBody = ''
-      $wr = $_.Exception.Response
-      if ($null -ne $wr) {
-        $http = [int]$wr.StatusCode
-        try { $rd = New-Object IO.StreamReader($wr.GetResponseStream()); $respBody = $rd.ReadToEnd(); $rd.Close() } catch {}
+      $ex = $_.Exception
+      $http = 0; $respBody = ''; $hdrs = $null
+      if ($ex -is [System.Net.WebException]) {
+        $wr = $ex.Response
+        if ($null -ne $wr) {
+          $http = [int]$wr.StatusCode; $hdrs = $wr.Headers
+          try { $rd = New-Object IO.StreamReader($wr.GetResponseStream()); $respBody = $rd.ReadToEnd(); $rd.Close() } catch {}
+        }
+      } elseif ($null -ne $ex.PSObject.Properties['Response'] -and $null -ne $ex.Response) {
+        # pwsh 7: HttpResponseException; тело ответа лежит в ErrorDetails.Message
+        try { $http = [int]$ex.Response.StatusCode } catch {}
+        if ($null -ne $_.ErrorDetails -and $_.ErrorDetails.Message) { $respBody = [string]$_.ErrorDetails.Message }
+        try { $hdrs = $ex.Response.Headers } catch {}
       }
+      # $http=0 - чистая сеть/таймаут (TaskCanceled, HttpRequestException без ответа)
       Write-TiLatency $Service $Method $ms ([string]$http) $false
       if ($http -eq 0) {
-        # чистая сетевая ошибка / таймаут
-        if ($Mutating) { return [pscustomobject]@{ __lost = $true; error = $_.Exception.Message } }
+        if ($Mutating) { return [pscustomobject]@{ __lost = $true; error = $ex.Message } }
         if ($try -lt $maxTry) { Start-Sleep -Milliseconds (500 * [math]::Pow(4, $try - 1)); continue }
         throw
       }
       $msg = $respBody
       try { $j = $respBody | ConvertFrom-Json; if ($j.message) { $msg = [string]$j.message } } catch {}
       # REST-gateway кладёт текст ошибки в grpc-trailer-message при пустом теле (боевой факт 2026-07-17)
-      if (-not $msg) { try { $msg = [string]$wr.Headers['grpc-trailer-message'] } catch {} }
+      if (-not $msg) { $msg = Get-TiHeader $hdrs 'grpc-trailer-message' }
       if ($http -eq 429) {
         $reset = 5
-        try { $h = $wr.Headers['x-ratelimit-reset']; if ($h) { $reset = [math]::Min([int]$h, 60) } } catch {}
+        $h = Get-TiHeader $hdrs 'x-ratelimit-reset'
+        if ($h) { try { $reset = [math]::Min([int]$h, 60) } catch {} }
         # мутации на 429 повторять БЕЗОПАСНО: order_id идемпотентен (подтверждено песочницей 2026-07-17
         # «The order is a duplicate») - один повтор с тем же ключом после паузы
         if ($Mutating -and $try -eq 1) { Start-Sleep -Seconds $reset; $maxTry = 2; continue }
@@ -379,7 +405,9 @@ function Resolve-TiSandboxBase {
   if ($script:TI.mode -ne 'sandbox') { return }
   try {
     $null = Invoke-TInvest 'SandboxService' 'GetSandboxAccounts' @{}
-  } catch [System.Net.WebException] {
+  } catch {
+    # generic: на pwsh 7 сетевые ошибки транспорта - не WebException (см. catch Invoke-TInvest);
+    # любой сбой песочного хоста -> пробуем общий
     $old = $script:TI.base
     $script:TI.base = 'https://invest-public-api.tinkoff.ru/rest'
     try { $null = Invoke-TInvest 'SandboxService' 'GetSandboxAccounts' @{} }
