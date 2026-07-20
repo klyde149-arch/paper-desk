@@ -338,8 +338,16 @@ function Get-TiPortfolio([string]$AccId) {
 function Get-TiPositions([string]$AccId) {
   return Invoke-TInvest 'OperationsService' 'GetPositions' @{ accountId = $AccId }
 }
-function Get-TiOperations([string]$AccId, [string]$FromIso, [string]$ToIso) {
-  $r = Invoke-TInvest 'OperationsService' 'GetOperations' @{ accountId = $AccId; from = $FromIso; to = $ToIso; state = 'OPERATION_STATE_EXECUTED' }
+# pwsh 7 ConvertFrom-Json авто-конвертит полный ISO ("...T...Z") в [datetime]; [string] от него
+# даёт культурный «07/20/2026 02:59:33», который API отвергает 400 code 3 (боевой инцидент
+# 2026-07-20, GetOperations c ops_since из состояния). PS 5.1 строки не трогает - латентно.
+function ConvertTo-TiIso($V) {
+  if ($V -is [datetime]) { return $V.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') }
+  return [string]$V
+}
+function Get-TiOperations([string]$AccId, $FromIso, $ToIso) {
+  $r = Invoke-TInvest 'OperationsService' 'GetOperations' @{ accountId = $AccId
+    from = (ConvertTo-TiIso $FromIso); to = (ConvertTo-TiIso $ToIso); state = 'OPERATION_STATE_EXECUTED' }
   return @($r.operations)
 }
 

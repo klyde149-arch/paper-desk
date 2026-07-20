@@ -752,7 +752,9 @@ $script:opsCache = $null
 function Get-OpsSince {
   if ($null -ne $script:opsCache) { return $script:opsCache }
   $to = (MsToUtc $NowMs).ToString('yyyy-MM-ddTHH:mm:ssZ')
-  $script:opsCache = @(Get-TiOperations ([string]$st.account_id) ([string]$st.watermarks.ops_since) $to)
+  # НЕ кастовать ops_since через [string]: pwsh 7 грузит полный ISO из JSON как [datetime],
+  # и [string] даёт культурный формат -> API 400 code 3 (инцидент 2026-07-20). Нормализация в либе.
+  $script:opsCache = @(Get-TiOperations ([string]$st.account_id) (ConvertTo-TiIso $st.watermarks.ops_since) $to)
   return $script:opsCache
 }
 function Find-FillOperation([string]$Uid, [string]$Dir, [int]$Lots, [long]$SinceMs = 0, [double]$LotSize = 1) {

@@ -24,6 +24,10 @@ function Test-Converters {
   Check 'Q2D -1.25' ((Q2D ([pscustomobject]@{units='-1';nano=-250000000})) -eq [decimal]-1.25)
   Check 'Q2D 1e-9' ((Q2D ([pscustomobject]@{units='0';nano=1})) -eq [decimal]0.000000001)
   Check 'Q2D null->0' ((Q2D $null) -eq [decimal]0)
+  # ConvertTo-TiIso: pwsh 7 грузит полный ISO из JSON как [datetime] - каст в [string] давал
+  # культурный формат и API 400 (инцидент 2026-07-20); строки проходят как есть
+  Check 'TiIso: [datetime] -> ISO Z' ((ConvertTo-TiIso ([datetime]::SpecifyKind([datetime]'2026-07-20 02:59:33', 'Utc'))) -eq '2026-07-20T02:59:33Z')
+  Check 'TiIso: строка как есть' ((ConvertTo-TiIso '2026-07-20T02:59:33Z') -eq '2026-07-20T02:59:33Z')
   foreach ($v in @([decimal]85.55, [decimal]-1.25, [decimal]0.001, [decimal]215650, [decimal]-0.5, [decimal]12.336)) {
     $q = D2Q $v; $back = Q2D ([pscustomobject]$q)
     Check "D2Q roundtrip $v" ($back -eq $v)
