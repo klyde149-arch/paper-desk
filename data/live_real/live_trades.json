@@ -121,5 +121,49 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT5",
+    "sym": "UNI-USDT",
+    "side": "long",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-07-18 00:00",
+    "entryDay": "2026-07-18",
+    "entryTs": 1784332803509,
+    "entry": 3.639,
+    "qty": 5.6,
+    "exitUtc": "2026-07-20 05:14",
+    "exitDay": "2026-07-20",
+    "exitTs": 1784524443037,
+    "exitPx": 3.438,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 5.6,
+        "price": 3.438,
+        "utc": "2026-07-20 05:13",
+        "pnl": -1.13
+      }
+    ],
+    "pnlUsd": -1.17,
+    "rMultiple": -1.04,
+    "riskUsd": 1.13,
+    "fees": 0.04,
+    "funding": -0.0,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; UNI-USDT 4h up; F&G 25",
+      "riskPlan": "вход ~3.639, стоп 3.437 (5.5%), TP1 3.942 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.13",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
