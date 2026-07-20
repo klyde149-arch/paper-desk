@@ -196,8 +196,8 @@ def handle_callback(upd):
         tg.answer_callback(cb.get('id'))
         dry = ' [DRY-режим: обкатка, заявка уйдёт в песочницу]' if config.DRY_ACTIONS else ''
         tg.send(chat_id,
-                'Закрыть %s?\nОба профиля C2 и C3b, по рынку на ближайшем тике '
-                '(~до 20 мин).%s' % (disp, dry),
+                'Закрыть %s?\nОба профиля C2 и C3b, по рынку (обычно 1-3 мин).%s'
+                % (disp, dry),
                 keyboard=[[{'text': '✅ Подтвердить', 'callback_data': 'mc:ok:' + token},
                            {'text': '✖ Отмена', 'callback_data': 'mc:no:' + token}]])
     elif data.startswith('mc:ok:'):

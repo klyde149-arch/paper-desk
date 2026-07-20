@@ -1,0 +1,49 @@
+name: manual-close
+# Лёгкий ран для заявок ручного закрытия paper-сделок: только RF-движок,
+# без крипто-тика, проб API и пересборки дашборда (~1 мин вместо 3-6).
+# Дашборд обновит ближайший плановый тик. Триггер: пуш файла заявки
+# (fast-path VPS коммитит его отдельным коммитом). tick.yml этот файл
+# игнорирует (paths-ignore) - иначе оба рана вставали бы в одну очередь.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/rf/manual_close_req.json'
+
+permissions:
+  contents: write
+
+# Общий замок с tick.yml: состояние data/rf пишет ровно один ран за раз.
+concurrency:
+  group: tick
+  cancel-in-progress: false
+
+jobs:
+  close:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run RF engine (manual close)
+        shell: powershell
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\rf_engine.ps1
+
+      - name: Commit state
+        shell: powershell
+        run: |
+          git config user.name 'paper-desk-bot'
+          git config user.email 'bot@users.noreply.github.com'
+          git add data journal.md
+          $st = git diff --cached --name-only
+          if (-not $st) { Write-Host 'state unchanged - nothing to commit'; exit 0 }
+          $stamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm')
+          git commit -q -m "manual-close $stamp UTC"
+          git push -q origin main
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning 'push rejected - rebasing'
+            git fetch origin main
+            git rebase origin/main
+            git push -q origin main
+            if ($LASTEXITCODE -ne 0) { Write-Warning 'push failed again - state will retry next tick' }
+          }

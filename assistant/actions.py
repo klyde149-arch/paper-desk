@@ -21,9 +21,14 @@ import calendar
 import json
 import os
 import secrets
+import subprocess
 import time
 
 from . import config
+
+# Замок git-операций RF-тика (deploy/live-rf-tick.service берёт его через flock).
+# Мгновенный пуш заявки обязан взять ТОТ ЖЕ замок, чтобы не драться за git-индекс.
+RF_TICK_LOCK = '/run/lock/live-rf-tick.lock'
 
 ASSET_RU = {
     'BR': 'нефть Brent', 'NG': 'газ', 'GOLD': 'золото', 'SILV': 'серебро',
@@ -243,13 +248,79 @@ def confirm_pending(token, chat_id):
     _write_json_atomic(path, req)
     p.pop(token, None)
     _save_pending(p)
+    pushed = False if config.DRY_ACTIONS else push_request_now()
     audit('confirm', chat=str(chat_id), asset=v['asset'], sleeve=v['sleeve'],
-          req_id=token, dry=config.DRY_ACTIONS)
-    dry = ' [DRY: песочница, движок её не увидит]' if config.DRY_ACTIONS else ''
-    return {'ok': True, 'msg': 'Заявка принята: закрою %s в C2 и C3b по рынку на '
-                               'ближайшем тике (~до 20 мин). Пришлю цену исполнения.%s'
-                               % (v.get('display') or v['asset'], dry),
+          req_id=token, dry=config.DRY_ACTIONS, pushed=pushed)
+    if config.DRY_ACTIONS:
+        eta = ' [DRY: песочница, движок её не увидит]'
+    elif pushed:
+        eta = ' Заявка уже отправлена в обработку, обычно это 1-3 минуты.'
+    else:
+        eta = ' Заявку отправит ближайший тик (до минуты), исполнение обычно 2-4 минуты.'
+    return {'ok': True, 'msg': 'Заявка принята: закрою %s в C2 и C3b по рынку.%s '
+                               'Пришлю цену исполнения.'
+                               % (v.get('display') or v['asset'], eta),
             'display': v.get('display')}
+
+
+def push_request_now():
+    """Мгновенный коммит+пуш заявки, не дожидаясь минутного тика.
+
+    Ускорение, а не гарантия: при ЛЮБОЙ неудаче (замок занят, сеть, rebase)
+    молча отступаем — fast-path в live_rf_tick.sh допушит файл в течение
+    минуты, страховочный контур не отключён. Linux-only (на Windows-тестах
+    и в DRY пуш не нужен). Возвращает True, если заявка уже в origin.
+    """
+    if os.name == 'nt':
+        return False
+    try:
+        import fcntl
+    except ImportError:
+        return False
+
+    def git(*argv, **kw):
+        timeout = kw.get('timeout', 25)
+        return subprocess.run(['git', '-C', config.REPO] + list(argv),
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=timeout)
+
+    rel = 'data/rf/manual_close_req.json'
+    lock = None
+    try:
+        lock = open(RF_TICK_LOCK, 'a')
+        # до ~10 с ждём замок RF-тика; занят дольше — не блокируем callback бота
+        for _ in range(20):
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                time.sleep(0.5)
+        else:
+            return False
+        git('add', rel)
+        if git('diff', '--cached', '--quiet').returncode == 0:
+            return True  # нечего пушить: файл уже уехал (например, тиком)
+        if git('-c', 'user.name=live-desk-bot',
+               '-c', 'user.email=live-desk-bot@users.noreply.github.com',
+               'commit', '-m', 'manual-close request (instant push)').returncode != 0:
+            return False
+        if git('push', 'origin', 'main', timeout=40).returncode == 0:
+            return True
+        # origin успел уйти вперёд - одна попытка rebase
+        if (git('fetch', 'origin', timeout=40).returncode == 0
+                and git('rebase', 'origin/main').returncode == 0
+                and git('push', 'origin', 'main', timeout=40).returncode == 0):
+            return True
+        git('rebase', '--abort')
+        return False
+    except Exception:
+        return False
+    finally:
+        if lock is not None:
+            try:
+                lock.close()  # close снимает flock
+            except OSError:
+                pass
 
 
 def _processed_req_ids():
@@ -325,6 +396,6 @@ def build_positions_menu():
                                SLEEVE_RU.get(m['sleeve'], m['sleeve'])),
                     'callback_data': 'mc:sel:%s:%s' % (m['asset'], m['sleeve'])}])
     lines.append('')
-    lines.append('Кнопка запросит подтверждение; закрытие — по рынку на ближайшем '
-                 'тике (~до 20 мин), в обоих профилях C2 и C3b.')
+    lines.append('Кнопка запросит подтверждение; закрытие — по рынку, обычно за '
+                 '1-3 минуты, в обоих профилях C2 и C3b.')
     return '\n'.join(lines), kb

@@ -10,6 +10,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    # заявки ручного закрытия обрабатывает лёгкий manual-close.yml (~1 мин);
+    # полный тик на них не дёргаем - пуши только этого файла игнорируются
+    paths-ignore:
+      - 'data/rf/manual_close_req.json'
 
 permissions:
   contents: write
