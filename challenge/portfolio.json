@@ -16,42 +16,42 @@
                       "day_number":  12,
                       "failed":  false,
                       "completed":  false,
-                      "consecutive_stop_losses":  1,
+                      "consecutive_stop_losses":  0,
                       "pause_next_day":  false,
                       "history":  [
 
                                   ]
                   },
-    "balance_usd":  784.41,
-    "equity_usd":  888.33,
+    "balance_usd":  919.73,
+    "equity_usd":  923.05,
     "peak_equity_usd":  1048.91,
     "day_start_equity_usd":  776.66,
     "day_start_date_utc":  "2026-07-20",
-    "last_entry_day_utc":  "2026-07-18",
+    "last_entry_day_utc":  "2026-07-20",
     "open_position":  {
-                          "id":  "C8",
-                          "symbol":  "BNB-USDT",
-                          "side":  "short",
-                          "entry_utc":  "2026-07-18 18:03",
-                          "signal_bar_utc":  "2026-07-18 17:00",
-                          "entry_ts":  1784397825934,
-                          "entry_price":  570.42882,
-                          "qty":  18.69,
-                          "notional_usd":  10661.49,
-                          "margin_usd":  710.77,
+                          "id":  "C9",
+                          "symbol":  "ETH-USDT",
+                          "side":  "long",
+                          "entry_utc":  "2026-07-20 06:48",
+                          "signal_bar_utc":  "2026-07-20 05:00",
+                          "entry_ts":  1784530127232,
+                          "entry_price":  1848.114268,
+                          "qty":  3.6,
+                          "notional_usd":  6647.72,
+                          "margin_usd":  443.18,
                           "leverage_effective":  15,
-                          "stop":  574.292119,
-                          "tp":  562.702222,
-                          "liq_price":  605.605264,
-                          "risk_usd":  72.21,
-                          "risk_pct_equity":  9.1,
-                          "max_hold_until_utc":  "2026-07-20 18:03",
-                          "entry_fee_usd":  5.33,
-                          "funding_accrued_usd":  2.6438,
-                          "score":  0.514,
+                          "stop":  1822.452824,
+                          "tp":  1899.437156,
+                          "liq_price":  1734.147221,
+                          "risk_usd":  92.3,
+                          "risk_pct_equity":  10,
+                          "max_hold_until_utc":  "2026-07-22 06:48",
+                          "entry_fee_usd":  3.32,
+                          "funding_accrued_usd":  0,
+                          "score":  1.076,
                           "thesis":  {
-                                         "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 0.514 из 9 пар",
-                                         "riskPlan":  "риск 72.21$ (10% эквити), стоп 574.292119 (2×ATR 1h), тейк 562.702222 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 605.605264",
+                                         "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 1.076 из 9 пар",
+                                         "riskPlan":  "риск 92.3$ (10% эквити), стоп 1822.452824 (2×ATR 1h), тейк 1899.437156 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 1734.147221",
                                          "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
                                      }
                       },
@@ -206,21 +206,42 @@
                                              "riskPlan":  "риск 88.64$ (10% эквити), стоп 8.038557 (2×ATR 1h), тейк 8.443239 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 7.669422",
                                              "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
                                          }
+                          },
+                          {
+                              "id":  "C8",
+                              "symbol":  "BNB-USDT",
+                              "side":  "short",
+                              "entry_utc":  "2026-07-18 18:03",
+                              "entry":  570.42882,
+                              "qty":  18.69,
+                              "exit_utc":  "2026-07-20 06:37",
+                              "exit":  562.871033,
+                              "reason":  "tp",
+                              "bars_held_h":  36.6,
+                              "pnl_usd":  133.31,
+                              "fees_usd":  10.59,
+                              "funding_usd":  2.64,
+                              "r_multiple":  1.85,
+                              "thesis":  {
+                                             "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 0.514 из 9 пар",
+                                             "riskPlan":  "риск 72.21$ (10% эквити), стоп 574.292119 (2×ATR 1h), тейк 562.702222 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 605.605264",
+                                             "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
+                                         }
                           }
                       ],
     "stats":  {
-                  "trades":  7,
-                  "wins":  2,
+                  "trades":  8,
+                  "wins":  3,
                   "losses":  5,
-                  "total_fees_usd":  24.9,
-                  "total_funding_usd":  1,
-                  "realized_pnl_usd":  -210.26
+                  "total_fees_usd":  30.16,
+                  "total_funding_usd":  3.64,
+                  "realized_pnl_usd":  -76.95
               },
-    "last_check_utc":  "2026-07-20 06:32",
+    "last_check_utc":  "2026-07-20 06:48",
     "auto":  {
                  "schema":  1,
-                 "last_1m_ts":  1784529060000,
-                 "last_scan_1h_ts":  1784412000000,
+                 "last_1m_ts":  1784529420000,
+                 "last_scan_1h_ts":  1784523600000,
                  "paused_day_utc":  null
              }
 }
