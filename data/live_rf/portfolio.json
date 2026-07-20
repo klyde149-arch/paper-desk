@@ -45,11 +45,11 @@
   "watermarks": {
     "last_daily_day": "2026-07-19",
     "last_hour_ts": 1784548800000,
-    "ops_since": "2026-07-20T09:45:33Z",
-    "last_eq_snap": 1784544093437,
+    "ops_since": "2026-07-20T10:00:33Z",
+    "last_eq_snap": 1784544993552,
     "last_report_day": "2026-07-17",
     "orders_day": "2026-07-20",
-    "orders_day_n": 1
+    "orders_day_n": 3
   },
   "fronts": {
     "BR": {
@@ -121,8 +121,8 @@
     "used_rub": 0.0,
     "budget_rub": 650000.0,
     "peak_day_rub": 0.0,
-    "account_liquid_rub": 1402221.53,
-    "bot_capital_rub": 772483.33
+    "account_liquid_rub": 1400901.53,
+    "bot_capital_rub": 772393.33
   },
   "drift": {
     "D2": 0,
@@ -132,41 +132,12 @@
     "stocks_deficit": 0,
     "last": ""
   },
-  "pending_intents": [
-    {
-      "id": "i00007",
-      "kind": "funding_sell",
-      "sleeve": "funding",
-      "asset": "SLVRUB_TOM",
-      "ticker": "SLVRUB_TOM",
-      "uid": "d6240afe-4e9c-49b6-8835-629f431c8506",
-      "side": "sell",
-      "lots": 6,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "aa22b0cb-24ba-2d06-33d7-fe44ca9f93eb",
-      "broker_order_id": "",
-      "state": "LOST",
-      "attempts": 1,
-      "t_signal": 0,
-      "t_post": 1784520032711,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-07-20",
-      "state_ts": 1784520093204,
-      "last_error": "no broker id",
-      "ctx": {
-        "why": "вход BR 6 лот",
-        "ref_px": 139.1,
-        "lot_rub": 13910.0
-      }
-    }
-  ],
+  "pending_intents": [],
   "next_intent_id": 8,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 0,
-    "orders_posted": 1,
+    "orders_posted": 3,
     "fills": 0,
     "wins": 0,
     "losses": 0,
@@ -177,10 +148,10 @@
   },
   "consec_fail": 0,
   "capital_breakdown": {
-    "currencies": 772483.33,
+    "currencies": 772393.33,
     "futures": 0.0,
     "mom_shares": 0.0,
-    "user_assets": 629738.2,
-    "portfolio_total": 1402221.53
+    "user_assets": 628508.2,
+    "portfolio_total": 1400901.53
   }
 }
