@@ -45,11 +45,11 @@
   "watermarks": {
     "last_daily_day": "2026-07-19",
     "last_hour_ts": 1784523600000,
-    "ops_since": "2026-07-20T02:45:33Z",
-    "last_eq_snap": 1784518953173,
+    "ops_since": "2026-07-20T02:59:33Z",
+    "last_eq_snap": 1784519913079,
     "last_report_day": "2026-07-17",
-    "orders_day": "",
-    "orders_day_n": 0
+    "orders_day": "2026-07-20",
+    "orders_day_n": 1
   },
   "fronts": {
     "BR": {
@@ -121,7 +121,7 @@
     "used_rub": 0.0,
     "budget_rub": 650000.0,
     "peak_day_rub": 0.0,
-    "account_liquid_rub": 1400088.03,
+    "account_liquid_rub": 1400525.38,
     "bot_capital_rub": 768793.33
   },
   "drift": {
@@ -141,7 +141,7 @@
       "ticker": "BRQ6",
       "uid": "9121d88e-71b0-41ac-b89d-96d90aa8b7f6",
       "side": "buy",
-      "lots": 0,
+      "lots": 6,
       "filled_lots": 0,
       "avg_fill_px": null,
       "order_key": "17dda73b-17f2-de91-7142-a0a75e738a51",
@@ -156,11 +156,12 @@
       "state_ts": 1784496033217,
       "last_error": "",
       "ctx": {
-        "stop_dist": 6.521429,
         "atr": 3.260714,
         "risk_pct": 0.05,
         "ref_px": 88.33,
-        "note": "donchian close 88.33 vs [70.62 / 87.65]"
+        "note": "donchian close 88.33 vs [70.62 / 87.65]",
+        "risk_rub": 35000.0,
+        "stop_dist": 6.521429
       }
     },
     {
@@ -222,13 +223,41 @@
         "ref_px": 193875.0,
         "note": "donchian close 193875 vs [198525 / 246525]"
       }
+    },
+    {
+      "id": "i00007",
+      "kind": "funding_sell",
+      "sleeve": "funding",
+      "asset": "SLVRUB_TOM",
+      "ticker": "SLVRUB_TOM",
+      "uid": "d6240afe-4e9c-49b6-8835-629f431c8506",
+      "side": "sell",
+      "lots": 6,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "aa22b0cb-24ba-2d06-33d7-fe44ca9f93eb",
+      "broker_order_id": "",
+      "state": "POSTED",
+      "attempts": 1,
+      "t_signal": 0,
+      "t_post": 1784520032711,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-07-20",
+      "state_ts": 1784520032711,
+      "last_error": "",
+      "ctx": {
+        "why": "вход BR 6 лот",
+        "ref_px": 139.1,
+        "lot_rub": 13910.0
+      }
     }
   ],
-  "next_intent_id": 7,
+  "next_intent_id": 8,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 0,
-    "orders_posted": 0,
+    "orders_posted": 1,
     "fills": 0,
     "wins": 0,
     "losses": 0,
@@ -242,7 +271,7 @@
     "currencies": 768793.33,
     "futures": 0.0,
     "mom_shares": 0.0,
-    "user_assets": 631294.7,
-    "portfolio_total": 1400088.03
+    "user_assets": 631732.05,
+    "portfolio_total": 1400525.38
   }
 }
