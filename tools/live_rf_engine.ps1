@@ -535,6 +535,10 @@ function Ensure-RubFunding([double]$NeedRub, [string]$Why) {
     try { $inst = Get-InstUid $uid } catch { Write-LiveLog "funding: инструмент $uid недоступен: $($_.Exception.Message)"; continue }
     $apiOk = (Get-TiField $inst 'api_trade_available_flag')
     if ($apiOk -ne $true) { Write-LiveLog "funding: $($inst.ticker) api_trade=false - пропуск"; continue }
+    # сессия funding-инструмента != сессия фьючерса: металлы CETS открываются в 10:00 MSK,
+    # FORTS - в 07:00. Заявка в закрытый рынок = 400 (инцидент 2026-07-20: продажа серебра
+    # в 07:00 под вход BR). Не торгуется - интент входа ждёт следующего тика.
+    if (-not (Test-InstrumentTrading $uid)) { Write-LiveLog "funding: $($inst.ticker) сейчас не торгуется - пропуск"; continue }
     $lotSize = [double]$inst.lot
     # сколько есть у пользователя
     $availLots = 0.0

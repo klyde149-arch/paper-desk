@@ -697,6 +697,40 @@ function Scn-DryrunE2e {
   Check 'dryrun: WOULD CALL записаны (>=2: market + stop)' (@($would).Count -ge 2)
 }
 
+# --- 27b. funding-инструмент не торгуется (металлы CETS открываются в 10:00, FORTS в 07:00):
+# продажа НЕ постится, интент входа ждёт, тик жив (инцидент 2026-07-20: серебро в 07:00)
+function Scn-FundingGated {
+  $r = New-Scenario 'funding-gated'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{ funding = @('uid-XAG') })
+  Write-Json (Join-Path $r 'mock\InstrumentsService.GetInstrumentBy.json') ([pscustomobject]@{ instrument = [pscustomobject]@{
+    uid = 'uid-XAG'; ticker = 'SLVRUB_TOM'; class_code = 'CETS'; lot = 100
+    min_price_increment = [pscustomobject]@{ units = '0'; nano = 50000000 }
+    api_trade_available_flag = $true } })
+  Set-Queue $r @(
+    # рублей мало -> нужен фандинг
+    [pscustomobject]@{ service='OperationsService'; method='GetPositions'
+      response=[pscustomobject]@{ money = @([pscustomobject]@{ currency='rub'; units='1000'; nano=0 }) } },
+    # статус #1: NG (гейт входа) - торгуется
+    [pscustomobject]@{ service='MarketDataService'; method='GetTradingStatus'
+      response=[pscustomobject]@{ tradingStatus = 'SECURITY_TRADING_STATUS_NORMAL_TRADING' } },
+    # статус #2: серебро - НЕ торгуется (утро, металлы ещё закрыты)
+    [pscustomobject]@{ service='MarketDataService'; method='GetTradingStatus'
+      response=[pscustomobject]@{ tradingStatus = 'SECURITY_TRADING_STATUS_NOT_AVAILABLE_FOR_TRADING' } }
+  )
+  [void](Run-Tick $r '2026-07-15 07:05')
+  $st = Get-State $r
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  $ret = Get-Calls $r 'PostOrder'
+  $posts = @($ret | Where-Object { $null -ne $_ })
+  Check 'fund-gate: тик выжил' ([string]$log -match 'tick ok')
+  Check 'fund-gate: ноль PostOrder (ни серебра, ни входа)' ($posts.Count -eq 0)
+  Check 'fund-gate: интент входа ждёт (INTENT)' (@($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.state -eq 'INTENT' }).Count -eq 1)
+  Check 'fund-gate: причина в логе (не торгуется)' ([string]$log -match 'не торгуется')
+}
+
 # --- 28. PostOrder HTTP 400: отказ брокера = судьба ИНТЕНТА (REJECTED), тик ЖИВ.
 # Инцидент 2026-07-20: 400 на funding_sell валил каждый тик, state machine замерзала.
 function Scn-Post400 {
@@ -753,6 +787,6 @@ $scenarios = @(
   ${function:Scn-ClearingGate}, ${function:Scn-Weekend}, ${function:Scn-HaltEntriesFile}, ${function:Scn-HaltCloseFile},
   ${function:Scn-FloodCap}, ${function:Scn-Tp1Sync}, ${function:Scn-RollFlow}, ${function:Scn-MomRebalance},
   ${function:Scn-CrashRecovery}, ${function:Scn-Funding}, ${function:Scn-DryrunE2e},
-  ${function:Scn-Post400}, ${function:Scn-AdoptOpsFail}
+  ${function:Scn-FundingGated}, ${function:Scn-Post400}, ${function:Scn-AdoptOpsFail}
 )
 foreach ($fn in $scenarios) { & $fn }
