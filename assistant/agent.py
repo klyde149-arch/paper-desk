@@ -111,7 +111,7 @@ def run_turn(chat_id, user_text, on_progress=None):
                 out = json.dumps({'error': 'достигнут лимит объёма данных за ход; '
                                            'отвечай по уже полученному'}, ensure_ascii=False)
             else:
-                out = T.dispatch(fname, args)
+                out = T.dispatch(fname, args, ctx={'chat_id': chat_id})
                 spent_chars += len(out)
             tools_used.append(fname)
             tmsg = _tool_stub_message(call, out)

@@ -19,6 +19,20 @@ pwsh -NoProfile -File tools/live_rf_engine.ps1
 rc=$?
 if [ $rc -ne 0 ]; then echo "WARN: live_rf_engine exited rc=$rc" >&2; fi
 
+# 2b) manual-close fast-path: заявка оператора из TG-ассистента не должна ждать
+# 15-минутной отметки. Файл пишет ТОЛЬКО ассистент на этой VPS, движок Actions его
+# не модифицирует - конфликтов по нему не бывает. Push триггерит tick.yml (on: push).
+if [ -n "$(git status --porcelain -- data/rf/manual_close_req.json 2>/dev/null)" ]; then
+  git add data/rf/manual_close_req.json
+  if git -c user.name='live-desk-bot' -c user.email='live-desk-bot@users.noreply.github.com' \
+      commit -m "manual-close request $(date -u '+%Y-%m-%d %H:%M') UTC" >/dev/null 2>&1; then
+    if ! git push origin main >/dev/null 2>&1; then
+      git fetch origin >/dev/null 2>&1 && git rebase origin/main >/dev/null 2>&1 && git push origin main >/dev/null 2>&1 \
+        || echo "WARN: manual-close push failed - retry next tick" >&2
+    fi
+  fi
+fi
+
 # 3) push policy: on 15-minute marks; explicit paths ONLY - never 'git add data'
 # (paper files belong to Actions, data/live_real belongs to the Bybit contour)
 minute=$(date -u +%M)

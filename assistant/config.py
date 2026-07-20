@@ -72,7 +72,14 @@ RATE_MSGS = 20               # сообщений
 RATE_WINDOW_SEC = 600        # за окно
 
 # --- действия ---------------------------------------------------------------
-# Пока 1 — kill-switch пишет в песочницу вместо data/. Снимать только после
-# успешного kill-drill (см. deploy/README_ASSISTANT.md).
+# Пока 1 — действия пишут в песочницу вместо data/. Снимать только после
+# успешного дрилла (см. deploy/README_ASSISTANT.md).
 DRY_ACTIONS = os.environ.get('ASSISTANT_DRY_ACTIONS', '1') == '1'
 CONFIRM_TTL_SEC = 180
+
+# Ручное закрытие paper-сделок: заявки/результаты (см. assistant/actions.py).
+# req пишет ТОЛЬКО ассистент, res пишет ТОЛЬКО rf_engine.ps1 (Actions).
+MANUAL_CLOSE_REQ = os.path.join(REPO, 'data', 'rf', 'manual_close_req.json')
+MANUAL_CLOSE_RES = os.path.join(REPO, 'data', 'rf', 'manual_close_res.json')
+ANNOUNCED_FILE = os.path.join(STATE_DIR, 'announced_close.json')
+ACTIONS_SANDBOX = os.path.join(STATE_DIR, 'sandbox')

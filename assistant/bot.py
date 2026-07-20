@@ -14,21 +14,24 @@ if __package__ in (None, ''):
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     __package__ = 'assistant'
 
-from . import agent, config, memory, snapshot, tg  # noqa: E402
+from . import actions, agent, config, memory, snapshot, tg  # noqa: E402
 
 _rate = {}          # chat_id -> [timestamps]
 _START_TS = time.time()
+_res_mtime = [0.0]  # mtime res-файла ручных закрытий (вотчер)
 
 HELP = """Я ассистент paper-desk. Спрашивай обычным текстом, по-русски.
 
 Примеры:
   что с ботом
   почему не было входов сегодня
+  закрой позицию по нефти
   покажи логи rf за последний час
   всё ли живо на сервере
 
 Команды:
   /статус — состояние обоих контуров без обращения к модели (быстро и бесплатно)
+  /позиции — открытые бумажные фьючерсные позиции с кнопками закрытия
   /сброс — очистить контекст диалога
   /помощь — это сообщение"""
 
@@ -133,6 +136,10 @@ def handle_message(upd):
     if low in ('статус', 'status'):
         tg.send(chat_id, snapshot.build())
         return
+    if low in ('позиции', 'positions'):
+        menu, kb = actions.build_positions_menu()
+        tg.send(chat_id, menu, keyboard=kb)
+        return
     if low == 'reload':
         agent.reload_prompt()
         tg.send(chat_id, 'Промпты перечитаны с диска.')
@@ -163,6 +170,74 @@ def handle_message(upd):
         tg.send(chat_id, 'Не смог ответить через модель (%s).\n\n%s' % (e, snapshot.build()))
 
 
+def handle_callback(upd):
+    """Кнопки ручного закрытия: mc:sel:<asset>:<sleeve> | mc:ok:<token> | mc:no:<token>."""
+    cb = upd.get('callback_query') or {}
+    msg = cb.get('message') or {}
+    chat_id = str(((msg.get('chat') or {}).get('id')) or '')
+    from_id = str(((cb.get('from') or {}).get('id')) or '')
+    # авторизация по нажавшему И по чату: чужие клики молча игнорируем
+    if chat_id not in config.ALLOWED_CHATS or from_id not in config.ALLOWED_CHATS:
+        log('игнор callback из чужого чата %s (from %s)' % (chat_id, from_id))
+        return
+    data = str(cb.get('data') or '')
+    mid = msg.get('message_id')
+
+    if data.startswith('mc:sel:'):
+        parts = data.split(':')
+        if len(parts) != 4:
+            tg.answer_callback(cb.get('id'))
+            return
+        token, disp = actions.create_pending(chat_id, parts[2], parts[3], note='меню /позиции')
+        if token is None:
+            tg.answer_callback(cb.get('id'), 'Не получилось')
+            tg.send(chat_id, 'Не получилось: %s.' % disp)
+            return
+        tg.answer_callback(cb.get('id'))
+        dry = ' [DRY-режим: обкатка, заявка уйдёт в песочницу]' if config.DRY_ACTIONS else ''
+        tg.send(chat_id,
+                'Закрыть %s?\nОба профиля C2 и C3b, по рынку на ближайшем тике '
+                '(~до 20 мин).%s' % (disp, dry),
+                keyboard=[[{'text': '✅ Подтвердить', 'callback_data': 'mc:ok:' + token},
+                           {'text': '✖ Отмена', 'callback_data': 'mc:no:' + token}]])
+    elif data.startswith('mc:ok:'):
+        r = actions.confirm_pending(data[len('mc:ok:'):], chat_id)
+        tg.answer_callback(cb.get('id'), 'Принято' if r.get('ok') else 'Не вышло')
+        # edit_text заодно убирает кнопки — повторный клик по старому сообщению невозможен
+        if mid:
+            tg.edit_text(chat_id, mid, r.get('msg') or '')
+        else:
+            tg.send(chat_id, r.get('msg') or '')
+        log('manual-close confirm chat=%s ok=%s' % (chat_id, r.get('ok')))
+    elif data.startswith('mc:no:'):
+        actions.cancel_pending(data[len('mc:no:'):], chat_id)
+        tg.answer_callback(cb.get('id'))
+        if mid:
+            tg.edit_text(chat_id, mid, 'Отменено.')
+    else:
+        tg.answer_callback(cb.get('id'))
+
+
+def check_close_results():
+    """Результаты исполнения ручных закрытий приезжают git pull'ом — объявляем новые."""
+    try:
+        m = os.path.getmtime(config.MANUAL_CLOSE_RES)
+    except OSError:
+        return
+    if m == _res_mtime[0]:
+        return
+    _res_mtime[0] = m
+    try:
+        for r in actions.watch_results():
+            cid = r.get('chat_id') or ''
+            targets = [cid] if cid in config.ALLOWED_CHATS else sorted(config.ALLOWED_CHATS)
+            for c in targets:
+                tg.send(c, r['text'])
+            log('manual-close result -> %s' % ','.join(targets))
+    except Exception as e:
+        log('ОШИБКА вотчера результатов: %s' % e)
+
+
 def main():
     if not config.TG_TOKEN:
         log('FATAL: TG_BOT_TOKEN не задан')
@@ -187,8 +262,11 @@ def main():
                 try:
                     if upd.get('message'):
                         handle_message(upd)
+                    elif upd.get('callback_query'):
+                        handle_callback(upd)
                 except Exception as e:
                     log('ОШИБКА обработки апдейта: %s' % e)
+            check_close_results()
         except tg.TgConflict as e:
             # Кто-то ещё поллит этот токен. Горячий цикл здесь недопустим.
             log('КОНФЛИКТ: %s — жду %d с. Проверь, не запущен ли второй экземпляр '

@@ -305,6 +305,131 @@ class TestAgentLoop(unittest.TestCase):
                 self.assertIn(m['tool_call_id'], ids)
 
 
+class TestManualClose(unittest.TestCase):
+    """Ручное закрытие paper-сделок: pending/TTL/дедуп/идемпотентность/вотчер."""
+
+    def setUp(self):
+        import shutil
+        from assistant import actions
+        self.actions = actions
+        self.shutil = shutil
+        self.tmp = tempfile.mkdtemp(prefix='ta-mc-')
+        rf = os.path.join(self.tmp, 'data', 'rf')
+        os.makedirs(rf)
+
+        def portfolio(pid, rid, risk, upnl):
+            return {'sleeves': {
+                'core': {'positions': [{
+                    'id': rid, 'asset': 'RTS', 'secid': 'RIU6', 'side': 'short',
+                    'entry': 83794.9, 'entry_day': '2026-07-16', 'stop': 86552.9,
+                    'cur': 81920.0, 'risk_usd': risk, 'upnl': upnl}]},
+                'setA': {'positions': []}}}
+        for pid, rid, risk, upnl in (('c2', 'R7', 300.0, 75.0), ('c3b', 'R8', 500.0, 125.0)):
+            with open(os.path.join(rf, '%s_portfolio.json' % pid), 'w', encoding='utf-8') as f:
+                json.dump(portfolio(pid, rid, risk, upnl), f)
+
+        self._saved = {k: getattr(config, k) for k in (
+            'REPO', 'MANUAL_CLOSE_REQ', 'MANUAL_CLOSE_RES', 'ANNOUNCED_FILE',
+            'PENDING_FILE', 'AUDIT_FILE', 'DRY_ACTIONS')}
+        config.REPO = self.tmp
+        config.MANUAL_CLOSE_REQ = os.path.join(rf, 'manual_close_req.json')
+        config.MANUAL_CLOSE_RES = os.path.join(rf, 'manual_close_res.json')
+        config.ANNOUNCED_FILE = os.path.join(self.tmp, 'announced.json')
+        config.PENDING_FILE = os.path.join(self.tmp, 'pending.json')
+        config.AUDIT_FILE = os.path.join(self.tmp, 'audit.log')
+        config.DRY_ACTIONS = False  # req-файл и так во временной папке
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            setattr(config, k, v)
+        self.shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _req_ids(self):
+        p = config.MANUAL_CLOSE_REQ
+        if not os.path.exists(p):
+            return []
+        with open(p, 'r', encoding='utf-8-sig') as f:
+            return [r['req_id'] for r in json.load(f).get('requests', [])]
+
+    def test_positions_merged_mirror(self):
+        pos = self.actions.list_paper_positions()
+        self.assertEqual(len(pos), 1)
+        self.assertEqual(pos[0]['ids'], {'C2': 'R7', 'C3b': 'R8'})
+        self.assertIn('шорт', pos[0]['display'])
+        self.assertEqual(pos[0]['r'], 0.25)
+
+    def test_confirm_writes_request_once(self):
+        token, disp = self.actions.create_pending('42', 'RTS', None, 'закрой ртс')
+        self.assertIsNotNone(token, disp)
+        r = self.actions.confirm_pending(token, '42')
+        self.assertTrue(r['ok'], r['msg'])
+        self.assertEqual(self._req_ids(), [token])
+        # повторный confirm того же токена: pending уже снят, заявка не дублируется
+        r2 = self.actions.confirm_pending(token, '42')
+        self.assertFalse(r2['ok'])
+        self.assertEqual(self._req_ids(), [token])
+
+    def test_second_request_same_asset_rejected(self):
+        t1, _ = self.actions.create_pending('42', 'RTS', None)
+        self.actions.confirm_pending(t1, '42')
+        t2, _ = self.actions.create_pending('42', 'RTS', None)
+        r = self.actions.confirm_pending(t2, '42')
+        self.assertFalse(r['ok'])
+        self.assertIn('очеред', r['msg'])
+        self.assertEqual(self._req_ids(), [t1])
+
+    def test_pending_ttl(self):
+        token, _ = self.actions.create_pending('42', 'RTS', None)
+        p = self.actions._load_pending()
+        p[token]['created'] = p[token]['created'] - config.CONFIRM_TTL_SEC - 5
+        self.actions._save_pending(p)
+        r = self.actions.confirm_pending(token, '42')
+        self.assertFalse(r['ok'])
+        self.assertEqual(self._req_ids(), [])
+
+    def test_foreign_chat_cannot_confirm(self):
+        token, _ = self.actions.create_pending('42', 'RTS', None)
+        r = self.actions.confirm_pending(token, '999')
+        self.assertFalse(r['ok'])
+        self.assertEqual(self._req_ids(), [])
+
+    def test_no_position_no_pending(self):
+        token, err = self.actions.create_pending('42', 'GOLD', None)
+        self.assertIsNone(token)
+        self.assertIn('нет открытой', err)
+
+    def test_watch_results_seed_then_announce_once(self):
+        res = {'schema': 1, 'results': [
+            {'req_id': 'old1', 'status': 'done', 'chat_id': '42', 'closed': []}]}
+        with open(config.MANUAL_CLOSE_RES, 'w', encoding='utf-8') as f:
+            json.dump(res, f)
+        # первый вызов после деплоя — молчаливый посев, без спама стариной
+        self.assertEqual(self.actions.watch_results(), [])
+        res['results'].append({
+            'req_id': 'new2', 'status': 'done', 'chat_id': '42',
+            'closed': [{'profile': 'C2', 'id': 'R7', 'asset': 'RTS', 'side': 'short',
+                        'px': 81944.5, 'pnl': 74.65, 'r': 0.25}]})
+        with open(config.MANUAL_CLOSE_RES, 'w', encoding='utf-8') as f:
+            json.dump(res, f)
+        out = self.actions.watch_results()
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]['chat_id'], '42')
+        self.assertIn('R7', out[0]['text'])
+        self.assertIn('+0.25R', out[0]['text'])
+        self.assertEqual(self.actions.watch_results(), [])
+
+    def test_dry_actions_sandbox(self):
+        config.DRY_ACTIONS = True
+        config.ACTIONS_SANDBOX = os.path.join(self.tmp, 'sandbox')
+        token, _ = self.actions.create_pending('42', 'RTS', None)
+        r = self.actions.confirm_pending(token, '42')
+        self.assertTrue(r['ok'], r['msg'])
+        self.assertIn('DRY', r['msg'])
+        self.assertEqual(self._req_ids(), [], 'DRY-заявка попала в боевой файл!')
+        sandbox = os.path.join(config.ACTIONS_SANDBOX, 'manual_close_req.json')
+        self.assertTrue(os.path.exists(sandbox))
+
+
 if __name__ == '__main__':
     config.ensure_state_dirs()
     unittest.main(verbosity=2)

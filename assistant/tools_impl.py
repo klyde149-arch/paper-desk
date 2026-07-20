@@ -556,6 +556,52 @@ def read_repo_file(path, max_bytes=8000, offset_lines=0):
     })
 
 
+# ---------------------------------------------------------------------------
+# бумажный фьючерсный контур: позиции + предложение ручного закрытия
+# ---------------------------------------------------------------------------
+
+def list_rf_paper_positions():
+    """Открытые фьючерсные позиции БУМАЖНОГО контура (C2/C3b слиты)."""
+    from . import actions
+    return _env('list_rf_paper_positions', {
+        'позиции': actions.list_paper_positions(),
+        'примечание': 'бумажный фьючерсный контур; каждая сделка зеркальна в C2 и C3b '
+                      '(разный размер, одинаковый R)',
+    })
+
+
+def propose_close_position(asset=None, sleeve=None, note='', _ctx=None):
+    """ПРЕДЛОЖИТЬ закрыть paper-позицию: пользователю уходят кнопки Подтвердить/Отмена.
+
+    Само закрытие происходит только после нажатия кнопки пользователем —
+    модель подтвердить не может (токен ей не возвращается).
+    """
+    from . import actions, tg
+    chat_id = (_ctx or {}).get('chat_id')
+    if not chat_id:
+        return _err('propose_close_position', 'нет контекста чата (внутренняя ошибка)')
+    asset = str(asset or '').strip()
+    if asset not in actions.ASSETS:
+        return _err('propose_close_position',
+                    'неизвестный актив %r; допустимые: %s' % (asset, ', '.join(actions.ASSETS)))
+    if sleeve and sleeve not in actions.SLEEVE_RU:
+        return _err('propose_close_position', "рукав должен быть 'core' или 'setA'")
+    token, disp = actions.create_pending(chat_id, asset, sleeve or None, note)
+    if token is None:
+        return _err('propose_close_position', disp)
+    dry = ' [DRY-режим: обкатка, заявка уйдёт в песочницу]' if config.DRY_ACTIONS else ''
+    tg.send(chat_id,
+            'Закрыть %s?\nОба профиля C2 и C3b, по рынку на ближайшем тике '
+            '(~до 20 мин).%s' % (disp, dry),
+            keyboard=[[{'text': '✅ Подтвердить', 'callback_data': 'mc:ok:' + token},
+                       {'text': '✖ Отмена', 'callback_data': 'mc:no:' + token}]])
+    return _env('propose_close_position', {
+        'статус': 'кнопки подтверждения отправлены пользователю',
+        'позиция': disp,
+        'важно': 'сделка ЕЩЁ НЕ закрыта: жди нажатия кнопки и отчёта об исполнении',
+    })
+
+
 _JOURNALS = ('journal_live_rf.md', 'journal_live.md', 'journal.md')
 
 
@@ -642,6 +688,21 @@ SCHEMAS = [
        {'query': {'type': 'string'}, 'max_hits': {'type': 'integer'},
         'context': {'type': 'integer'}},
        ['query']),
+    _t('list_rf_paper_positions',
+       'Открытые фьючерсные позиции БУМАЖНОГО контура (профили C2/C3b, зеркальные). '
+       'Вызывай перед предложением закрыть позицию.', {}),
+    _t('propose_close_position',
+       'Предложить пользователю закрыть бумажную фьючерсную позицию: ему уходят кнопки '
+       'Подтвердить/Отмена. Ты НЕ можешь закрыть сам — только предложить; закрытие '
+       'происходит после нажатия кнопки, по рынку на ближайшем тике, в обоих профилях '
+       'C2 и C3b. Инструментов открытия позиций или изменения стопов не существует.',
+       {'asset': {'type': 'string', 'enum': ['BR', 'NG', 'GOLD', 'SILV', 'Si', 'RTS', 'CNY', 'MIX'],
+                  'description': 'актив: нефть=BR, газ=NG, золото=GOLD, серебро=SILV, '
+                                 'доллар=Si, ртс=RTS, юань=CNY, мосбиржа=MIX'},
+        'sleeve': {'type': 'string', 'enum': ['core', 'setA'],
+                   'description': 'рукав; не указывай, если позиция только в одном'},
+        'note': {'type': 'string', 'description': 'исходная фраза пользователя'}},
+       ['asset']),
 ]
 
 REGISTRY = {
@@ -657,16 +718,24 @@ REGISTRY = {
     'git_log': git_log,
     'read_repo_file': read_repo_file,
     'search_journals': search_journals,
+    'list_rf_paper_positions': list_rf_paper_positions,
+    'propose_close_position': propose_close_position,
 }
 
+# Инструменты, которым нужен контекст вызова (chat_id). Контекст подмешивает
+# диспетчер, а не модель — модель не может отправить кнопки в чужой чат.
+CTX_TOOLS = {'propose_close_position'}
 
-def dispatch(name, args):
+
+def dispatch(name, args, ctx=None):
     """Выполнить инструмент. Всегда возвращает строку (JSON), никогда не бросает."""
     fn = REGISTRY.get(name)
     if not fn:
         return json.dumps({'error': 'нет такого инструмента: %s' % name}, ensure_ascii=False)
     try:
-        kwargs = {k: v for k, v in (args or {}).items()}
+        kwargs = {k: v for k, v in (args or {}).items() if k != '_ctx'}
+        if name in CTX_TOOLS:
+            kwargs['_ctx'] = ctx or {}
         result = fn(**kwargs)
     except TypeError as e:
         result = {'error': 'неверные аргументы для %s: %s' % (name, e)}

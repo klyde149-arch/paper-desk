@@ -621,10 +621,85 @@ function Invoke-RfMtm {
   }
 }
 
+# ================= РУЧНОЕ ЗАКРЫТИЕ (заявки из Telegram-ассистента) =================
+# Транспорт: data\rf\manual_close_req.json пишет ТОЛЬКО ассистент (VPS), результаты в
+# data\rf\manual_close_res.json пишет ТОЛЬКО этот движок (Actions). Идемпотентность - реестр
+# обработанных req_id в res-файле (заявки не удаляются). Вызывается ПОСЛЕ Invoke-RfIntraday:
+# если позицию уже вынесло стопом в догнанных часах, заявка честно получает not-found.
+function Invoke-RfManualClose {
+  $reqPath = Join-Path $rfDir 'manual_close_req.json'
+  $resPath = Join-Path $rfDir 'manual_close_res.json'
+  $req = Read-JsonFile $reqPath
+  if ($null -eq $req -or -not @($req.requests | Where-Object { $null -ne $_ }).Count) { return }
+  $res = Read-JsonFile $resPath
+  if ($null -eq $res) { $res = [pscustomobject]@{ schema = 1; results = @() } }
+  $res.results = ToArr (@($res.results) | Where-Object { $null -ne $_ })
+  $done = @{}; foreach ($r in @($res.results)) { $done[[string]$r.req_id] = $true }
+  $newRes = $false
+
+  foreach ($rq in @($req.requests | Where-Object { $null -ne $_ })) {
+    if ([string]$rq.contour -ne 'paper') { continue }
+    if (-not $rq.req_id -or $done.ContainsKey([string]$rq.req_id)) { continue }
+    $sleeve = [string]$rq.sleeve; $asset = [string]$rq.asset
+    $rec = [pscustomobject]@{ req_id = [string]$rq.req_id; status = ''; executed_utc = (MsToUtcStr $NowMs)
+      chat_id = [string]$rq.chat_id; closed = @(); note = '' }
+
+    # TTL 24ч (нечитаемый requested_utc = тоже протух)
+    $reqMs = [long]0
+    try { $reqMs = UtcStrToMs ([string]$rq.requested_utc) } catch {}
+    if (($reqMs + 24 * 3600000) -lt $NowMs) {
+      $rec.status = 'expired'; $rec.note = "заявка от $($rq.requested_utc) UTC старше 24ч - не исполнена"
+    } elseif ($sleeve -notin @('core', 'setA') -or $asset -notin $ASSETS) {
+      $rec.status = 'not-found'; $rec.note = "неизвестный актив/рукав: $asset/$sleeve"
+    } else {
+      # цена: последняя закрытая h1 активного контракта (как Invoke-RfMtm), фолбэк - close дневной серии
+      $s = Get-Ser $asset
+      $px = [double]$s[$s.Count - 1].c
+      try {
+        $k = Get-IssCandles 'fut' ([string]$shared.active.$asset) 60 (MsToUtcDay ($mskNowMs - $DAY)) (MsToUtcDay $mskNowMs)
+        $k = @($k | Where-Object { [long]$_.t -le $mskNowMs })   # не подглядывать вперёд при реплеях
+        if ($k.Count) { $px = [double]$k[-1].c }
+      } catch {}
+      foreach ($cfg in $PROFILES) {   # зеркально в обоих профилях - иначе портфели разойдутся
+        $sl = $profState[$cfg.id].sleeves.$sleeve
+        $pos = @($sl.positions | Where-Object { $_.asset -eq $asset })
+        if (-not $pos.Count) { continue }
+        $sm = if ($pos[0].side -eq 'long') { 1.0 } else { -1.0 }
+        $fill = $px * (1 - $sm * $SLIP)
+        [void](Rf-CloseFill $cfg $sleeve $pos[0] $fill $mskNowMs 'manual-tg')
+        $cl = $script:rfClosed[$script:rfClosed.Count - 1]
+        $rec.closed = ToArr (@($rec.closed) + [pscustomobject]@{
+          profile = $cl.profile; id = $cl.id; asset = $cl.sym; side = $cl.side
+          px = $cl.exitPx; pnl = $cl.pnlUsd; r = $cl.rMultiple })
+      }
+      if (@($rec.closed).Count) {
+        $rec.status = 'done'
+      } else {
+        $rec.status = 'not-found'
+        # позиции нет - поискать недавнее закрытие этого актива, чтобы объяснить пользователю
+        $lt = @((Read-JsonFile (Join-Path $rfDir 'rf_trades.json')) | Where-Object { $null -ne $_ -and $_.sym -eq $asset -and $_.sleeve -eq $sleeve })
+        if ($lt.Count) { $x = $lt[-1]; $rec.note = "позиция уже закрыта движком: $($x.exitReason) @$($x.exitPx) ($($x.exitUtcMsk) MSK)" }
+        else { $rec.note = "открытой позиции $asset/$sleeve нет" }
+      }
+    }
+    $res.results = ToArr (@($res.results) + $rec)
+    $newRes = $true
+    $script:rfEvents.Add("RF MANUAL-CLOSE $asset/$sleeve $($rec.status)")
+  }
+
+  if ($newRes) {
+    # держим последние 200 записей, чтобы файл не рос вечно
+    $all = @($res.results)
+    if ($all.Count -gt 200) { $res.results = ToArr ($all | Select-Object -Last 200) }
+    if (-not $DryRun) { Write-JsonAtomic $resPath $res 8 }
+  }
+}
+
 # ================= RUN =================
 try {
   if ([string]$shared.last_daily_day -lt $completedDay) { Invoke-RfDaily }
   Invoke-RfIntraday
+  Invoke-RfManualClose
   Invoke-RfMtm
 
   $shared.last_tick_utc = MsToUtcStr $NowMs
