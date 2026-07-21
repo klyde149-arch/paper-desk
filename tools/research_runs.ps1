@@ -159,6 +159,30 @@ switch ($Set) {
       }
     }
   }
+  'anatomy' {
+    # 2026-07 trade-anatomy candidates (docs\backtests\trade_anatomy_paper_2026-07.md) on the
+    # PAPER universe (19 pairs). Thresholds pre-registered from the anatomy report - NOT re-tuned here.
+    # Stash: data\v2\wfp_* ; aggregate: analyze_wf_years.ps1 -Prefix wfp_ -BaseCfg base
+    $deep = 'C:\Users\klyde\trading-sim\data\deep'
+    $v2out = 'C:\Users\klyde\trading-sim\data\v2'
+    $all = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
+             'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT')
+    $paper19 = @($all | Where-Object { $_ -ne 'DOGE-USDT' })
+    $dcommon = @{ Symbols = $paper19; BtcFilter = $true; MaxAtrPct = 3.0; DataDir = $deep; FlatMode = 'skip'; FundingDir = $deep; FundingFilter = $true }
+    $cfgs = @(
+      @{n='base';      p=@{}},                                          # must reproduce cur_paper19 bit-for-bit (regression)
+      @{n='btcmom10';  p=@{BtcMomMaxLong=10.0}},
+      @{n='atrlong25'; p=@{MaxAtrPctLong=2.5}},
+      @{n='combo';     p=@{BtcMomMaxLong=10.0; MaxAtrPctLong=2.5}}
+    )
+    foreach ($c in $cfgs) {
+      $rows += RunCfg "wfp-$($c.n)" ($dcommon.Clone() + $c.p)
+      foreach ($f in 'bt_trades','bt_equity','bt_monthly') {
+        $src = Join-Path $deep "$f.json"
+        if (Test-Path $src) { Copy-Item $src (Join-Path $v2out "wfp_$($c.n)_$($f.Substring(3)).json") -Force }
+      }
+    }
+  }
   'fut' {
     # MOEX FORTS futures research. -Period IS (2020..2023, param selection ONLY here),
     # OOS1 (2024), OOS2 (2025..2026-07, one-shot final), full.

@@ -11,7 +11,12 @@ param(
   [string[]]$Symbols = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
                          'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT'),
   [double]$Equity = 10000, [double]$RiskPct = 0.006, [int]$PullbackLookback = 3,
-  [string]$OutPath = ''   # куда писать результат; пусто = data/signals.json (paper, как раньше)
+  [string]$OutPath = '',  # куда писать результат; пусто = data/signals.json (paper, как раньше)
+  # 2026-07-21, ТОЛЬКО БУМАГА (передаёт auto_trade.ps1; live_engine вызывает без свитча => реал не затронут):
+  # walk-forward-принятое комбо диагностики «анатомия сделок» (docs\backtests\trade_anatomy_paper_2026-07.md):
+  # блок НОВЫХ ЛОНГОВ при импульсе BTC за 5д (30 баров 4h) >= +10% и ATR-кэп лонгов 2.5% (шорты не трогаем).
+  # В реал переносить только отдельным live-коммитом после обкатки на бумаге.
+  [switch]$AnatomyFilters
 )
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $ErrorActionPreference = 'Stop'
@@ -62,6 +67,8 @@ $btc=$S['BTC-USDT']
 $ci=$btc.bars.Count-2   # last CLOSED bar index (last element is the forming bar)
 $btcTrend=TrendAt $btc $ci
 $flatBlock = ($btcTrend -eq 'range')
+$btcMom5 = $null   # BTC 5d momentum (30 closed 4h bars), mirrors backtest.ps1 $idxMom5
+if ($ci -ge 30) { $btcMom5 = 100*($btc.c[$ci]/$btc.c[$ci-30] - 1) }
 
 $signals=New-Object System.Collections.Generic.List[object]
 $watch=New-Object System.Collections.Generic.List[object]
@@ -103,11 +110,18 @@ foreach($sym in $Symbols){
   $gAtr = $atrPct -le 3.0
   $gFund = if($side -eq 'long'){ ($null -eq $fund) -or ($fund -le 0.0005) } elseif($side -eq 'short'){ ($null -eq $fund) -or ($fund -ge -0.0005) } else { $true }
   $gFng = if($side -eq 'long'){ ($null -eq $fng) -or ($fng -lt 80) } elseif($side -eq 'short'){ ($null -eq $fng) -or ($fng -gt 20) } else { $true }
+  # anatomy combo (paper-only, см. шапку): лонги блокируются при перегретом BTC и высоком ATR
+  $gMomL = $true; $gAtrL = $true
+  if($AnatomyFilters -and $side -eq 'long'){
+    if($null -ne $btcMom5){ $gMomL = ($btcMom5 -lt 10.0) }
+    $gAtrL = ($atrPct -le 2.5)
+  }
 
   $checks=[ordered]@{
     setupA=$core; btcFilter=$gBtc; flatMode=$gFlat; atrCap=$gAtr; funding=$gFund; fearGreed=$gFng
   }
-  $pass = $core -and $gBtc -and $gFlat -and $gAtr -and $gFund -and $gFng
+  if($AnatomyFilters){ $checks.btcMom5d=$gMomL; $checks.atrCapLong=$gAtrL }
+  $pass = $core -and $gBtc -and $gFlat -and $gAtr -and $gFund -and $gFng -and $gMomL -and $gAtrL
 
   $entry=$stop=$tp1=$rr=$qty=$null; $stopPct=$null
   if($core){
@@ -142,6 +156,7 @@ foreach($sym in $Symbols){
 $out=[ordered]@{
   scannedUtc=(Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm')
   strategy='v2'; btcTrend=$btcTrend; flatBlockAll=$flatBlock; fng=$fng
+  btcMom5d=if($null -ne $btcMom5){[math]::Round($btcMom5,2)}else{$null}; anatomyFilters=[bool]$AnatomyFilters
   closedBarUtc=[DateTimeOffset]::FromUnixTimeMilliseconds([long]$btc.t[$ci]).UtcDateTime.ToString('yyyy-MM-dd HH:mm')
   signals=[object[]]@($signals|ForEach-Object{$_}); watch=[object[]]@($watch|ForEach-Object{$_})
 }

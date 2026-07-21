@@ -33,6 +33,8 @@ param(
   [double]$TrendGapPctMin = 0,# per-asset trend width: require |EMA20-EMA50|/price*100 >= this at entry (0 = off)
   [double]$MaxExtAtr = 0,     # anti-chase: skip setup-A entries when (close-EMA20)/ATR14 > this in trend direction (0 = off)
   [double]$RsiMaxLong = 0,    # anti-chase: skip setup-A longs when entry-bar RSI14 > this; shorts mirrored at (100 - this) (0 = off)
+  [double]$BtcMomMaxLong = 0, # 2026-07 anatomy: skip setup-A longs when index 5d momentum (30 bars) >= this % (0 = off)
+  [double]$MaxAtrPctLong = 0, # 2026-07 anatomy: long-only ATR cap - skip setup-A longs when ATR14 > this % of price (0 = off)
   [switch]$EarlyExit,         # v2: close position when 4h close crosses EMA50 against it (regime broken - don't wait for stop)
   [string]$FundingDir = '',   # v2: dir with SYM_funding.json ([{t,r}]) -> real funding costs instead of flat FundingPerBar
   [switch]$FundingFilter,     # v2: block new longs when funding > +0.05%/8h, shorts when < -0.05%/8h (needs FundingDir)
@@ -192,13 +194,14 @@ foreach ($ts in $timeline) {
   $fgVal = if ($fng.ContainsKey($day)) { $fng[$day] } else { $null }
 
   # index (BTC/IMOEX) regime at this bar - entry filter + trade context + flat detector
-  $idxTrend = 'range'; $idxGapPct = $null
+  $idxTrend = 'range'; $idxGapPct = $null; $idxMom5 = $null
   if ($S.ContainsKey($IndexSymbol) -and $S[$IndexSymbol].idx.ContainsKey($ts)) {
     $bi=$S[$IndexSymbol].idx[$ts]; $bc=$S[$IndexSymbol].c[$bi]; $be20=$S[$IndexSymbol].ema20[$bi]; $be50=$S[$IndexSymbol].ema50[$bi]
     if (-not [double]::IsNaN($be50)) {
       if(($bc -gt $be50)-and($be20 -gt $be50)){$idxTrend='up'}elseif(($bc -lt $be50)-and($be20 -lt $be50)){$idxTrend='down'}
       $idxGapPct = 100*[math]::Abs($be20-$be50)/$bc
     }
+    if ($bi -ge 30) { $idxMom5 = 100*($bc/$S[$IndexSymbol].c[$bi-30] - 1) }
   }
 
   # ---------- 1) manage open positions on this bar ----------
@@ -440,6 +443,11 @@ foreach ($ts in $timeline) {
       elseif ($down) { $rsiCapOk = ($rsi -ge (100 - $RsiMaxLong)) }
     }
 
+    # 2026-07 anatomy filters (default off), setup-A LONGS only: overheated-index block + long ATR cap
+    $momOkL = $true; $atrOkL = $true
+    if ($BtcMomMaxLong -gt 0 -and $null -ne $idxMom5) { $momOkL = ($idxMom5 -lt $BtcMomMaxLong) }
+    if ($MaxAtrPctLong -gt 0) { $atrOkL = ((100*$atr/$cl) -le $MaxAtrPctLong) }
+
     # Donchian breakout setup (-Breakout replaces setup A): close breaks the N-bar channel
     if ($Breakout) {
       if ($i -lt ($BreakoutN + 1)) { continue }
@@ -483,7 +491,7 @@ foreach ($ts in $timeline) {
       $trigger = ($cl -gt $op) -and ($cl -gt $e20) -and ($S[$sym].c[$i-1] -le $S[$sym].ema20[$i-1] -or $S[$sym].rsi[$i-1] -le $rsiCoolTh)
       $fgOk = ($null -eq $fgVal) -or ($fgVal -lt 80)   # block new longs only in extreme greed
       $btcOk = (-not $BtcFilter) -or ($btcTrend -ne 'down')
-      if ($touched -and $rsiCool -and $trigger -and $fgOk -and $btcOk -and $slopeOk -and $gapOk -and $extOk -and $rsiCapOk -and $fundOkL) {
+      if ($touched -and $rsiCool -and $trigger -and $fgOk -and $btcOk -and $slopeOk -and $gapOk -and $extOk -and $rsiCapOk -and $fundOkL -and $momOkL -and $atrOkL) {
         $entryRaw = $cl; $entry = $cl * (1 + $SlipPct)
         $swing = ($S[$sym].l[[math]::Max(0,$i-$PullbackLookback)..$i] | Measure-Object -Minimum).Minimum
         $stopDist = [math]::Max($entry - $swing, $AtrStopMult*$atr)

@@ -358,7 +358,9 @@ try {
       $riskMult = if ($pf.auto.soft_dd) { 0.5 } else { 1.0 }
       $scanOk = $true
       try {
-        & (Join-Path $PSScriptRoot 'scan_signals.ps1') -Symbols $SYMBOLS -Equity ([math]::Round([double]$pf.equity_usd,2)) -RiskPct ($RISKPCT * $riskMult) | Out-Null
+        # -AnatomyFilters (2026-07-21): walk-forward-принятое комбо для БУМАГИ — блок лонгов при BTC +10%/5д
+        # и ATR-кэп лонгов 2.5% (docs\backtests\trade_anatomy_paper_2026-07.md); реал не затронут.
+        & (Join-Path $PSScriptRoot 'scan_signals.ps1') -Symbols $SYMBOLS -Equity ([math]::Round([double]$pf.equity_usd,2)) -RiskPct ($RISKPCT * $riskMult) -AnatomyFilters | Out-Null
       } catch { $scanOk = $false; Write-TickLog $Root "scanner failed: $($_.Exception.Message)" }
       $sig = if ($scanOk) { Read-JsonFile (Join-Path $Root 'data\signals.json') } else { $null }
       if ($sig -and $sig.closedBarUtc -and ((UtcStrToMs ([string]$sig.closedBarUtc)) -eq $closed4h)) {
