@@ -645,8 +645,26 @@ function Set-BotCapital($Pf) {
   }
   $curRub = 0.0; $futRub = 0.0; $totRub = 0.0
   $c = Get-TiField $Pf 'total_amount_currencies'; if ($null -ne $c) { $curRub = [double](M2D $c).value }
-  $f = Get-TiField $Pf 'total_amount_futures';    if ($null -ne $f) { $futRub = [double](M2D $f).value }
   $t = Get-TiField $Pf 'total_amount_portfolio';  if ($null -ne $t) { $totRub = [double](M2D $t).value }
+  # фьючерсы: вклад в капитал = ВАРИАЦИОННАЯ МАРЖА, НЕ total_amount_futures (инцидент 2026-07-21:
+  # total_amount_futures = НОМИНАЛ позиции ~416k, но эти деньги не приходят на счёт - капитал бота
+  # «вырастал» на номинал при каждом входе; сам брокер в total_amount_portfolio номинал не считает).
+  # Приоритет: var_margin позиций (боевой факт: несведённая вариационка) -> Σ upnl карточек (sandbox/mock).
+  $gotVm = $false
+  foreach ($p in @($Pf.positions)) {
+    if ($null -eq $p) { continue }
+    $itype = [string](Get-TiField $p 'instrument_type')
+    if ($itype -ne 'futures') { continue }
+    $vm = Get-TiField $p 'var_margin'
+    if ($null -ne $vm) { $futRub += [double](M2D $vm).value; $gotVm = $true }
+  }
+  if (-not $gotVm) {
+    foreach ($sn in 'core','setA') {
+      foreach ($cc in @($st.sleeves.$sn.positions)) {
+        if ($cc.PSObject.Properties['upnl_rub']) { $futRub += [double]$cc.upnl_rub }
+      }
+    }
+  }
   $momRub = 0.0
   foreach ($h in @($st.sleeves.mom.holdings)) { $momRub += [double]$h.lots * [double]$h.lot_size * [double]$h.last_px }
   $cap = [math]::Round($curRub + $futRub + $momRub, 2)
@@ -1677,6 +1695,24 @@ function Invoke-RepairL00008 {
   Save-State
 }
 
+# Одноразовая чистка снапшотов эквити за 2026-07-21: строки с total>0.9M (фантомный uPnL от
+# кривого входа L00008) и/или bot_capital>0.95M (номинал фьючерса в Set-BotCapital до фикса).
+# Идемпотентно: после перезаписи совпадений нет. Удалить вместе с Invoke-RepairL00008.
+function Invoke-CleanupEquity20260721 {
+  $eqPath = Join-Path $lrfDir 'equity.json'
+  $rows = @((Read-JsonFile $eqPath) | Where-Object { $null -ne $_ })
+  if (-not $rows.Count) { return }
+  $from = UtcStrToMs '2026-07-21 00:00'; $to = UtcStrToMs '2026-07-22 00:00'
+  $keep = @($rows | Where-Object { -not (
+      [long]$_.ts -ge $from -and [long]$_.ts -lt $to -and (
+        [double]$_.total -gt 900000 -or
+        ($_.PSObject.Properties['bot_capital'] -and $null -ne $_.bot_capital -and [double]$_.bot_capital -gt 950000)
+      )) })
+  if ($keep.Count -eq $rows.Count) { return }
+  Write-JsonAtomic $eqPath (ToArr $keep) 4
+  $script:ev.Add("CLEANUP equity 2026-07-21: удалено $($rows.Count - $keep.Count) фантомных снапшотов")
+}
+
 # ================= RUN: пайплайн тика =================
 $lockPath = Join-Path $lrfDir 'engine.lock'
 try {
@@ -1736,6 +1772,7 @@ try {
   # 5b. одноразовый ремонт L00008 - строго ДО MTM/governors: peak_eq должен
   # сброситься раньше пересчёта DD, иначе ложный hard-halt (DD 33% от фантомного пика)
   Invoke-RepairL00008
+  Invoke-CleanupEquity20260721
 
   # 6. MTM + governors
   Invoke-Mtm
