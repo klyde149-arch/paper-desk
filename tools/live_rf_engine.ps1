@@ -270,22 +270,44 @@ function Set-EntriesHalt([string]$Reason) {
   }
 }
 
-# цена филла ЗА ЕДИНИЦУ из ответа PostOrder/GetOrderState. Боевой факт (песочница 2026-07-17):
-# executed_order_price = ИТОГО в РУБЛЯХ за все лоты; пунктовая сумма фьючерса - initial_order_price_pt.
-# Фьючерс -> пункты за 1 лот; акция -> рубли за 1 акцию. $null = не распарсилось (падаем на референс).
+# цена филла ЗА ЕДИНИЦУ из ответа PostOrder/GetOrderState. Боевые факты:
+# executed_order_price = ИТОГО в РУБЛЯХ за все лоты (песочница 2026-07-17);
+# initial_order_price_pt = пункты ЗА 1 ЛОТ, а НЕ сумма (прод 2026-07-21, инцидент L00008:
+# BR 6 лот, поле=88.99, деление на лоты записало вход 14.83 -> фантом +497%, стоп 7.9).
+# Семантика полей уже расходилась с ожиданием, поэтому слепо не верим ни одной трактовке:
+# кандидаты проверяются лестницей против референса (ref_px сигнала -> рублёвый пересчёт ->
+# карточка), берётся первый в пределах 30%; ни одного = не распарсилось ($null -> референс).
 function Get-FillPxPerUnit($It, $Resp, [int]$Lots) {
   if ($Lots -le 0 -or $null -eq $Resp) { return $null }
   $isShare = ([string]$It.kind -like 'mom_*')
   try {
-    if (-not $isShare) {
-      $ptTot = [double](Q2D (Get-TiField $Resp 'initial_order_price_pt'))
-      if ($ptTot -gt 0) { return [math]::Round($ptTot / $Lots, 6) }
-    }
-    $totRub = [double](M2D (Get-TiField $Resp 'executed_order_price')).value
-    if ($totRub -le 0) { return $null }
     $inst = Get-Inst ([string]$It.ticker) $(if ($isShare) { 'share' } else { 'fut' })
-    if ($isShare) { return [math]::Round($totRub / $Lots / [double]$inst.lot, 6) }
-    if ([double]$inst.rub_per_pt -gt 0) { return [math]::Round($totRub / $Lots / [double]$inst.rub_per_pt, 6) }
+    $totRub = 0.0
+    try { $totRub = [double](M2D (Get-TiField $Resp 'executed_order_price')).value } catch {}
+    if ($isShare) {
+      if ($totRub -gt 0) { return [math]::Round($totRub / $Lots / [double]$inst.lot, 6) }
+      return $null
+    }
+    $ptRaw = 0.0
+    try { $ptRaw = [double](Q2D (Get-TiField $Resp 'initial_order_price_pt')) } catch {}
+    $rubPx = if ($totRub -gt 0 -and [double]$inst.rub_per_pt -gt 0) { $totRub / $Lots / [double]$inst.rub_per_pt } else { 0.0 }
+    # референс: цена сигнала (entry) -> рублёвый пересчёт -> карточка (exit/roll)
+    $ref = 0.0
+    if ($null -ne $It.ctx -and $It.ctx.PSObject.Properties['ref_px'] -and [double]$It.ctx.ref_px -gt 0) { $ref = [double]$It.ctx.ref_px }
+    if ($ref -le 0 -and $rubPx -gt 0) { $ref = $rubPx }
+    if ($ref -le 0 -and $null -ne $It.ctx -and $It.ctx.PSObject.Properties['card_id']) {
+      $rc = Find-Card ([string]$It.ctx.card_id)
+      if ($null -ne $rc) {
+        if ($rc.PSObject.Properties['cur_px'] -and [double]$rc.cur_px -gt 0) { $ref = [double]$rc.cur_px }
+        elseif ([double]$rc.entry_px_pts -gt 0) { $ref = [double]$rc.entry_px_pts }
+      }
+    }
+    if ($ref -le 0) { return $null }
+    # лестница: pt за 1 лот (прод) -> pt/лоты (если поле вдруг сумма: мимо гейта в 2+ раза) -> из рублей
+    foreach ($x in @($ptRaw, $(if ($ptRaw -gt 0) { $ptRaw / $Lots } else { 0.0 }), $rubPx)) {
+      if ($x -gt 0 -and [math]::Abs($x / $ref - 1) -le 0.30) { return [math]::Round($x, 6) }
+    }
+    return $null
   } catch {}
   return $null
 }
@@ -1622,6 +1644,39 @@ function Invoke-DailyReport {
   if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert $txt -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
 }
 
+# ================= одноразовый ремонт: инцидент L00008 2026-07-21 =================
+# Вход BR записался как 14.83 (initial_order_price_pt за 1 лот поделили на 6 лотов):
+# фантом +497%, биржевой стоп на 7.896 (несрабатываемый), заражённый peak_eq. Guard
+# идемпотентен: после ремонта entry/stop > 20 и условие ложно. Удалить после закрытия L00008.
+function Invoke-RepairL00008 {
+  $cs = @($st.sleeves.core.positions | Where-Object {
+      [string]$_.id -eq 'L00008' -and ([double]$_.entry_px_pts -lt 20 -or [double]$_.stop_px_pts -lt 20) })
+  if (-not $cs.Count) { return }
+  $c = $cs[0]
+  $oldEntry = [double]$c.entry_px_pts; $oldStop = [double]$c.stop_px_pts
+  if ($oldEntry -lt 20) {
+    $truePx = [math]::Round($oldEntry * [int]$c.lots_initial, 6)
+    $c.entry_px_pts = $truePx
+    if ([double]$c.mfe_pts -lt $truePx) { $c.mfe_pts = $truePx }
+    $newFee = [math]::Round([int]$c.lots_initial * $truePx * [double]$c.rub_per_pt * [double]$LIVE.fee_est, 2)
+    $st.sleeves.core.eq_rub = [double]$st.sleeves.core.eq_rub - ($newFee - [double]$c.fees_rub)
+    $c.fees_rub = $newFee
+  }
+  $st.peak_eq = [double]$LIVE.base_rub   # фантомный пик 1.048М; легитимного роста не было (0 закрытых сделок)
+  $newStop = [math]::Round([double]$c.entry_px_pts - 2.0 * [double]$c.atr_entry, 6)
+  $ok = Replace-CardStop $c $newStop
+  $msg = ("REPAIR L00008: вход {0}->{1}, стоп {2}->{3}{4}, peak_eq сброшен на {5}, фантомный P&L удалён" -f `
+      $oldEntry, [double]$c.entry_px_pts, $oldStop, $newStop,
+      $(if ($ok) { ' (заявка перевыставлена)' } else { ' (перевыставление отложено/не удалось - добьёт следующий тик)' }),
+      [double]$LIVE.base_rub)
+  if ($ok -or $oldEntry -lt 20) {   # повторные тики с отложенным стопом не спамят журнал
+    $script:ev.Add($msg)
+    $script:jr.Add(("`r`n## {0} MSK — RF-LIVE: {1}`r`n" -f (MsToUtcStr $mskNowMs), $msg))
+  }
+  if ($ok) { Alert $msg }
+  Save-State
+}
+
 # ================= RUN: пайплайн тика =================
 $lockPath = Join-Path $lrfDir 'engine.lock'
 try {
@@ -1677,6 +1732,10 @@ try {
 
   # 5. state machine polling
   Invoke-IntentPolling
+
+  # 5b. одноразовый ремонт L00008 - строго ДО MTM/governors: peak_eq должен
+  # сброситься раньше пересчёта DD, иначе ложный hard-halt (DD 33% от фантомного пика)
+  Invoke-RepairL00008
 
   # 6. MTM + governors
   Invoke-Mtm

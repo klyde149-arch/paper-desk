@@ -117,10 +117,11 @@ function Write-DefaultFixtures([string]$Mock) {
     initial_margin_on_buy  = [pscustomobject]@{ units = '6340'; nano = 0; currency = 'rub' }
     initial_margin_on_sell = [pscustomobject]@{ units = '6340'; nano = 0; currency = 'rub' }
     min_price_increment_amount = [pscustomobject]@{ units = '7'; nano = 749120000 } })
-  # семантика боевого API: executedOrderPrice = ИТОГО ₽ за все лоты; initialOrderPricePt = пункты за все лоты
+  # семантика боевого API (прод 2026-07-21, инцидент L00008): executedOrderPrice = ИТОГО ₽ за все
+  # лоты; initialOrderPricePt = пункты ЗА 1 ЛОТ (не сумма! деление на лоты дало вход 14.83 вместо 88.99)
   Write-Json (Join-Path $Mock 'OrdersService.PostOrder.json') ([pscustomobject]@{
     orderId = 'ord-default'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '19'
-    initialOrderPricePt = [pscustomobject]@{ units = '55'; nano = 195000000 }   # 2.905 x 19
+    initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 905000000 }   # 2.905 за лот
     executedOrderPrice = [pscustomobject]@{ units = '427675'; nano = 0; currency = 'rub' } })
   Write-Json (Join-Path $Mock 'StopOrdersService.PostStopOrder.json') ([pscustomobject]@{ stopOrderId = 'stop-new-1' })
   Write-Json (Join-Path $Mock 'OrdersService.CancelOrder.json') ([pscustomobject]@{})
@@ -566,13 +567,13 @@ function Scn-RollFlow {
   Set-Queue $r @(
     [pscustomobject]@{ service='OrdersService'; method='PostOrder'; body_like='SELL'
       response=[pscustomobject]@{ orderId='ord-rc'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'; lotsExecuted='10'
-        initialOrderPricePt=[pscustomobject]@{units='29';nano=0} } },   # 2.9 x 10
+        initialOrderPricePt=[pscustomobject]@{units='2';nano=900000000} } },   # 2.9 за лот
     [pscustomobject]@{ service='InstrumentsService'; method='FutureBy'; body_like='NGU6'
       response=[pscustomobject]@{ instrument=[pscustomobject]@{ uid='uid-NGU6'; figi='FUTNGU'; ticker='NGU6'; class_code='SPBFUT'; lot=1
         min_price_increment=[pscustomobject]@{units='0';nano=1000000}; api_trade_available_flag=$true; last_trade_date='2026-09-28T00:00:00Z' } } },
     [pscustomobject]@{ service='OrdersService'; method='PostOrder'; body_like='BUY'
       response=[pscustomobject]@{ orderId='ord-ro'; executionReportStatus='EXECUTION_REPORT_STATUS_FILL'; lotsExecuted='10'
-        initialOrderPricePt=[pscustomobject]@{units='29';nano=500000000} } }   # 2.95 x 10
+        initialOrderPricePt=[pscustomobject]@{units='2';nano=950000000} } }   # 2.95 за лот
   )
   [void](Run-Tick $r '2026-07-15 10:30')
   $st = Get-State $r
