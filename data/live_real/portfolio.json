@@ -2,8 +2,8 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 118.13,
-  "peak_equity_usd": 118.58,
+  "equity_usd": 118.6,
+  "peak_equity_usd": 118.6,
   "day_start_equity_usd": 117.8,
   "day_start_date_utc": "2026-07-21",
   "trading_halted": false,
@@ -100,26 +100,34 @@
       "symbol": "ADA-USDT",
       "side": "long",
       "status": "open",
-      "qty": 248.0,
+      "qty": 124.0,
       "qty_initial": 248.0,
       "entry_filled_qty": 248.0,
       "entry_price": 0.1653,
-      "stop": 0.1605,
+      "stop": 0.1653,
       "stop0": 0.1605,
       "tp1": 0.1723,
       "tp1_qty": 124.0,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
+      "tp1_filled_qty": 124.0,
+      "tp1_done": true,
+      "be_done": true,
       "close_reason": null,
       "sl_exec": false,
       "entry_utc": "2026-07-20 12:00",
       "entry_ts": 1784548803363,
       "risk_usd": 1.17,
       "notional_usd": 40.97,
-      "fees_usd": 0.0409944,
+      "fees_usd": 0.04868588,
       "funding_usd": 0.0054,
-      "legs": [],
+      "legs": [
+        {
+          "part": "TP1",
+          "qty": 124.0,
+          "price": 0.1723,
+          "utc": "2026-07-21 00:43",
+          "pnl": 0.87
+        }
+      ],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
         "regime": "BTC 4h up; ADA-USDT 4h up; F&G 29",
@@ -139,7 +147,7 @@
   "auto": {
     "last_4h_ts": 1784577600000,
     "last_trail_4h_ts": 1784577600000,
-    "last_exec_ms": 1784592000000,
+    "last_exec_ms": 1784594585276,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -203,7 +211,8 @@
       "5ece4fe3-04b7-40ba-a3d6-a145227e3e30",
       "1b6193ea-0e7a-4835-bbf3-b4b8632bc8ad",
       "1439b470-7088-446e-8a8e-afac8ecc65b6",
-      "fc719b87-7add-4be4-aea7-58b5c58cf715"
+      "fc719b87-7add-4be4-aea7-58b5c58cf715",
+      "ce791b93-e3f3-5678-9f00-d0aa3e06e7f6"
     ],
     "next_trade_id": 7,
     "halt_day_utc": null,
@@ -216,7 +225,7 @@
       "UNI-USDT",
       "ADA-USDT"
     ],
-    "last_tick_utc": "2026-07-21 00:30",
+    "last_tick_utc": "2026-07-21 00:44",
     "last_daily_summary_day": "2026-07-20"
   },
   "week_start_equity_usd": 116.72,
