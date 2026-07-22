@@ -2,10 +2,10 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 118.39,
+  "equity_usd": 118.49,
   "peak_equity_usd": 119.43,
-  "day_start_equity_usd": 117.8,
-  "day_start_date_utc": "2026-07-21",
+  "day_start_equity_usd": 118.49,
+  "day_start_date_utc": "2026-07-22",
   "trading_halted": false,
   "entries_halt_reason": "",
   "open_trades": [
@@ -64,14 +64,14 @@
       "tp1_filled_qty": 0.5,
       "tp1_done": true,
       "be_done": true,
-      "close_reason": null,
+      "close_reason": "trail-ema20",
       "sl_exec": false,
       "entry_utc": "2026-07-17 20:00",
       "entry_ts": 1784318403423,
       "risk_usd": 1.07,
       "notional_usd": 49.53,
       "fees_usd": 0.0579012,
-      "funding_usd": 0.005,
+      "funding_usd": 0.0012,
       "legs": [
         {
           "part": "TP1",
@@ -118,7 +118,7 @@
       "risk_usd": 1.17,
       "notional_usd": 40.97,
       "fees_usd": 0.04868588,
-      "funding_usd": 0.0094,
+      "funding_usd": 0.0112,
       "legs": [
         {
           "part": "TP1",
@@ -145,9 +145,9 @@
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1784649600000,
-    "last_trail_4h_ts": 1784649600000,
-    "last_exec_ms": 1784649600000,
+    "last_4h_ts": 1784664000000,
+    "last_trail_4h_ts": 1784664000000,
+    "last_exec_ms": 1784678400000,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -218,7 +218,9 @@
       "38c2a567-5aeb-45cf-b718-1dc27adbe0cd",
       "d71b5093-9ff0-49dd-9a55-53f0ae319fa1",
       "ceb23a6e-21c3-4664-9b06-3c3421a2b167",
-      "234d0599-1812-4a63-955c-6bcc5d3f3100"
+      "234d0599-1812-4a63-955c-6bcc5d3f3100",
+      "6d558309-c280-4847-8b34-bab6eaa92f18",
+      "ab56cc33-e60a-47bb-9812-526c338d6b45"
     ],
     "next_trade_id": 7,
     "halt_day_utc": null,
@@ -231,8 +233,8 @@
       "UNI-USDT",
       "ADA-USDT"
     ],
-    "last_tick_utc": "2026-07-21 23:45",
-    "last_daily_summary_day": "2026-07-20"
+    "last_tick_utc": "2026-07-22 00:00",
+    "last_daily_summary_day": "2026-07-21"
   },
   "week_start_equity_usd": 116.72,
   "week_start_date_utc": "2026-07-20"
