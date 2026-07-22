@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 118.07,
+  "equity_usd": 118.12,
   "peak_equity_usd": 119.43,
   "day_start_equity_usd": 118.49,
   "day_start_date_utc": "2026-07-22",
@@ -94,12 +94,51 @@
           "fearGreed": true
         }
       }
+    },
+    {
+      "id": "LT7",
+      "symbol": "SOL-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 1.2,
+      "qty_initial": 1.2,
+      "entry_filled_qty": 0.0,
+      "entry_price": 77.52,
+      "stop": 76.59,
+      "stop0": 76.59,
+      "tp1": 78.92,
+      "tp1_qty": 0.6,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-07-22 12:00",
+      "entry_ts": 1784721603394,
+      "risk_usd": 1.12,
+      "notional_usd": 93.02,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; SOL-USDT 4h up; F&G 33",
+        "riskPlan": "вход ~77.52, стоп 76.59 (1.22%), TP1 78.92 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.12",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
     }
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1784692800000,
-    "last_trail_4h_ts": 1784692800000,
+    "last_4h_ts": 1784707200000,
+    "last_trail_4h_ts": 1784707200000,
     "last_exec_ms": 1784707200000,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
@@ -179,7 +218,7 @@
       "60614ca9-977e-476e-871d-713d03656918",
       "b4a4661a-ee11-4b30-a28b-6f8b10f7235d"
     ],
-    "next_trade_id": 7,
+    "next_trade_id": 8,
     "halt_day_utc": null,
     "soft_dd": false,
     "consec_api_fail": 0,
@@ -188,9 +227,10 @@
       "SUI-USDT",
       "LTC-USDT",
       "UNI-USDT",
-      "ADA-USDT"
+      "ADA-USDT",
+      "SOL-USDT"
     ],
-    "last_tick_utc": "2026-07-22 11:45",
+    "last_tick_utc": "2026-07-22 12:00",
     "last_daily_summary_day": "2026-07-21"
   },
   "week_start_equity_usd": 116.72,
