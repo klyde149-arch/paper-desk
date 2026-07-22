@@ -16,45 +16,19 @@
                       "day_number":  14,
                       "failed":  false,
                       "completed":  false,
-                      "consecutive_stop_losses":  0,
+                      "consecutive_stop_losses":  1,
                       "pause_next_day":  false,
                       "history":  [
 
                                   ]
                   },
-    "balance_usd":  1094.73,
-    "equity_usd":  1005.91,
+    "balance_usd":  976.07,
+    "equity_usd":  976.07,
     "peak_equity_usd":  1164.73,
     "day_start_equity_usd":  1112.42,
     "day_start_date_utc":  "2026-07-22",
     "last_entry_day_utc":  "2026-07-21",
-    "open_position":  {
-                          "id":  "C10",
-                          "symbol":  "AVAX-USDT",
-                          "side":  "long",
-                          "entry_utc":  "2026-07-21 22:03",
-                          "signal_bar_utc":  "2026-07-21 21:00",
-                          "entry_ts":  1784671418838,
-                          "entry_price":  6.553966,
-                          "qty":  1260.51,
-                          "notional_usd":  8261.32,
-                          "margin_usd":  550.75,
-                          "leverage_effective":  15,
-                          "stop":  6.46679,
-                          "tp":  6.728318,
-                          "liq_price":  6.149804,
-                          "risk_usd":  109.89,
-                          "risk_pct_equity":  10,
-                          "max_hold_until_utc":  "2026-07-23 22:03",
-                          "entry_fee_usd":  4.13,
-                          "funding_accrued_usd":  -0.6291,
-                          "score":  0.077,
-                          "thesis":  {
-                                         "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 0.077 из 9 пар",
-                                         "riskPlan":  "риск 109.89$ (10% эквити), стоп 6.46679 (2×ATR 1h), тейк 6.728318 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 6.149804",
-                                         "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
-                                     }
-                      },
+    "open_position":  null,
     "closed_trades":  [
                           {
                               "id":  "C1",
@@ -248,21 +222,42 @@
                                              "riskPlan":  "риск 92.3$ (10% эквити), стоп 1822.452824 (2×ATR 1h), тейк 1899.437156 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 1734.147221",
                                              "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
                                          }
+                          },
+                          {
+                              "id":  "C10",
+                              "symbol":  "AVAX-USDT",
+                              "side":  "long",
+                              "entry_utc":  "2026-07-21 22:03",
+                              "entry":  6.553966,
+                              "qty":  1260.51,
+                              "exit_utc":  "2026-07-22 06:06",
+                              "exit":  6.463557,
+                              "reason":  "stop",
+                              "bars_held_h":  8.1,
+                              "pnl_usd":  -122.79,
+                              "fees_usd":  8.2,
+                              "funding_usd":  -0.63,
+                              "r_multiple":  -1.12,
+                              "thesis":  {
+                                             "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 0.077 из 9 пар",
+                                             "riskPlan":  "риск 109.89$ (10% эквити), стоп 6.46679 (2×ATR 1h), тейк 6.728318 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 6.149804",
+                                             "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
+                                         }
                           }
                       ],
     "stats":  {
-                  "trades":  9,
+                  "trades":  10,
                   "wins":  4,
-                  "losses":  5,
-                  "total_fees_usd":  33.58,
-                  "total_funding_usd":  3.47,
-                  "realized_pnl_usd":  98.86
+                  "losses":  6,
+                  "total_fees_usd":  37.65,
+                  "total_funding_usd":  2.84,
+                  "realized_pnl_usd":  -23.93
               },
-    "last_check_utc":  "2026-07-22 06:03",
+    "last_check_utc":  "2026-07-22 06:18",
     "auto":  {
                  "schema":  1,
-                 "last_1m_ts":  1784700120000,
-                 "last_scan_1h_ts":  1784671200000,
+                 "last_1m_ts":  1784700360000,
+                 "last_scan_1h_ts":  1784696400000,
                  "paused_day_utc":  null
              }
 }
