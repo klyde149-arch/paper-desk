@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 118.49,
+  "equity_usd": 118.42,
   "peak_equity_usd": 119.43,
   "day_start_equity_usd": 118.49,
   "day_start_date_utc": "2026-07-22",
@@ -32,59 +32,12 @@
       "risk_usd": 0.82,
       "notional_usd": 15.19,
       "fees_usd": 0.015192,
-      "funding_usd": 0.01,
+      "funding_usd": 0.0115,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
         "regime": "BTC 4h up; SUI-USDT 4h up; F&G 22",
         "riskPlan": "вход ~0.7595, стоп 0.7185 (5.31%), TP1 0.821 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.82",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      }
-    },
-    {
-      "id": "LT4",
-      "symbol": "LTC-USDT",
-      "side": "long",
-      "status": "open",
-      "qty": 0.6,
-      "qty_initial": 1.1,
-      "entry_filled_qty": 1.1,
-      "entry_price": 45.03,
-      "stop": 45.03,
-      "stop0": 44.06,
-      "tp1": 46.49,
-      "tp1_qty": 0.5,
-      "tp1_filled_qty": 0.5,
-      "tp1_done": true,
-      "be_done": true,
-      "close_reason": "trail-ema20",
-      "sl_exec": false,
-      "entry_utc": "2026-07-17 20:00",
-      "entry_ts": 1784318403423,
-      "risk_usd": 1.07,
-      "notional_usd": 49.53,
-      "fees_usd": 0.0579012,
-      "funding_usd": 0.0012,
-      "legs": [
-        {
-          "part": "TP1",
-          "qty": 0.5,
-          "price": 46.49,
-          "utc": "2026-07-18 14:53",
-          "pnl": 0.73
-        }
-      ],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h up; LTC-USDT 4h up; F&G 27",
-        "riskPlan": "вход ~45.03, стоп 44.06 (2.26%), TP1 46.49 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.07",
         "checks": {
           "setupA": true,
           "btcFilter": true,
@@ -147,7 +100,7 @@
   "auto": {
     "last_4h_ts": 1784664000000,
     "last_trail_4h_ts": 1784664000000,
-    "last_exec_ms": 1784678400000,
+    "last_exec_ms": 1784678407653,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -220,7 +173,9 @@
       "ceb23a6e-21c3-4664-9b06-3c3421a2b167",
       "234d0599-1812-4a63-955c-6bcc5d3f3100",
       "6d558309-c280-4847-8b34-bab6eaa92f18",
-      "ab56cc33-e60a-47bb-9812-526c338d6b45"
+      "ab56cc33-e60a-47bb-9812-526c338d6b45",
+      "f0e52198-529d-4b56-a927-a8a20214aaef",
+      "359803fa-ff14-5dcb-b4d6-efbcf47605ea"
     ],
     "next_trade_id": 7,
     "halt_day_utc": null,
@@ -233,7 +188,7 @@
       "UNI-USDT",
       "ADA-USDT"
     ],
-    "last_tick_utc": "2026-07-22 00:00",
+    "last_tick_utc": "2026-07-22 00:01",
     "last_daily_summary_day": "2026-07-21"
   },
   "week_start_equity_usd": 116.72,
