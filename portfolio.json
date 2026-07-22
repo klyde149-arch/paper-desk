@@ -10,9 +10,9 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  10010.93,
-    "equity_usd":  10201.69,
-    "peak_equity_usd":  10202.12,
+    "balance_usd":  10083.72,
+    "equity_usd":  10243.46,
+    "peak_equity_usd":  10245.39,
     "day_start_equity_usd":  10114.56,
     "day_start_date_utc":  "2026-07-22",
     "trading_halted":  false,
@@ -103,10 +103,10 @@
                                "id":  "T8",
                                "symbol":  "SOL-USDT",
                                "side":  "long",
-                               "qty":  123.1149,
+                               "qty":  61.55745,
                                "qty_initial":  123.1149,
                                "entry_price":  77.444226,
-                               "stop":  76.627022,
+                               "stop":  77.444226,
                                "stop0":  76.627022,
                                "tp1":  78.670033,
                                "entry_utc":  "2026-07-22 12:04",
@@ -114,13 +114,19 @@
                                "risk_usd":  100.61,
                                "notional_usd":  9534.54,
                                "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  false,
-                               "fees_usd":  5.2439959970760288,
+                               "tp1_done":  true,
+                               "fees_usd":  7.9074956396687472,
                                "funding_usd":  0,
                                "legs":  [
-
+                                            {
+                                                "part":  "TP1",
+                                                "qty":  61.55745,
+                                                "price":  78.670033,
+                                                "utc":  "2026-07-22 15:25",
+                                                "pnl":  75.46
+                                            }
                                         ],
-                               "mfe_px":  78.408,
+                               "mfe_px":  78.831,
                                "mae_px":  76.98,
                                "thesis":  {
                                               "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
@@ -151,17 +157,17 @@
                   "total_funding_usd":  7.64,
                   "realized_pnl_usd":  24.99
               },
-    "last_check_utc":  "2026-07-22 15:17",
+    "last_check_utc":  "2026-07-22 15:30",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1784733360000,
+                 "last_1m_ts":  1784734140000,
                  "last_4h_ts":  1784707200000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
                  "next_trade_id":  9,
-                 "ticks_since_viz":  1,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-07-21",
-                 "last_tick_utc":  "2026-07-22 15:17"
+                 "last_tick_utc":  "2026-07-22 15:30"
              }
 }
