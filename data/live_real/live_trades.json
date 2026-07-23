@@ -260,5 +260,70 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT6",
+    "sym": "ADA-USDT",
+    "side": "long",
+    "live": true,
+    "result": "win",
+    "entryUtc": "2026-07-20 12:00",
+    "entryDay": "2026-07-20",
+    "entryTs": 1784548803363,
+    "entry": 0.1653,
+    "qty": 248.0,
+    "exitUtc": "2026-07-23 16:01",
+    "exitDay": "2026-07-23",
+    "exitTs": 1784822463472,
+    "exitPx": 0.17135,
+    "exitReason": "trail-ema20",
+    "legs": [
+      {
+        "part": "TP1",
+        "qty": 124.0,
+        "price": 0.1723,
+        "utc": "2026-07-21 00:43",
+        "pnl": 0.87
+      },
+      {
+        "part": "runner",
+        "qty": 83.0,
+        "price": 0.1704,
+        "utc": "2026-07-23 16:00",
+        "pnl": 0.42
+      },
+      {
+        "part": "runner",
+        "qty": 4.0,
+        "price": 0.1704,
+        "utc": "2026-07-23 16:00",
+        "pnl": 0.02
+      },
+      {
+        "part": "runner",
+        "qty": 37.0,
+        "price": 0.1704,
+        "utc": "2026-07-23 16:00",
+        "pnl": 0.19
+      }
+    ],
+    "pnlUsd": 1.42,
+    "rMultiple": 1.21,
+    "riskUsd": 1.17,
+    "fees": 0.07,
+    "funding": 0.01,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; ADA-USDT 4h up; F&G 29",
+      "riskPlan": "вход ~0.1652, стоп 0.1605 (3.02%), TP1 0.1723 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.17",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
