@@ -366,8 +366,12 @@ if (Test-Path $lrPf) {
   if (Test-Path (Join-Path $lrDir 'equity.json')) {
     $eqRows = @((Get-Content (Join-Path $lrDir 'equity.json') -Raw -Encoding UTF8 | ConvertFrom-Json) | Where-Object { $null -ne $_ })
     $lrCurve = [object[]]@($eqRows | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.total) })
-    $lrCapCurve = [object[]]@($eqRows | Where-Object { $_.PSObject.Properties['bot_capital'] -and $null -ne $_.bot_capital } |
-      ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.bot_capital) })
+    # Только ВАЛИДНЫЕ снимки: если T-Invest вернул пустой портфель (account_liquid<=0), bot_capital
+    # схлопывается в мусор (напр. 21k вместо 796k) и рисует фантомную просадку ~97%. Такие точки отбрасываем.
+    $lrCapCurve = [object[]]@($eqRows | Where-Object {
+        $_.PSObject.Properties['bot_capital'] -and $null -ne $_.bot_capital -and
+        $_.PSObject.Properties['account_liquid'] -and $null -ne $_.account_liquid -and [double]$_.account_liquid -gt 0
+      } | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.bot_capital) })
   }
   $lrClosed = [object[]]@()
   if (Test-Path (Join-Path $lrDir 'trades.json')) {
