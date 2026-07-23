@@ -612,8 +612,14 @@ function Update-GoBudget($Margin) {
     $lp = Get-TiField $Margin 'liquid_portfolio'
     if ($null -ne $lp) { $liquid = [double](M2D $lp).value }
     elseif ($Margin.PSObject.Properties['liquid']) { $liquid = [double]$Margin.liquid }
-    # снапшот РЕАЛЬНОГО счёта для терминала (readonly-данные, обновляется каждый тик)
-    $st.go | Add-Member -NotePropertyName account_liquid_rub -NotePropertyValue ([math]::Round($liquid, 2)) -Force
+    # снапшот РЕАЛЬНОГО счёта для терминала (readonly-данные, обновляется каждый тик).
+    # ПУСТОЙ/БИТЫЙ снимок (liquid<=0, транзиентный глюк брокера - инцидент 2026-07-23) НЕ затираем:
+    # реальный счёт всегда >0; иначе в кривую капитала попадёт нулевая точка (фантомная просадка).
+    if ($liquid -gt 0) {
+      $st.go | Add-Member -NotePropertyName account_liquid_rub -NotePropertyValue ([math]::Round($liquid, 2)) -Force
+    } else {
+      Write-LiveLog 'Update-GoBudget: снимок счёта пустой (liquid<=0) - account_liquid_rub не обновлён (несём прошлое)'
+    }
     $used = $null
     $sm = Get-TiField $Margin 'starting_margin'
     if ($null -ne $sm) { $used = [double](M2D $sm).value }
@@ -646,6 +652,14 @@ function Set-BotCapital($Pf) {
   $curRub = 0.0; $futRub = 0.0; $totRub = 0.0
   $c = Get-TiField $Pf 'total_amount_currencies'; if ($null -ne $c) { $curRub = [double](M2D $c).value }
   $t = Get-TiField $Pf 'total_amount_portfolio';  if ($null -ne $t) { $totRub = [double](M2D $t).value }
+  # ПУСТОЙ/БИТЫЙ снимок портфеля: total_amount_portfolio<=0 - брокер вернул нулевой счёт
+  # (транзиентный глюк, инцидент 2026-07-23). Реальный счёт всегда >0. Мусорный bot_capital
+  # (напр. 21k вместо 796k) рисует фантомную просадку ~97% в кривой капитала -> НЕ затираем,
+  # несём последнее валидное значение bot_capital_rub/capital_breakdown.
+  if ($totRub -le 0) {
+    Write-LiveLog 'Set-BotCapital: снимок портфеля пустой (total_amount_portfolio<=0) - bot_capital не обновлён (несём прошлое)'
+    return
+  }
   # фьючерсы: вклад в капитал = ВАРИАЦИОННАЯ МАРЖА, НЕ total_amount_futures (инцидент 2026-07-21:
   # total_amount_futures = НОМИНАЛ позиции ~416k, но эти деньги не приходят на счёт - капитал бота
   # «вырастал» на номинал при каждом входе; сам брокер в total_amount_portfolio номинал не считает).

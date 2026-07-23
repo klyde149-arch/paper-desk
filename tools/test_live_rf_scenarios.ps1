@@ -779,6 +779,29 @@ function Scn-AdoptOpsFail {
   Check 'adopt-fail: причина в логе (репост отложен)' ([string]$log -match 'репост отложен')
 }
 
+# --- 30. пустой снимок счёта: брокер вернул нулевой портфель (транзиентный глюк) -> bot_capital
+# и account_liquid НЕ затираются мусором, несётся последнее валидное (инцидент 2026-07-23,
+# фантомная просадка ~97% в кривой капитала на дашборде «Фьючерсы·Реал»)
+function Scn-EmptySnapshot {
+  $r = New-Scenario 'empty-snapshot'
+  $s = New-BaseState $r
+  # прошлый валидный тик уже записал точный капитал бота и ликвидность счёта
+  $s.go | Add-Member -NotePropertyName bot_capital_rub -NotePropertyValue 796000.0 -Force
+  $s.go | Add-Member -NotePropertyName account_liquid_rub -NotePropertyValue 1400000.0 -Force
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  # прод: маржа отключена -> preflight падает на GetPortfolio; брокер вернул ПУСТОЙ портфель
+  # (дефолтная фикстура: positions=@(), нет total_amount_portfolio -> liquid=0, totRub=0)
+  Set-Queue $r @([pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  Check 'empty-snap: тик выжил (tick ok в логе)' ([string]$log -match 'tick ok')
+  Check 'empty-snap: bot_capital НЕ затёрт (несёт 796000)' ([double]$st.go.bot_capital_rub -eq 796000.0)
+  Check 'empty-snap: account_liquid НЕ затёрт (несёт 1400000)' ([double]$st.go.account_liquid_rub -eq 1400000.0)
+  $eq = @(Read-JsonFile (Join-Path $r 'data\live_rf\equity.json'))
+  Check 'empty-snap: точка эквити с валидным bot_capital (не мусор)' ($eq.Count -ge 1 -and [double]$eq[-1].bot_capital -eq 796000.0)
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryFill}, ${function:Scn-EntryReject}, ${function:Scn-EntryLostAdopt}, ${function:Scn-EntryLostRepost},
@@ -788,6 +811,7 @@ $scenarios = @(
   ${function:Scn-ClearingGate}, ${function:Scn-Weekend}, ${function:Scn-HaltEntriesFile}, ${function:Scn-HaltCloseFile},
   ${function:Scn-FloodCap}, ${function:Scn-Tp1Sync}, ${function:Scn-RollFlow}, ${function:Scn-MomRebalance},
   ${function:Scn-CrashRecovery}, ${function:Scn-Funding}, ${function:Scn-DryrunE2e},
-  ${function:Scn-FundingGated}, ${function:Scn-Post400}, ${function:Scn-AdoptOpsFail}
+  ${function:Scn-FundingGated}, ${function:Scn-Post400}, ${function:Scn-AdoptOpsFail},
+  ${function:Scn-EmptySnapshot}
 )
 foreach ($fn in $scenarios) { & $fn }
