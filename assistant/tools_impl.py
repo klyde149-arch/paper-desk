@@ -175,6 +175,7 @@ def _crypto_digest():
             'вход': t.get('entry_price'), 'стоп': t.get('stop'), 'tp1': t.get('tp1'),
             'tp1_взят': t.get('tp1_done'), 'в_бе': t.get('be_done'),
             'кол-во': t.get('qty'), 'риск_usd': t.get('risk_usd'),
+            'текущий_pnl_usd': t.get('cur_upnl_usd'),
             'открыта_utc': t.get('entry_utc'),
             'возраст_ч': round((_age_min_utc(t.get('entry_utc')) or 0) / 60.0, 1),
         })

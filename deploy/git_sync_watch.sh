@@ -59,7 +59,7 @@ git_sync_watch() {
     if [ -n "$BAD_SINCE" ]; then
       if [ "$ALERTED" = "1" ]; then
         local mins=$(( (now - BAD_SINCE) / 60 ))
-        tg_alert "$label: git-publikaciya vosstanovlena. Dashboard snova aktualen (prostoy ~${mins} min)."
+        tg_alert "$label: публикация данных на дашборд восстановлена, данные снова актуальны (простой был около ${mins} мин)."
       fi
       rm -f "$state_file" 2>/dev/null || true
     fi
@@ -74,13 +74,13 @@ git_sync_watch() {
 
   if [ "$ALERTED" != "1" ]; then
     if [ "$elapsed_min" -ge "$after" ]; then
-      tg_alert "$label: git-publikaciya ne prohodit ${elapsed_min}+ min. Dashboard ustarel, no torgovlya idet na lokalnom sostoyanii (stopy na birzhe). Provery: journalctl -u ${unit}."
+      tg_alert "$label: данные не публикуются на дашборд уже больше ${elapsed_min} мин. Дашборд устарел, но торговля идёт на локальном состоянии (защитные стоп-заявки стоят на бирже). Диагностика: journalctl -u ${unit}."
       ALERTED=1
       LAST_MSG=$now
     fi
   else
     if [ $(( (now - LAST_MSG) / 60 )) -ge "$repeat" ]; then
-      tg_alert "$label: git-publikaciya vse eshe ne prohodit (${elapsed_min} min)."
+      tg_alert "$label: данные всё ещё не публикуются на дашборд (${elapsed_min} мин)."
       LAST_MSG=$now
     fi
   fi

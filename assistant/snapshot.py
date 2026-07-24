@@ -22,7 +22,27 @@ def _fmt_num(v, suffix=''):
 def _sign(v):
     if v is None:
         return '?'
-    return ('+' if float(v) >= 0 else '') + _fmt_num(v) + '%'
+    return (('+' if float(v) >= 0 else '') + _fmt_num(v) + '%').replace('.', ',')
+
+
+def _money(v, dec=0):
+    """Деньги с разрядкой пробелами и запятой-десятичной: 734429 -> '734 429', 1250.4 -> '1 250,40'."""
+    if v is None:
+        return '?'
+    try:
+        f = float(v)
+    except Exception:
+        return str(v)
+    neg = f < 0
+    s = ('%0.*f' % (dec, abs(f)))
+    parts = s.split('.')
+    grouped = ''
+    for i, ch in enumerate(reversed(parts[0])):
+        if i and i % 3 == 0:
+            grouped = ' ' + grouped
+        grouped = ch + grouped
+    body = grouped + (',' + parts[1] if dec > 0 else '')
+    return ('-' if neg else '') + body
 
 
 _DAYS = ('понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье')
@@ -64,19 +84,23 @@ def build():
             lines.append('RF (T-Invest): %s' % rf['error'])
         else:
             age = rf.get('возраст_снимка_эквити_мин')
+            halt = (rf.get('стоп_входов') or {})
+            drift = (rf.get('дрифты') or {})
+            halt_txt = ('новые входы остановлены (%s)' % halt.get('reason')) if halt.get('active') else 'входы разрешены'
+            d2, d4, d5, d6 = drift.get('D2'), drift.get('D4'), drift.get('D5'), drift.get('D6')
+            # D2/D4/D5 — реальные расхождения (требуют внимания); D6 — перевзвод стопа (самовосстановление)
+            drift_txt = ('расхождений с брокером нет' if not any((d2, d4, d5))
+                         else 'внимание, расхождения с брокером') + (' (D2/D4/D5/D6 = %s/%s/%s/%s)' % (d2, d4, d5, d6))
             lines.append(
-                'RF (T-Invest, %s): капитал %s ₽, день %s, от пика %s, позиций %s, '
-                'ГО %s из %s, стоп входов: %s, дрифты D2/D4/D5/D6 = %s/%s/%s/%s, '
-                'consec_fail %s, снимок эквити %s мин назад'
-                % (rf.get('режим'), _fmt_num(rf.get('капитал_руб')),
+                'Фьючерсы (Т-Инвест, режим %s): капитал бота %s ₽, за день %s, от максимума %s, '
+                'открыто позиций %s, гарантийное обеспечение (ГО) занято %s из %s ₽, %s, %s, '
+                'сбоев связи подряд %s, данные обновлены %s мин назад'
+                % (rf.get('режим'), _money(rf.get('капитал_руб')),
                    _sign(rf.get('день_pct')), _sign(rf.get('просадка_от_пика_pct')),
                    rf.get('позиций_всего'),
-                   _fmt_num((rf.get('ГО') or {}).get('used_rub')),
-                   _fmt_num((rf.get('ГО') or {}).get('budget_rub')),
-                   'ДА (%s)' % (rf.get('стоп_входов') or {}).get('reason')
-                   if (rf.get('стоп_входов') or {}).get('active') else 'нет',
-                   (rf.get('дрифты') or {}).get('D2'), (rf.get('дрифты') or {}).get('D4'),
-                   (rf.get('дрифты') or {}).get('D5'), (rf.get('дрифты') or {}).get('D6'),
+                   _money((rf.get('ГО') or {}).get('used_rub')),
+                   _money((rf.get('ГО') or {}).get('budget_rub')),
+                   halt_txt, drift_txt,
                    rf.get('consec_fail'), age if age is not None else '?'))
     except Exception as e:
         lines.append('RF: снапшот не собрался (%s)' % e)
@@ -86,13 +110,15 @@ def build():
         if 'error' in cr:
             lines.append('Крипта (Bybit): %s' % cr['error'])
         else:
+            halted = cr.get('торговля_остановлена')
+            trade_txt = ('торговля остановлена (%s)' % (cr.get('причина_стопа_входов') or 'см. kill-файлы')) if halted else 'торговля идёт'
             lines.append(
-                'Крипта (Bybit): капитал %s $, день %s, от пика %s, позиций %s (%s), '
-                'торговля остановлена: %s, последний тик %s мин назад'
-                % (_fmt_num(cr.get('капитал_usd')), _sign(cr.get('день_pct')),
+                'Крипта (Bybit): капитал %s $, за день %s, от максимума %s, '
+                'открыто позиций %s (%s), %s, последний тик %s мин назад'
+                % (_money(cr.get('капитал_usd'), 2), _sign(cr.get('день_pct')),
                    _sign(cr.get('просадка_от_пика_pct')), len(cr.get('позиции') or []),
                    ', '.join(p.get('символ') or '?' for p in (cr.get('позиции') or [])) or '—',
-                   'ДА' if cr.get('торговля_остановлена') else 'нет',
+                   trade_txt,
                    cr.get('возраст_последнего_тика_мин') if
                    cr.get('возраст_последнего_тика_мин') is not None else '?'))
     except Exception as e:

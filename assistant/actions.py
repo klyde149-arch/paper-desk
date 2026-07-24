@@ -34,10 +34,41 @@ ASSET_RU = {
     'BR': 'нефть Brent', 'NG': 'газ', 'GOLD': 'золото', 'SILV': 'серебро',
     'Si': 'доллар-рубль', 'RTS': 'индекс RTS', 'CNY': 'юань', 'MIX': 'индекс МосБиржи',
 }
-SLEEVE_RU = {'core': 'ядро', 'setA': 'сетап A'}
+SLEEVE_RU = {'core': 'ядро', 'setA': 'сетап А'}
 SIDE_RU = {'long': 'лонг', 'short': 'шорт'}
 ASSETS = tuple(ASSET_RU)
 PROFILES = ('c2', 'c3b')
+
+# общая карта русских имён (data/names_ru.json), ASSET_RU — фолбэк для старых чекаутов
+_NAMES_RU_CACHE = None
+
+
+def _asset_ru(asset):
+    global _NAMES_RU_CACHE
+    if _NAMES_RU_CACHE is None:
+        _NAMES_RU_CACHE = (_read_json(os.path.join(config.REPO, 'data', 'names_ru.json')) or {}).get('fut') or {}
+    if not asset:
+        return '?'
+    return _NAMES_RU_CACHE.get(asset) or ASSET_RU.get(asset) or asset
+
+
+def _short_day(day):
+    """'2026-07-21' -> '21.07'; иное оставляем как есть."""
+    try:
+        y, m, d = str(day).split('-')
+        return '%s.%s' % (d, m)
+    except Exception:
+        return str(day) if day else ''
+
+
+def _num(v):
+    """Число компактно: хвостовые нули убраны, десятичная — запятая."""
+    if v is None:
+        return '?'
+    try:
+        return (('%.6f' % float(v)).rstrip('0').rstrip('.') or '0').replace('.', ',')
+    except Exception:
+        return str(v)
 
 
 def _read_json(path):
@@ -117,11 +148,23 @@ def list_paper_positions():
 
 def _display(m):
     side = SIDE_RU.get(m.get('side'), m.get('side') or '?')
-    asset = ASSET_RU.get(m.get('asset'), m.get('asset') or '?')
+    asset = _asset_ru(m.get('asset'))
     sleeve = SLEEVE_RU.get(m.get('sleeve'), m.get('sleeve') or '?')
+    head = '%s — %s (%s): вход %s' % (side, asset, sleeve, _num(m.get('entry')))
+    day = _short_day(m.get('entry_day'))
+    if day:
+        head += ' (%s)' % day
+    parts = [head]
+    if m.get('cur') is not None:
+        parts.append('сейчас %s' % _num(m.get('cur')))
+    upnl = m.get('upnl')
     r = m.get('r')
-    rtxt = ('%+.2fR' % r) if isinstance(r, (int, float)) else '?R'
-    return '%s %s (%s), вход %s, сейчас %s' % (side, asset, sleeve, m.get('entry'), rtxt)
+    if isinstance(upnl, (int, float)):
+        rtxt = (' (%s риска)' % (('%+.2f' % r).replace('.', ','))) if isinstance(r, (int, float)) else ''
+        parts.append('результат %s$%s' % (('%+0.2f' % float(upnl)).replace('.', ','), rtxt))
+    elif isinstance(r, (int, float)):
+        parts.append('результат %s риска' % (('%+.2f' % r).replace('.', ',')))
+    return ', '.join(parts)
 
 
 def find_position(asset, sleeve=None):
@@ -257,7 +300,7 @@ def confirm_pending(token, chat_id):
         eta = ' Заявка уже отправлена в обработку, обычно это 1-3 минуты.'
     else:
         eta = ' Заявку отправит ближайший тик (до минуты), исполнение обычно 2-4 минуты.'
-    return {'ok': True, 'msg': 'Заявка принята: закрою %s в C2 и C3b по рынку.%s '
+    return {'ok': True, 'msg': 'Заявка принята: закрою %s по рынку в обоих профилях (C2 и C3b).%s '
                                'Пришлю цену исполнения.'
                                % (v.get('display') or v['asset'], eta),
             'display': v.get('display')}
@@ -363,12 +406,12 @@ def _format_result(r):
         lines = ['Исполнено: ручное закрытие по рынку.']
         for c in (r.get('closed') or []):
             side = SIDE_RU.get(c.get('side'), c.get('side') or '?')
-            asset = ASSET_RU.get(c.get('asset'), c.get('asset') or '?')
+            asset = _asset_ru(c.get('asset'))
             rm = c.get('r')
-            rtxt = (' (%+.2fR)' % rm) if isinstance(rm, (int, float)) else ''
-            lines.append('%s: %s закрыт %s %s @ %s, P&L %+0.2f$%s'
-                         % (c.get('profile'), c.get('id'), side, asset,
-                            c.get('px'), float(c.get('pnl') or 0), rtxt))
+            rtxt = (' (это %s изначального риска)' % (('%.2f' % abs(rm)).replace('.', ','))) if isinstance(rm, (int, float)) else ''
+            lines.append('Профиль %s: закрыт %s %s @ %s, результат %s$%s'
+                         % (c.get('profile'), side, asset,
+                            _num(c.get('px')), ('%+0.2f' % float(c.get('pnl') or 0)).replace('.', ','), rtxt))
         return '\n'.join(lines)
     if st == 'not-found':
         return 'Заявка на закрытие снята: %s.' % (r.get('note') or 'позиции уже нет')
@@ -392,7 +435,7 @@ def build_positions_menu():
         lines.append('• ' + m['display'])
         kb.append([{'text': 'Закрыть: %s %s (%s)'
                             % (SIDE_RU.get(m['side'], '?'),
-                               ASSET_RU.get(m['asset'], m['asset']),
+                               _asset_ru(m['asset']),
                                SLEEVE_RU.get(m['sleeve'], m['sleeve'])),
                     'callback_data': 'mc:sel:%s:%s' % (m['asset'], m['sleeve'])}])
     lines.append('')

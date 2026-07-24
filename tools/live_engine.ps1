@@ -12,6 +12,7 @@
 # Сайзинг/ворота ДОЛЖНЫ зеркалить paper: tools/auto_trade.ps1:24-33 (константы) и :388-443 (входы).
 param(
   [switch]$DryRun,      # читать всё, ничего не размещать (также env LIVE_DRYRUN=1)
+  [switch]$ReportNow,   # разово собрать и отправить вечерний отчёт с текущими числами и выйти (без сохранения состояния)
   [string]$Root = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -20,7 +21,10 @@ if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')
 . (Join-Path $PSScriptRoot 'lib_bybit_live.ps1')
 . (Join-Path $PSScriptRoot 'lib_alerts.ps1')
+. (Join-Path $PSScriptRoot 'lib_msg_ru.ps1')
 if ($env:LIVE_DRYRUN -eq '1') { $DryRun = $true }
+$MSKMS = [long]10800000   # UTC->MSK смещение (+3ч) в миллисекундах
+$namesRu = Get-RuNames $Root
 
 # ---- константы: MUST mirror tools/auto_trade.ps1:24-33 (менять только синхронно!) ----
 $RISKPCT  = 0.01
@@ -51,6 +55,7 @@ $nowMs = UtcNowMs
 $nowStr = MsToUtcStr $nowMs
 $sw = [Diagnostics.Stopwatch]::StartNew()
 $modeTag = if ($DryRun) { 'DRYRUN' } else { 'LIVE' }
+$tgPfx = if ($DryRun) { 'Крипта (тест): ' } else { 'Крипта: ' }   # человекочитаемый префикс Telegram-сообщений
 
 function LLog([string]$Line) {
   $stamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')
@@ -134,6 +139,106 @@ function Add-ExitLeg($T, [string]$Part, [double]$Qty, [double]$Px, [long]$Ts, [d
   if ($T.qty -lt 0) { $T.qty = 0.0 }
 }
 
+# ---- вечерний отчёт: разбивка P&L по позициям (см. lib_msg_ru.ps1) ----
+function Stamp-CurUpnl($Trades, $ExBySym) {
+  # штампуем текущий нереализованный P&L биржи в карточку - кормит отчёт и ассистента
+  foreach ($t in @($Trades)) {
+    if ([string]$t.status -ne 'open') { continue }
+    $bs = Bs $t.symbol
+    if ($ExBySym.ContainsKey($bs)) {
+      $t | Add-Member -NotePropertyName cur_upnl_usd -NotePropertyValue ([double]$ExBySym[$bs].unrealPnl) -Force
+    }
+  }
+}
+function Get-TradeOpenPnl($T) {
+  # суммарный P&L открытой сделки сейчас: реализованное по частям (legs) + нереализованное по
+  # остатку (cur_upnl_usd от биржи) - комиссии - фандинг. По форме = net в Build-ClosedCard.
+  $realized = 0.0
+  foreach ($lg in @($T.legs)) { $realized += [double]$lg.pnl }
+  $unreal = if ($T.PSObject.Properties['cur_upnl_usd'] -and $null -ne $T.cur_upnl_usd) { [double]$T.cur_upnl_usd } else { 0.0 }
+  return [math]::Round($realized + $unreal - [double]$T.fees_usd - [double]$T.funding_usd, 2)
+}
+function CryptoReasonRu([string]$Reason) {
+  switch -Wildcard ($Reason) {
+    'be-stop'         { return 'стоп на цене входа (без убытка)' }
+    'stop'            { return 'сработала стоп-заявка' }
+    'trail*'          { return 'по трейлинг-стопу' }
+    'tp*'             { return 'достигнута цель' }
+    'hard-halt*'      { return 'аварийная остановка -35%' }
+    'no-sl-emergency' { return 'аварийное закрытие (не было стопа)' }
+    'manual*'         { return 'закрыто вручную' }
+    default           { return $Reason }
+  }
+}
+function Build-CryptoReport($Names, $Trades, [double]$Equity, [double]$PeakEq, $Report, [long]$NowMs, [string]$LtPath, [bool]$Halted, [string]$HaltReason) {
+  $mskNow = MsToUtc ($NowMs + $MSKMS)
+  $mskDay = $mskNow.ToString('yyyy-MM-dd')
+  $baseTs = if ($Report -and $Report.PSObject.Properties['base_ts']) { [long]$Report.base_ts } else { 0 }
+  $baseEq = if ($baseTs -gt 0) { [double]$Report.base_equity_usd } else { 0.0 }
+  $L = New-Object System.Collections.Generic.List[string]
+  $L.Add("Крипта — вечерний отчёт за $($mskNow.ToString('dd.MM.yyyy'))")
+  $L.Add('')
+  $L.Add("Капитал: $(Fmt-Money $Equity '$' 2)")
+  if ($baseTs -gt 0) {
+    $dpl = $Equity - $baseEq
+    $dplPct = if ($baseEq -gt 0) { 100.0 * $dpl / $baseEq } else { 0 }
+    $hours = [math]::Round(($NowMs - $baseTs) / 3600000.0)
+    $tail = if ($hours -gt 26) { " (за последние $hours ч — прошлый отчёт не отправлялся)" } else { '' }
+    $L.Add("За сутки: $(Fmt-Money $dpl '$' 2 -Sign) ($(Fmt-Pct $dplPct)$tail)")
+  }
+  $L.Add("От максимума капитала: $(Fmt-DdFromPeak $PeakEq $Equity)")
+  $L.Add('')
+  $open = @($Trades | Where-Object { [string]$_.status -eq 'open' } | Sort-Object symbol)
+  $L.Add("Открытые позиции: $($open.Count)")
+  $idx = 0
+  foreach ($t in $open) {
+    $idx++
+    $nm = Cap (RuName $Names 'crypto' ([string]$t.symbol))
+    $qty = [double]$t.qty_initial
+    $L.Add("$idx) $nm — $(RuSide $t.side 'past') $(Fmt-Qty $qty) $(RuCoins $qty) по $(Fmt-Px ([double]$t.entry_price)) $")
+    $sinceOpen = Get-TradeOpenPnl $t
+    $notional = $qty * [double]$t.entry_price
+    $soPct = if ($notional -gt 0) { 100.0 * $sinceOpen / $notional } else { 0 }
+    $entryMskDay = (MsToUtc ([long]$t.entry_ts + $MSKMS)).ToString('yyyy-MM-dd')
+    $openTag = if ($entryMskDay -eq $mskDay) { 'сегодня' } else { (MsToUtc ([long]$t.entry_ts + $MSKMS)).ToString('dd.MM') }
+    $hasBase = $Report -and $Report.PSObject.Properties['positions'] -and $Report.positions.PSObject.Properties[[string]$t.id]
+    if ($hasBase) {
+      $day = $sinceOpen - [double]$Report.positions.([string]$t.id)
+      $dayPct = if ($notional -gt 0) { 100.0 * $day / $notional } else { 0 }
+      $L.Add("   за сутки: $(Fmt-Money $day '$' 2 -Sign) ($(Fmt-Pct $dayPct)) · с открытия ($openTag): $(Fmt-Money $sinceOpen '$' 2 -Sign) ($(Fmt-Pct $soPct))")
+    } else {
+      $L.Add("   с открытия ($openTag): $(Fmt-Money $sinceOpen '$' 2 -Sign) ($(Fmt-Pct $soPct))")
+    }
+  }
+  $L.Add('')
+  # закрытые за окно (от прошлого отчёта; при отсутствии базы - за сегодня по МСК)
+  $closed = @()
+  foreach ($x in @(Read-JsonFile $LtPath)) {
+    if ($null -eq $x) { continue }
+    $inWin = if ($baseTs -gt 0) { [long]$x.exitTs -ge $baseTs } else { (MsToUtc ([long]$x.exitTs + $MSKMS)).ToString('yyyy-MM-dd') -eq $mskDay }
+    if ($inWin) { $closed += $x }
+  }
+  if ($closed.Count -eq 0) {
+    $L.Add('Закрытых сделок за сутки: нет')
+  } else {
+    $L.Add("Закрытых сделок за сутки: $($closed.Count)")
+    foreach ($x in $closed) {
+      $nm = Cap (RuName $Names 'crypto' ([string]$x.sym))
+      $L.Add("• ${nm}: $(Fmt-Money ([double]$x.pnlUsd) '$' 2 -Sign), $(CryptoReasonRu ([string]$x.exitReason))")
+    }
+  }
+  $L.Add('')
+  if ($Halted) {
+    $L.Add("Торговля остановлена: $HaltReason")
+  } elseif ($HaltReason) {
+    $L.Add("Новые входы остановлены: $HaltReason")
+  } else {
+    $L.Add('Торговля идёт штатно, входы разрешены.')
+  }
+  if ($open.Count -gt 0) { $L.Add('Проценты по позициям — от объёма позиции при входе.') }
+  return ($L -join "`n")
+}
+
 try {
   # ---------- 0. kill-switches ----------
   if (Test-Path (Join-Path $Root 'data/HALT')) { LLog 'skip: HALT (global)'; return }
@@ -149,7 +254,7 @@ try {
   } catch {
     if ($null -ne $script:lp) {
       $script:lp.auto.consec_api_fail = [int]$script:lp.auto.consec_api_fail + 1
-      if ([int]$script:lp.auto.consec_api_fail -eq 5) { [void](Send-TgAlert "[$modeTag] Bybit API недоступен 5 тиков подряд: $($_.Exception.Message)") }
+      if ([int]$script:lp.auto.consec_api_fail -eq 5) { [void](Send-TgAlert "${tgPfx}биржа Bybit не отвечает уже 5 проверок подряд. Торговля приостановлена до восстановления связи; защитные стоп-заявки стоят на самой бирже и продолжают действовать. Причина: $($_.Exception.Message)") }
       Save-State
     }
     LLog "PREFLIGHT FAIL: $($_.Exception.Message)"
@@ -160,22 +265,36 @@ try {
   if ($null -eq $script:lp) {
     $script:lp = New-LiveState $equity
     LLog "state initialized: equity=$equity mode=$modeTag"
-    [void](Send-TgAlert "[$modeTag] live-движок инициализирован. Equity: $equity USDT")
+    [void](Send-TgAlert "${tgPfx}бот запущен. Капитал: $(Fmt-Money $equity '$' 2).")
   }
   $lp = $script:lp
   if ([string]$lp.mode -ne $modeTag) {
-    [void](Send-TgAlert "[$modeTag] режим переключён: $($lp.mode) -> $modeTag. Equity: $equity USDT")
+    [void](Send-TgAlert "${tgPfx}режим работы переключён: $($lp.mode) -> $modeTag. Капитал: $(Fmt-Money $equity '$' 2).")
     $lp.mode = $modeTag
   }
   $lp.auto.consec_api_fail = 0
   # миграция состояния: поля недельного отчёта (могли отсутствовать в ранних версиях)
   Ensure-Prop $lp 'week_start_equity_usd' $equity
   Ensure-Prop $lp 'week_start_date_utc' ''
+  # база «за сутки» для вечернего отчёта (аддитивно; старый код поле игнорирует)
+  Ensure-Prop $lp 'report' ([pscustomobject]@{ last_day_msk = ''; base_ts = [long]0; base_equity_usd = $equity; positions = [pscustomobject]@{} })
 
   $trades = New-Object System.Collections.Generic.List[object]
   foreach ($t in @($lp.open_trades)) { if ($null -ne $t) { $trades.Add($t) } }
   $intents = New-Object System.Collections.Generic.List[object]
   foreach ($i in @($lp.pending_intents)) { if ($null -ne $i) { $intents.Add($i) } }
+
+  # ---------- разовый отчёт по требованию (-ReportNow): собрать, отправить, выйти БЕЗ сохранения ----------
+  if ($ReportNow) {
+    $exR = @{}
+    try { foreach ($p in (Get-PositionsLive)) { $exR[$p.symbol] = $p } } catch { LLog "ReportNow: позиции недоступны: $($_.Exception.Message)" }
+    Stamp-CurUpnl $trades $exR
+    $haltReasonR = if ($lp.trading_halted) { if ("$($lp.entries_halt_reason)" -ne '') { [string]$lp.entries_halt_reason } else { 'ручная остановка' } } else { [string]$lp.entries_halt_reason }
+    $msgR = Build-CryptoReport $namesRu $trades $equity ([double]$lp.peak_equity_usd) $lp.report $nowMs $ltPath ([bool]$lp.trading_halted) $haltReasonR
+    [void](Send-TgAlert $msgR)
+    LLog 'ReportNow: вечерний отчёт отправлен (состояние не сохранялось)'
+    return
+  }
 
   # ---------- 2. HALT_CLOSE: флэттен всего ----------
   if ($haltClose -and -not $DryRun) {
@@ -191,7 +310,7 @@ try {
     $lp.trading_halted = $true
     $lp.entries_halt_reason = 'HALT_CLOSE'
     $script:events.Add('HALT_CLOSE: флэттен')
-    [void](Send-TgAlert "[$modeTag] HALT_CLOSE: все ордера отменены, позиции закрываются маркетом. Торговля остановлена.")
+    [void](Send-TgAlert "${tgPfx}получена команда полного закрытия (файл HALT_CLOSE): все заявки отменены, все позиции закрываются по рынку, торговля остановлена.")
     # книга закрытий придёт через executions на следующих тиках
   }
 
@@ -218,7 +337,7 @@ try {
       if ($it.kind -eq 'entry' -and $t -and ($ost -in @('Rejected','Cancelled')) -and [double]$ord.cumExecQty -eq 0) {
         [void]$trades.Remove($t)
         LLog "entry $($it.tradeId) rejected on exchange ($ost) - карточка снята"
-        [void](Send-TgAlert "[$modeTag] Вход $($it.tradeId) отклонён биржей ($ost)")
+        [void](Send-TgAlert "${tgPfx}вход по сделке $($it.tradeId) отклонён биржей (статус: $ost). Сделка отменена.")
       }
     } else {
       $ageMin = ($nowMs - [long]$it.ts) / 60000.0
@@ -228,7 +347,7 @@ try {
         if ($it.kind -eq 'entry' -and $t -and [string]$t.status -eq 'pending' -and [double]$t.entry_filled_qty -eq 0) {
           [void]$trades.Remove($t)
           LLog "intent $($it.linkId) не найден на бирже >3мин - вход снят"
-          [void](Send-TgAlert "[$modeTag] Интент $($it.linkId) не дошёл до биржи - вход отменён")
+          [void](Send-TgAlert "${tgPfx}заявка на вход ($($it.linkId)) не дошла до биржи — вход отменён.")
         } else {
           LLog "intent $($it.linkId) не найден >3мин - снят (watchdog повторит)"
         }
@@ -269,9 +388,11 @@ try {
         $tByLink.status = 'open'
         $script:events.Add("ENTRY FILLED $($tByLink.id) $($tByLink.symbol) @$fp")
         $script:jblocks.Add(("`r`n## {0} UTC — LIVE: ВХОД {1} {2} {3} исполнен @{4}, qty {5}, комиссия {6}$`r`n" -f (MsToUtcStr $eMs), $tByLink.id, $tByLink.symbol, ([string]$tByLink.side).ToUpper(), $fp, $fq, [math]::Round($fee,4)))
-        [void](Send-TgAlert (("[$modeTag] ВХОД {0} {1} {2} @{3}" -f $tByLink.id, $tByLink.symbol, ([string]$tByLink.side).ToUpper(), $fp) +
-          ("`nqty={0} стоп={1} TP1={2}" -f $fq, $tByLink.stop, $tByLink.tp1) +
-          ("`nриск {0}$, номинал {1}$, план: TP1 1.5R (50%) -> БУ -> трейл EMA20 4h" -f $tByLink.risk_usd, $tByLink.notional_usd)))
+        $nmE = RuName $namesRu 'crypto' ([string]$tByLink.symbol)
+        [void](Send-TgAlert (
+          ("${tgPfx}открыта сделка {0} — {1}, {2}, по {3} $." -f $tByLink.id, $nmE, (RuSide $tByLink.side 'noun'), (Fmt-Px ([double]$fp))) +
+          ("`nОбъём: {0} {1} ({2}), риск сделки: {3}." -f (Fmt-Qty ([double]$fq)), (RuCoins ([double]$fq)), (Fmt-Money ([double]$tByLink.notional_usd) '$' 2), (Fmt-Money ([double]$tByLink.risk_usd) '$' 2)) +
+          ("`nСтоп-заявка: {0} $. Первая цель: {1} $ — там закроется половина, а стоп остатка перейдёт на цену входа." -f (Fmt-Px ([double]$tByLink.stop)), (Fmt-Px ([double]$tByLink.tp1)))))
       }
       continue
     }
@@ -282,7 +403,7 @@ try {
         $tByLink.tp1_done = $true
         $script:events.Add("TP1 $($tByLink.id) $($tByLink.symbol)")
         $script:jblocks.Add(("`r`n## {0} UTC — LIVE: TP1 по {1} {2} — закрыто @{3}, стоп будет переведён в БУ`r`n" -f (MsToUtcStr $eMs), $tByLink.id, $tByLink.symbol, $fp))
-        [void](Send-TgAlert "[$modeTag] TP1 $($tByLink.id) $($tByLink.symbol) @$fp - стоп в БУ")
+        [void](Send-TgAlert "${tgPfx}сделка $($tByLink.id) ($(RuName $namesRu 'crypto' ([string]$tByLink.symbol))) дошла до первой цели $(Fmt-Px ([double]$fp)) $ — половина закрыта с прибылью, стоп остатка передвинут на цену входа. Хуже нуля эта сделка уже не закроется.")
       }
       continue
     }
@@ -299,7 +420,7 @@ try {
         $t.sl_exec = $true
       } else {
         LLog "DRIFT: неожиданный филл $eSymBs $($e.side) qty=$fq (наращивает нашу позицию?)"
-        [void](Send-TgAlert "[$modeTag] ДРИФТ: неожиданный филл $eSymBs $($e.side) qty=$fq - проверь аккаунт")
+        [void](Send-TgAlert "${tgPfx}на счёте неожиданное исполнение по $eSymBs ($($e.side), объём $fq), которого бот не планировал. Пожалуйста, проверьте счёт — возможно, сделка была совершена вручную.")
       }
     }
     # филл по чужому символу без локальной сделки - молчим; позицию поймает D2 ниже
@@ -313,6 +434,7 @@ try {
   # 3c. сверка позиций и закрытие карточек
   $exBySym = @{}
   foreach ($p in $exPos) { $exBySym[$p.symbol] = $p }
+  Stamp-CurUpnl $trades $exBySym   # текущий нереализованный P&L в карточки (для отчёта и ассистента)
   $driftHalt = ''
   foreach ($t in @($trades.ToArray())) {
     $bs = Bs $t.symbol
@@ -334,9 +456,14 @@ try {
       $script:jblocks.Add(("`r`n## {0} UTC — LIVE: закрыта {1} {2} {3} — {4} {5:+0.00;-0.00}$ ({6})`r`n" -f $nowStr, $card.id, $card.sym, ([string]$card.side).ToUpper(), $resTxt, [double]$card.pnlUsd, $reason) +
         ("Вход {0} → средний выход {1}; R = {2}; комиссии {3}$, фандинг {4}$.`r`n" -f $card.entry, $card.exitPx, $card.rMultiple, $card.fees, $card.funding))
       $holdH = [math]::Round(($nowMs - [long]$card.entryTs) / 3600000.0, 1)
-      [void](Send-TgAlert (("[$modeTag] ВЫХОД {0} {1} {2}: {3:+0.00;-0.00}$ ({4}), R={5}" -f $card.id, $card.sym, ([string]$card.side).ToUpper(), [double]$card.pnlUsd, $reason, $card.rMultiple) +
-        ("`nвход {0} -> выход {1}, в позиции {2}ч" -f $card.entry, $card.exitPx, $holdH) +
-        ("`nкомиссии {0}$, фандинг {1}$, equity {2}$" -f $card.fees, $card.funding, $equity)))
+      $nmX = RuName $namesRu 'crypto' ([string]$card.sym)
+      $rTail = if ($null -ne $card.rMultiple) { " — это $((('{0:0.##}' -f [math]::Abs([double]$card.rMultiple)).Replace('.',','))) изначального риска" } else { '' }
+      [void](Send-TgAlert (
+        ("${tgPfx}закрыта сделка {0} — {1}, была {2} по {3} $." -f $card.id, $nmX, (RuSide $card.side 'noun'), (Fmt-Px ([double]$card.entry))) +
+        ("`nРезультат: {0} ({1}){2}." -f (Fmt-Money ([double]$card.pnlUsd) '$' 2 -Sign), (CryptoReasonRu $reason), $rTail) +
+        ("`nВыход по {0} $, позиция держалась {1}." -f (Fmt-Px ([double]$card.exitPx)), (RuHoldRu $holdH)) +
+        ("`nКомиссии {0}, плата за перенос позиции (фандинг) {1}." -f (Fmt-Money ([double]$card.fees) '$' 2), (Fmt-Money ([double]$card.funding) '$' 2)) +
+        ("`nКапитал: {0}." -f (Fmt-Money $equity '$' 2))))
       continue
     }
     if ([string]$t.status -eq 'open' -and $havePos) {
@@ -353,13 +480,13 @@ try {
           $slStr = Format-RoundToTick ([double]$t.stop) $inst[$t.symbol].tickSize
           try {
             [void](Set-StopLossPrice $t.symbol $slStr)
-            [void](Send-TgAlert "[$modeTag] D6: $($t.symbol) был без стопа - перевзведён @$slStr")
+            [void](Send-TgAlert "${tgPfx}по позиции $(RuName $namesRu 'crypto' ([string]$t.symbol)) на бирже пропал стоп (сбой D6) — бот заново выставил его на $slStr.")
           } catch {
             LLog "D6 re-arm failed: $($_.Exception.Message) - закрываю маркетом"
             $qtyStr = $exq.ToString([Globalization.CultureInfo]::InvariantCulture)
             [void](Close-PositionMarket $t.symbol ([string]$t.side) $qtyStr "$($t.id)-close")
             $t.close_reason = 'no-sl-emergency'
-            [void](Send-TgAlert "[$modeTag] D6: $($t.symbol) без стопа, перевзвод не удался - ЗАКРЫВАЮ МАРКЕТОМ")
+            [void](Send-TgAlert "${tgPfx}по позиции $(RuName $namesRu 'crypto' ([string]$t.symbol)) на бирже пропал стоп (сбой D6) и заново выставить его не удалось — позиция закрывается по рынку для безопасности.")
           }
         }
       }
@@ -379,7 +506,7 @@ try {
     if (-not $known) {
       $driftHalt = "D2 $($p.symbol): позиция на бирже без карточки (ручная?)"
       LLog "DRIFT D2: $($p.symbol) size=$($p.size) $($p.side)"
-      [void](Send-TgAlert "[$modeTag] ДРИФТ D2: на бирже позиция $($p.symbol) $($p.side) $($p.size) без нашей карточки. Входы на халт. Не торгуй руками на этом аккаунте.")
+      [void](Send-TgAlert "${tgPfx}на бирже есть позиция $($p.symbol) ($($p.side), объём $($p.size)), которую бот не открывал (расхождение D2). Возможно, сделка совершена вручную. Новые входы остановлены до выяснения. Пожалуйста, не торгуйте вручную на этом счёте.")
     }
   }
   if ($driftHalt) { $lp.entries_halt_reason = $driftHalt }
@@ -402,13 +529,14 @@ try {
     $wWins = @($wTrades | Where-Object { $_.result -eq 'win' }).Count
     $wFees = 0.0; $wFund = 0.0; $wR = 0.0
     foreach ($x in $wTrades) { $wFees += [double]$x.fees; $wFund += [double]$x.funding; if ($null -ne $x.rMultiple) { $wR += [double]$x.rMultiple } }
-    $ddNow = if ([double]$lp.peak_equity_usd -gt 0) { [math]::Round(100.0 * ([double]$lp.peak_equity_usd - $equity) / [double]$lp.peak_equity_usd, 1) } else { 0.0 }
-    $haltTxt = if ($lp.trading_halted) { 'HALT' } elseif ("$($lp.entries_halt_reason)" -ne '') { [string]$lp.entries_halt_reason } else { 'нет' }
-    $wMsg = ("[$modeTag] НЕДЕЛЬНЫЙ ОТЧЁТ {0}..{1}" -f $wStart, $curMonday) +
-      ("`nEquity: {0}$ | P&L недели: {1:+0.00;-0.00}$ ({2:+0.00;-0.00}%)" -f $equity, $wPnl, $wPct) +
-      ("`nСделок: {0} (W{1}/L{2}), суммарный R: {3:+0.00;-0.00}" -f $wTrades.Count, $wWins, ($wTrades.Count - $wWins), $wR) +
-      ("`nКомиссии: {0}$ | фандинг: {1}$" -f [math]::Round($wFees,2), [math]::Round($wFund,2)) +
-      ("`nОт пика: -{0}% | халты: {1}" -f $ddNow, $haltTxt)
+    $wStartDd = [datetime]::ParseExact($wStart, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture).ToString('dd.MM')
+    $wEndDd = [datetime]::ParseExact($curMonday, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture).AddDays(-1).ToString('dd.MM')
+    $wHaltLine = if ($lp.trading_halted) { 'Торговля была остановлена.' } elseif ("$($lp.entries_halt_reason)" -ne '') { 'Новые входы были остановлены.' } else { 'Остановок торговли не было.' }
+    $wMsg = ("Крипта — отчёт за неделю {0}–{1}" -f $wStartDd, $wEndDd) +
+      ("`nКапитал: {0}. Итог недели: {1} ({2})." -f (Fmt-Money $equity '$' 2), (Fmt-Money $wPnl '$' 2 -Sign), (Fmt-Pct $wPct)) +
+      ("`nСделок закрыто: {0} (прибыльных {1}, убыточных {2})." -f $wTrades.Count, $wWins, ($wTrades.Count - $wWins)) +
+      ("`nКомиссии {0}, плата за перенос позиций (фандинг) {1}." -f (Fmt-Money ([math]::Round($wFees,2)) '$' 2), (Fmt-Money ([math]::Round($wFund,2)) '$' 2)) +
+      ("`nОт максимума капитала: {0}. {1}" -f (Fmt-DdFromPeak ([double]$lp.peak_equity_usd) $equity), $wHaltLine)
     [void](Send-TgAlert $wMsg)
     $script:jblocks.Add(("`r`n## {0} UTC — LIVE недельный отчёт {1}..{2}: P&L {3:+0.00;-0.00}$ ({4:+0.00;-0.00}%), сделок {5} (W{6}/L{7}), R {8:+0.00;-0.00}, комиссии {9}$, фандинг {10}$`r`n" -f $nowStr, $wStart, $curMonday, $wPnl, $wPct, $wTrades.Count, $wWins, ($wTrades.Count - $wWins), $wR, [math]::Round($wFees,2), [math]::Round($wFund,2)))
     $script:events.Add('WEEKLY REPORT')
@@ -420,11 +548,11 @@ try {
   $todayUtc = MsToUtcDay $nowMs
   if ($todayUtc -ne [string]$lp.day_start_date_utc) {
     $prevDay = [string]$lp.day_start_date_utc
+    # сводка дня в журнал (в Telegram теперь уходит вечерний отчёт 21:00 МСК, см. блок 4c)
     if ([string]$lp.auto.last_daily_summary_day -ne $prevDay) {
       $dpl = $equity - [double]$lp.day_start_equity_usd
       $dplPct = if ([double]$lp.day_start_equity_usd -gt 0) { 100.0 * $dpl / [double]$lp.day_start_equity_usd } else { 0 }
       $script:jblocks.Add(("`r`n## {0} 00:00 UTC — LIVE сводка дня {1}: equity {2}$, P&L дня {3:+0.00;-0.00}$ ({4:+0.00;-0.00}%), позиций {5}`r`n" -f $todayUtc, $prevDay, $equity, $dpl, $dplPct, $trades.Count))
-      [void](Send-TgAlert ("[$modeTag] Сводка дня {0}: equity {1}$, P&L {2:+0.00;-0.00}$ ({3:+0.00;-0.00}%), позиций {4} [heartbeat]" -f $prevDay, $equity, $dpl, $dplPct, $trades.Count))
       $lp.auto.last_daily_summary_day = $prevDay
     }
     $lp.day_start_equity_usd = $equity
@@ -449,16 +577,34 @@ try {
     $lp.trading_halted = $true
     $script:events.Add('HARD-HALT -35%')
     $script:jblocks.Add(("`r`n## {0} UTC — LIVE: ЖЁСТКАЯ ОСТАНОВКА −35% от пика. Позиции закрываются, торговля остановлена.`r`n" -f $nowStr))
-    [void](Send-TgAlert "[$modeTag] ЖЁСТКАЯ ОСТАНОВКА -35% от пика ($($lp.peak_equity_usd) -> $equity). Всё закрывается.")
+    [void](Send-TgAlert ("Крипта: АВАРИЙНАЯ ОСТАНОВКА — просадка достигла 35% от максимума капитала ($(Fmt-Money ([double]$lp.peak_equity_usd) '$' 2) -> $(Fmt-Money $equity '$' 2)). Все позиции закрываются по рынку, торговля остановлена до ручного разбора."))
   }
   if ($dd -ge 0.16) {
-    if (-not $lp.auto.soft_dd) { $lp.auto.soft_dd = $true; $script:events.Add('SOFT-DD -16%: риск x0.5'); [void](Send-TgAlert "[$modeTag] Просадка >=16% от пика - риск новых входов x0.5") }
+    if (-not $lp.auto.soft_dd) { $lp.auto.soft_dd = $true; $script:events.Add('SOFT-DD -16%: риск x0.5'); [void](Send-TgAlert "Крипта: просадка превысила 16% от максимума капитала — размер новых сделок уменьшен вдвое, пока капитал не восстановится.") }
   } elseif ($dd -lt 0.12 -and $lp.auto.soft_dd) { $lp.auto.soft_dd = $false; $script:events.Add('SOFT-DD снят') }
   $dayBase = [double]$lp.day_start_equity_usd
   if ($dayBase -gt 0 -and (($equity - $dayBase) / $dayBase) -le -0.05 -and [string]$lp.auto.halt_day_utc -ne $todayUtc) {
     $lp.auto.halt_day_utc = $todayUtc
     $script:events.Add("DAY-HALT -5% ($todayUtc)")
-    [void](Send-TgAlert "[$modeTag] Дневной лимит -5% достигнут - входы заблокированы до следующего UTC-дня")
+    [void](Send-TgAlert "Крипта: достигнут дневной лимит убытка -5% — новые входы заблокированы до начала следующих суток (по UTC). Открытые позиции продолжают вестись как обычно.")
+  }
+
+  # ---------- 4c. вечерний отчёт 21:00 МСК (в оба сценария: реальный тик; -ReportNow идёт выше) ----------
+  $mskNowR = MsToUtc ($nowMs + $MSKMS)
+  $mskDayR = $mskNowR.ToString('yyyy-MM-dd')
+  if ($mskNowR.ToString('HH:mm') -ge '21:00' -and [string]$lp.report.last_day_msk -ne $mskDayR) {
+    $haltReason = if ($lp.trading_halted) { if ("$($lp.entries_halt_reason)" -ne '') { [string]$lp.entries_halt_reason } else { 'ручная остановка' } } else { [string]$lp.entries_halt_reason }
+    $repMsg = Build-CryptoReport $namesRu $trades $equity ([double]$lp.peak_equity_usd) $lp.report $nowMs $ltPath ([bool]$lp.trading_halted) $haltReason
+    [void](Send-TgAlert $repMsg)
+    $script:events.Add('EVENING REPORT')
+    $script:jblocks.Add("`r`n## $nowStr UTC — LIVE вечерний отчёт (21:00 МСК)`r`n$repMsg`r`n")
+    # пересъём базы «за сутки»: одно число на открытую сделку = её суммарный P&L сейчас
+    $baseP = [pscustomobject]@{}
+    foreach ($t in $trades) { if ([string]$t.status -eq 'open') { $baseP | Add-Member -NotePropertyName ([string]$t.id) -NotePropertyValue (Get-TradeOpenPnl $t) -Force } }
+    $lp.report.last_day_msk = $mskDayR
+    $lp.report.base_ts = $nowMs
+    $lp.report.base_equity_usd = $equity
+    $lp.report.positions = $baseP
   }
 
   # ---------- 5. менеджмент: БУ после TP1, трейл EMA20-4h, watchdog TP1 ----------
@@ -616,7 +762,7 @@ try {
 
             if ($DryRun) {
               LLog "WOULD PLACE: $($s.symbol) $($s.side) qty=$qtyStr sl=$slStr tp1=$tp1Str@$halfStr risk=$realRisk$ notional=$([math]::Round($qtyF*$fill,2))$"
-              [void](Send-TgAlert "[DRYRUN] Вход БЫ: $($s.symbol) $($s.side) qty=$qtyStr стоп=$slStr TP1=$tp1Str риск=$realRisk$")
+              [void](Send-TgAlert ("Крипта (тест): бот вошёл БЫ в сделку — {0}, {1}, {2} {3} по ~{4} $. Стоп-заявка {5} $, первая цель {6} $, риск {7}. (Реальные деньги не задействованы.)" -f (RuName $namesRu 'crypto' ([string]$s.symbol)), (RuSide $s.side 'noun'), (Fmt-Qty ([double]$qtyStr)), (RuCoins ([double]$qtyStr)), (Fmt-Px ([double]$fill)), (Fmt-Px ([double]$slStr)), (Fmt-Px ([double]$tp1Str)), (Fmt-Money $realRisk '$' 2)))
               continue
             }
 
@@ -656,7 +802,7 @@ try {
             if (-not $r.ok) {
               [void]$trades.Remove($t)
               LLog "entry rejected $($s.symbol): $($r.retCode) $($r.retMsg)"
-              [void](Send-TgAlert "[$modeTag] Вход $($s.symbol) отклонён: retCode=$($r.retCode) $($r.retMsg)")
+              [void](Send-TgAlert "${tgPfx}вход в сделку $(RuName $namesRu 'crypto' ([string]$s.symbol)) отклонён биржей: $($r.retMsg) (код $($r.retCode)). Вход отменён.")
               continue
             }
             $script:events.Add("ENTRY $id $($s.symbol) $($s.side)")
@@ -719,7 +865,7 @@ try {
   try {
     if ($null -ne $script:lp) {
       $script:lp.auto.consec_api_fail = [int]$script:lp.auto.consec_api_fail + 1
-      if ([int]$script:lp.auto.consec_api_fail -eq 5) { [void](Send-TgAlert "[$modeTag] 5 тиков подряд падают: $($_.Exception.Message)") }
+      if ([int]$script:lp.auto.consec_api_fail -eq 5) { [void](Send-TgAlert "${tgPfx}бот 5 проверок подряд завершается с ошибкой — нужна диагностика. Защитные стоп-заявки на бирже продолжают действовать. Причина: $($_.Exception.Message)") }
       Save-State
     }
   } catch {}

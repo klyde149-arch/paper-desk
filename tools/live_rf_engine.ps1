@@ -12,13 +12,16 @@
 param(
   [string]$Root = '',
   [long]$NowMs = 0,        # реальное UTC сейчас (мс); 0 = текущее. Тесты подают свой «час».
-  [switch]$DryRun          # форс dryrun поверх TINVEST_MODE
+  [switch]$DryRun,         # форс dryrun поверх TINVEST_MODE
+  [switch]$ReportNow       # разово собрать и отправить вечерний отчёт с текущими числами и выйти (без сохранения состояния)
 )
 $ErrorActionPreference = 'Stop'
 if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')
 . (Join-Path $PSScriptRoot 'lib_rf_signals.ps1')
 . (Join-Path $PSScriptRoot 'lib_tinvest.ps1')
+. (Join-Path $PSScriptRoot 'lib_msg_ru.ps1')
+$namesRu = Get-RuNames $Root
 $alertsLib = Join-Path $PSScriptRoot 'lib_alerts.ps1'
 if (Test-Path $alertsLib) { . $alertsLib } else { function Send-TgAlert([string]$Text) { $false } }
 
@@ -42,7 +45,7 @@ $LIVE = [ordered]@{
   entry_from = '06:01'; entry_till = '10:15'   # окно входов/выходов «на открытии» (MSK)
   roll_from  = '06:05'; roll_till  = '18:00'   # окно роллов
   mom_from   = '06:10'                          # mom-ребаланс
-  report_at  = '19:30'                          # дневной отчёт
+  report_at  = '21:00'                          # вечерний отчёт (МСК)
   whitelist  = @()               # Phase 3: @('CNY','NG'); пусто = весь универсум
   max_lots_override = 0          # Phase 3: 1 (0 = без лимита)
   mom_enabled = $true            # Phase 3: $false
@@ -89,9 +92,26 @@ function Write-LiveJournal([string]$Text) {
 }
 function Alert([string]$Text) {
   $script:ev.Add("ALERT $Text")
-  try { Send-TgAlert "RF-LIVE: $Text" | Out-Null } catch {}
+  try { Send-TgAlert "Фьючерсы: $Text" | Out-Null } catch {}
   # фан-аут второму получателю (только фьючерсы) - если задан TG_CHAT_ID_FUT
-  if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert "RF-LIVE: $Text" -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
+  if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert "Фьючерсы: $Text" -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
+}
+function SleeveRu([string]$s) { switch ($s) { 'core' { 'ядро' } 'setA' { 'сетап А' } 'mom' { 'портфель акций' } default { $s } } }
+function RfName($Card) { RuName $namesRu 'fut' ([string]$Card.asset) ([string]$Card.secid) }
+function AssetName([string]$Asset, [string]$Secid = '') { if ($Asset) { RuName $namesRu 'fut' $Asset $Secid } elseif ($Secid) { $Secid } else { '?' } }
+function RfReasonRu([string]$Reason) {
+  switch -Wildcard ($Reason) {
+    'be*'        { return 'стоп на цене входа (без убытка)' }
+    'stop*'      { return 'сработала стоп-заявка' }
+    'tp*'        { return 'достигнута цель' }
+    'exit*'      { return 'закрытие по сигналу стратегии' }
+    'go-trim'    { return 'закрытие из-за нехватки обеспечения' }
+    'hard-dd'    { return 'аварийная остановка -35%' }
+    'emergency*' { return 'аварийное закрытие' }
+    'stop-after-entry-fail' { return 'аварийное закрытие (не удалось выставить стоп)' }
+    'manual*'    { return 'закрыто вручную' }
+    default      { return $Reason }
+  }
 }
 
 # ================= состояние =================
@@ -266,7 +286,7 @@ function Bump-OrdersToday {
 function Set-EntriesHalt([string]$Reason) {
   if (-not $st.entries_halt.active) {
     $st.entries_halt.active = $true; $st.entries_halt.reason = $Reason; $st.entries_halt.since = MsToUtcStr $NowMs
-    Alert "entries_halt: $Reason"
+    Alert "новые входы приостановлены ($Reason). Открытые позиции продолжают вестись как обычно."
   }
 }
 
@@ -329,7 +349,7 @@ function Post-IntentMarket($It, [string]$Dir, [int]$Lots) {
     if ($emsg -match '^TINVEST_HTTP_4') {
       Set-IntentState $It 'REJECTED' $emsg
       $script:ev.Add("REJECTED(4xx) $($It.id) $($It.kind) $($It.ticker)")
-      Alert "заявка $($It.id) $($It.kind) $($It.ticker) отклонена брокером: $emsg"
+      Alert ("брокер отклонил заявку по {0}: {1}." -f (AssetName ([string]$It.asset) ([string]$It.ticker)), $emsg)
     } else {
       # 5xx/неожиданное: заявка МОГЛА встать у брокера - LOST, adopt/repost разберётся
       Set-IntentState $It 'LOST' $emsg
@@ -423,6 +443,16 @@ function Close-CardLedger($Card, [double]$ExitPx, [string]$Reason, [double]$FeeR
   }
   $script:ev.Add("EXIT [$($Card.sleeve)] $($Card.id) $($Card.asset) $Reason $net")
   $script:jr.Add(("`r`n## {0} MSK — RF-LIVE [{1}]: закрыта {2} {3} {4} — {5:+0.00;-0.00} ₽ ({6})`r`n" -f (MsToUtcStr $mskNowMs), $Card.sleeve, $Card.id, $Card.asset, $Card.side.ToUpper(), $net, $Reason))
+  if ($Reason -ne 'roll') {
+    $holdD = ($NowMs - [long]$Card.entry_ts) / 3600000.0
+    $rM = if ([double]$Card.risk_rub -gt 0) { $net / [double]$Card.risk_rub } else { $null }
+    $rTailC = if ($null -ne $rM) { " — это $((('{0:0.##}' -f [math]::Abs($rM)).Replace('.',','))) изначального риска" } else { '' }
+    Alert (
+      ("закрыта позиция {0} — {1}, была {2} {3} {4} по {5}." -f $Card.id, (RfName $Card), (RuSide $Card.side 'noun'), [int]$Card.lots_initial, (RuLots ([int]$Card.lots_initial)), (Fmt-Px ([double]$Card.entry_px_pts))) +
+      ("`nРезультат: {0} ({1}){2}." -f (Fmt-Money $net '₽' 0 -Sign), (RfReasonRu $Reason), $rTailC) +
+      ("`nВыход по {0}, позиция держалась {1}." -f (Fmt-Px ([double]$ExitPx)), (RuHoldRu $holdD)) +
+      ("`nКапитал бота: {0}." -f (Fmt-Money ([double]$st.profile_eq) '₽' 0)))
+  }
   # дневной халт рукава -6% (как paper: снимает только ВХОДЫ, позиции живут)
   $dl = ([double]$sl.day_start_eq - [double]$sl.eq_rub) / [double]$sl.day_start_eq
   if ($dl -ge $HALT_PCT -and [string]$sl.halt_day -ne $mskToday) {
@@ -462,7 +492,7 @@ function Ensure-CardStop($Card, $BrokerStopIds) {
   $ok = Post-CardStop $Card
   if ($ok) { $script:ev.Add("D6 перевзвод стопа $($Card.id) $($Card.asset)"); $Card.d6_fails = 0; return $true }
   $Card.d6_fails = [int]$Card.d6_fails + 1
-  Alert "D6: не удалось перевыставить стоп $($Card.id) $($Card.asset) (попытка $($Card.d6_fails))"
+  Alert ("по позиции {0} ({1}) пропал стоп у брокера, не удалось выставить заново — попытка {2} из 2 (код D6). Если не удастся, позиция будет закрыта принудительно." -f $Card.id, (RfName $Card), [int]$Card.d6_fails)
   if ([int]$Card.d6_fails -ge 2) {
     Invoke-EmergencyClose $Card 'no-stop'
   }
@@ -501,7 +531,7 @@ function Replace-CardStop($Card, [double]$NewStopPts) {
   if ($ok) { Set-IntentState $it 'FILLED'; Remove-Intent $it }
   else {
     Set-IntentState $it 'REJECTED' 'post stop failed'
-    Alert "stop_replace не удался $($Card.id) $($Card.asset) - аварийное закрытие"
+    Alert ("не удалось переставить стоп по позиции {0} ({1}) — позиция закрывается по рынку для безопасности." -f $Card.id, (RfName $Card))
     Invoke-EmergencyClose $Card 'stop-replace-fail'
   }
   return $ok
@@ -509,7 +539,7 @@ function Replace-CardStop($Card, [double]$NewStopPts) {
 function Invoke-EmergencyClose($Card, [string]$Why) {
   # аварийное закрытие: cancel стопа + market в обратную сторону (write-ahead)
   $script:ev.Add("EMERGENCY CLOSE $($Card.id) $($Card.asset) ($Why)")
-  Alert "аварийное закрытие $($Card.id) $($Card.asset): $Why"
+  Alert ("аварийное закрытие позиции {0} ({1}). Причина: {2}." -f $Card.id, (RfName $Card), (RfReasonRu $Why))
   if ([string]$Card.stop_order_id -and -not $LIVE.emulate_stops) {
     try { Cancel-TiStopOrder ([string]$st.account_id) ([string]$Card.stop_order_id) | Out-Null } catch {}
   }
@@ -597,7 +627,7 @@ function Ensure-RubFunding([double]$NeedRub, [string]$Why) {
   $lastAl = if ($st.PSObject.Properties['last_funding_alert']) { [long]$st.last_funding_alert } else { [long]0 }
   if (($NowMs - $lastAl) -gt 3600000) {
     $st | Add-Member -NotePropertyName last_funding_alert -NotePropertyValue $NowMs -Force
-    Alert ("не хватает рублей под '{0}': нужно ~{1} ₽, свободно {2} ₽. Продайте USD вручную в приложении (через API внутренний обмен недоступен)." -f $Why, [math]::Round($NeedRub, 0), [math]::Round($free, 0))
+    Alert ("не хватает свободных рублей для «{0}»: нужно около {1}, свободно {2}. Продайте доллары вручную в приложении брокера — программный обмен валюты недоступен." -f $Why, (Fmt-Money ([math]::Round($NeedRub, 0)) '₽' 0), (Fmt-Money ([math]::Round($free, 0)) '₽' 0))
   }
   return $false
 }
@@ -742,7 +772,7 @@ function Invoke-Reconcile($stopIds) {
     $explain = @($st.pending_intents | Where-Object { $_.uid -eq $uid -and $_.state -in @('POSTED','PARTIAL','LOST') }).Count
     if (-not $known -and -not $explain) {
       $st.drift.D2 = [int]$st.drift.D2 + 1; $st.drift.last = "D2 $uid lots=$($brokerFut[$uid])"
-      Alert "D2: чужая фьючерс-позиция $uid ($($brokerFut[$uid]) лотов) - аварийное закрытие"
+      Alert "на счёте обнаружена фьючерсная позиция ($($brokerFut[$uid]) лотов), которую бот не открывал (расхождение D2) — она закрывается по рынку. Пожалуйста, не торгуйте фьючерсами вручную на этом счёте."
       $dir = if ([double]$brokerFut[$uid] -gt 0) { 'sell' } else { 'buy' }
       $it = New-Intent 'emergency_close' @{ uid = $uid; ticker = $uid; side = $dir; lots = [int][math]::Abs([double]$brokerFut[$uid])
         ctx = [pscustomobject]@{ card_id = ''; why = 'D2 foreign position' } }
@@ -772,7 +802,7 @@ function Invoke-Reconcile($stopIds) {
           Close-CardLedger $c $px 'stop' $fee
         } else {
           $st.drift.D4 = [int]$st.drift.D4 + 1; $st.drift.last = "D4 $($c.id)"
-          Alert "D4: карточка $($c.id) $($c.asset) без позиции у брокера и без операции - карантин"
+          Alert ("по позиции {0} ({1}) у брокера нет ни позиции, ни сделки о закрытии (расхождение D4) — позиция отправлена в карантин, новые входы приостановлены. Пожалуйста, проверьте счёт вручную." -f $c.id, (RfName $c))
           $c.quarantine = $true
           Set-EntriesHalt "D4 $($c.id)"
         }
@@ -784,7 +814,7 @@ function Invoke-Reconcile($stopIds) {
           # частичный fill TP1-заявки? проверяем операции, иначе усечь к брокеру
           $st.drift.D5 = [int]$st.drift.D5 + 1; $st.drift.last = "D5 $($c.id) real=$real want=$want"
           $newLots = [int][math]::Abs($real)
-          Alert "D5: $($c.id) $($c.asset) лоты $($c.lots)->$newLots (приведено к брокеру)"
+          Alert ("количество лотов по позиции {0} ({1}) приведено в соответствие с брокером: {2} -> {3} (расхождение D5)." -f $c.id, (RfName $c), [int]$c.lots, $newLots)
           $c.lots = $newLots
         }
       }
@@ -798,7 +828,7 @@ function Invoke-Reconcile($stopIds) {
     $botLots = [double]$h.lots
     if ($realShares -lt $botLots) {
       $st.drift.stocks_deficit = [int]$st.drift.stocks_deficit + 1
-      Alert "stocks_deficit: $($h.sym) bot=$botLots real=$realShares - усечён bot-леджер"
+      Alert "в портфеле акций не хватает бумаг $($h.sym): по учёту бота $botLots, реально у брокера $realShares — учёт приведён к факту."
       $h.lots = [int][math]::Max(0, $realShares)
     }
   }
@@ -850,11 +880,11 @@ function Invoke-IntentCleanup {
     if ([string]$it.kind -eq 'roll_open') {
       $card = Find-Card ([string]$it.ctx.card_id)
       if ($null -ne $card) {
-        Alert "roll_open $($it.id) $($it.ticker) не исполнился - позиция закрыта как roll-fail"
+        Alert ("не удалось переоткрыть позицию при переходе на новый контракт ({0}) — позиция закрыта. Пожалуйста, проверьте счёт вручную." -f (AssetName ([string]$it.asset) ([string]$it.ticker)))
         Close-CardLedger $card ([double]$card.roll_close_px) 'roll-fail' 0.0
       }
     } elseif ([string]$it.kind -in @('emergency_close','exit')) {
-      Alert "$($it.kind) $($it.id) $($it.ticker) НЕ исполнился ($($it.state)) - позиция может быть открыта, проверить вручную"
+      Alert ("заявка на закрытие ({0}) не исполнилась (состояние {1}) — возможно, позиция всё ещё открыта. Пожалуйста, проверьте счёт у брокера вручную." -f (AssetName ([string]$it.asset) ([string]$it.ticker)), [string]$it.state)
     }
     $script:ev.Add("$($it.state) $($it.id) $($it.kind) $($it.ticker) $($it.last_error)")
     Remove-Intent $it
@@ -890,7 +920,7 @@ function Invoke-IntentPolling {
       } else {
         # market-заявка висит > 3 тиков - алерт + попытка отмены
         if (($NowMs - [long]$it.state_ts) -gt 180000) {
-          Alert "заявка $($it.id) висит POSTED >3 мин - отмена и сверка"
+          Alert ("заявка по {0} висит без исполнения более 3 минут — отменяю её и сверяюсь с брокером." -f (AssetName ([string]$it.asset) ([string]$it.ticker)))
           try { Cancel-TiOrder ([string]$st.account_id) ([string]$it.broker_order_id) | Out-Null } catch {}
         }
       }
@@ -920,7 +950,7 @@ function Invoke-IntentPolling {
         }
       } else {
         Set-IntentState $it 'EXPIRED' 'lost: max attempts'
-        Alert "intent $($it.id) $($it.kind) $($it.ticker) EXPIRED после $($it.attempts) попыток"
+        Alert ("заявка по {0} не исполнилась после {1} попыток и была отменена." -f (AssetName ([string]$it.asset) ([string]$it.ticker)), [int]$it.attempts)
       }
     }
     if ([string]$it.state -eq 'PARTIAL') {
@@ -930,7 +960,7 @@ function Invoke-IntentPolling {
       elseif ([int]$it.attempts -ge [int]$LIVE.max_attempts) {
         Set-IntentState $it 'FILLED' 'partial: max attempts, работаем с filled_lots'
         $it.lots = [int]$it.filled_lots   # карточка строится по фактически набранному
-        Alert "partial $($it.id): добор не удался, работаем с $($it.filled_lots)"
+        Alert ("заявка по {0} исполнилась только частично — работаем с {1} {2}." -f (AssetName ([string]$it.asset) ([string]$it.ticker)), [int]$it.filled_lots, (RuLots ([int]$it.filled_lots)))
       } elseif (Can-PostOrders) {
         $it.order_key = New-TiOrderKey ([string]$it.id) ("fill$([int]$it.attempts)")
         [void](Post-IntentMarket $it ([string]$it.side) $rest)
@@ -996,9 +1026,14 @@ function Apply-FilledIntent($It) {
       $st.stats.fills = [int]$st.stats.fills + 1
       $script:ev.Add("ENTRY [$($It.sleeve)] $($card.id) $($It.asset) $sideName $([int]$It.filled_lots) лот @$px")
       $script:jr.Add(("`r`n## {0} MSK — RF-LIVE [{1}]: ВХОД {2} {3} {4} {5} лот @{6}, стоп {7}, риск {8} ₽`r`n" -f (MsToUtcStr $mskNowMs), $It.sleeve, $card.id, $It.asset, $sideName.ToUpper(), [int]$It.filled_lots, $px, $card.stop_px_pts, $card.risk_rub))
+      $notionalE = [int]$card.lots_initial * [double]$card.entry_px_pts * [double]$card.rub_per_pt
+      Alert (
+        ("открыта позиция {0} — {1}, {2}, {3} {4} по {5} (стратегия «{6}»)." -f $card.id, (RfName $card), (RuSide $card.side 'noun'), [int]$card.lots, (RuLots ([int]$card.lots)), (Fmt-Px ([double]$card.entry_px_pts)), (SleeveRu ([string]$card.sleeve))) +
+        ("`nОбъём позиции: {0}, риск сделки: {1}." -f (Fmt-Money $notionalE '₽' 0), (Fmt-Money ([double]$card.risk_rub) '₽' 0)) +
+        ("`nСтоп-заявка выставляется у брокера: {0}." -f (Fmt-Px ([double]$card.stop_px_pts))))
       # НЕМЕДЛЕННО стоп-заявка (инвариант #2); TP1 для setA при lots >= 2
       if (-not (Post-CardStop $card)) {
-        Alert "стоп не выставился после входа $($card.id) - аварийное закрытие"
+        Alert ("не удалось выставить стоп сразу после входа {0} ({1}) — позиция закрывается по рынку для безопасности." -f $card.id, (RfName $card))
         Invoke-EmergencyClose $card 'stop-after-entry-fail'
       } elseif ([string]$It.sleeve -eq 'setA' -and [int]$card.lots -ge 2 -and -not $LIVE.emulate_stops) {
         $half = [math]::Floor([int]$card.lots / 2)
@@ -1112,7 +1147,7 @@ function Apply-RollOpen($Card, [double]$Px) {
   $Card.roll_pending_to = $null
   $script:ev.Add("ROLL [$($Card.sleeve)] $($Card.id) $($Card.asset) -> $($Card.secid)")
   if (-not (Post-CardStop $Card)) {
-    Alert "стоп после ролла не выставился $($Card.id) - аварийное закрытие"
+    Alert ("после перехода на новый контракт не удалось выставить стоп по позиции {0} ({1}) — позиция закрывается по рынку для безопасности." -f $Card.id, (RfName $Card))
     Invoke-EmergencyClose $Card 'stop-after-roll-fail'
   }
 }
@@ -1337,7 +1372,7 @@ function Invoke-EntryWindow {
     # сайзинг: пункты -> рубли (боевой нюанс #1) + кэп MAXLEV + предиктивный ГО-чек
     $secid = [string]$st.active.$([string]$it.asset)
     $inst = $null
-    try { $inst = Get-Inst $secid 'fut' } catch { Set-IntentState $it 'CANCELLED' "инструмент: $($_.Exception.Message)"; Alert "вход $($it.asset) отменён: $($_.Exception.Message)"; continue }
+    try { $inst = Get-Inst $secid 'fut' } catch { Set-IntentState $it 'CANCELLED' "инструмент: $($_.Exception.Message)"; Alert ("вход по {0} отменён: {1}." -f (AssetName ([string]$it.asset) $secid), $_.Exception.Message); continue }
     # не входить в контракт с <=4 дней до last_trade_date (нюанс #7)
     if ($inst.last_trade_date -and ((([datetime]$inst.last_trade_date) - ([datetime]$mskToday)).TotalDays -le 4)) {
       $nx = [string]$st.fronts.$([string]$it.asset).next
@@ -1544,9 +1579,10 @@ function Invoke-Tp1Sync($StopIds) {
       $script:ev.Add("TP1 fill $($c.id) $($c.asset) $half лот @$px")
       # стоп остатка в безубыток
       [void](Replace-CardStop $c ([double]$c.entry_px_pts))
+      Alert ("позиция {0} ({1}) дошла до первой цели {2} — закрыта половина ({3} {4}) с прибылью {5}, стоп остатка переведён на цену входа. Хуже нуля позиция уже не закроется." -f $c.id, (RfName $c), (Fmt-Px $px), [int]$half, (RuLots ([int]$half)), (Fmt-Money ([math]::Round($pnl,0)) '₽' 0 -Sign))
     } else {
       $c.tp1_order_id = ''   # заявка исчезла без операции - перевыставим при следующем reconcile? нет: алерт
-      Alert "TP1-заявка $($c.id) исчезла без операции - проверить вручную"
+      Alert "заявка на первую цель по позиции $($c.id) ($(RfName $c)) исчезла, но исполнение не найдено — пожалуйста, проверьте позицию у брокера вручную."
     }
   }
 }
@@ -1604,12 +1640,12 @@ function Invoke-Governors {
   if ($dd -gt 0.90) {
     # санити-гард (урок песочницы 2026-07-17: мусорные котировки дали «DD 25044%»): DD>90% - почти
     # наверняка ошибка данных, а не рынок -> НЕ флэттенить по ней; стоп входов + ручной разбор
-    Alert ("DD {0:P0} > 90% - похоже на ошибку данных MTM, флэттен НЕ выполняется, входы остановлены" -f $dd)
+    Alert ("расчётная просадка {0:P0} — это похоже на ошибку в котировках, а не реальный убыток. Автоматическое закрытие НЕ выполняется, новые входы остановлены до ручной проверки." -f $dd)
     Set-EntriesHalt 'suspicious DD>90% (data error?)'
     return
   }
   if ($dd -ge [double]$LIVE.hard_dd) {
-    Alert ("HARD-HALT: DD {0:P1} от пика - закрываю всё и останавливаюсь" -f $dd)
+    Alert ("АВАРИЙНАЯ ОСТАНОВКА — просадка достигла {0:P1} от максимума капитала. Все позиции закрываются по рынку, торговля остановлена до ручного разбора." -f $dd)
     foreach ($sn in 'core','setA') {
       foreach ($c in @($st.sleeves.$sn.positions)) { Invoke-EmergencyClose $c 'hard-dd' }
     }
@@ -1636,7 +1672,7 @@ function Invoke-Governors {
         foreach ($c in @($st.sleeves.$sn.positions)) { if ($null -eq $newest -or [long]$c.entry_ts -gt [long]$newest.entry_ts) { $newest = $c } }
       }
       if ($null -ne $newest) {
-        Alert ("ГО {0:P0} > {1:P0} - LIFO-закрытие $($newest.id)" -f $goPct, [double]$LIVE.go_trim_pct)
+        Alert ("гарантийное обеспечение занято на {0:P0} (порог {1:P0}) — закрываю последнюю открытую позицию {2} ({3}), чтобы освободить обеспечение." -f $goPct, [double]$LIVE.go_trim_pct, $newest.id, (RfName $newest))
         Invoke-EmergencyClose $newest 'go-trim'
       }
     } elseif ($goPct -gt [double]$LIVE.go_cap_pct) {
@@ -1662,18 +1698,94 @@ function Save-EquitySnapshot {
   Write-JsonAtomic $eqPath (ToArr $eq) 4
 }
 
-function Invoke-DailyReport {
-  if ([string]$st.watermarks.last_report_day -eq $mskToday) { return }
-  $st.watermarks.last_report_day = $mskToday
-  $ratio = if ([int]$st.stats.fills -gt 0) { [math]::Round([double]$st.stats.orders_posted / [double]$st.stats.fills, 1) } else { 0 }
-  $txt = ("RF-LIVE дневной отчёт {0}: eq={1} (день {2:+0.0;-0.0}%), core={3} setA={4} mom={5}, ГО пик {6} ₽, заявки:сделки {7}:1, дрифты D2/D4/D5/D6={8}/{9}/{10}/{11}, qty0-пропуски {12}" -f `
-    $mskToday, $st.profile_eq, (100.0 * ([double]$st.profile_eq / [double]$st.day_start_eq - 1)), `
-    $st.sleeves.core.equity_mtm, $st.sleeves.setA.equity_mtm, $st.sleeves.mom.equity_mtm, `
-    $st.go.peak_day_rub, $ratio, $st.drift.D2, $st.drift.D4, $st.drift.D5, $st.drift.D6, $st.stats.skipped_qty0)
-  $script:jr.Add("`r`n## $(MsToUtcStr $mskNowMs) MSK — $txt`r`n")
+function Invoke-DailyReport([switch]$Preview) {
+  # $Preview=true (для -ReportNow): собрать и отправить, НО не двигать вотермарку/базу.
+  if (-not $Preview -and [string]$st.watermarks.last_report_day -eq $mskToday) { return }
+
+  $baseTs = if ($st.PSObject.Properties['report_base'] -and $st.report_base.PSObject.Properties['ts']) { [long]$st.report_base.ts } else { 0 }
+  $baseEq = if ($baseTs -gt 0) { [double]$st.report_base.profile_eq } else { [double]$st.day_start_eq }
+  $hasPosBase = { param($id) $baseTs -gt 0 -and $st.report_base.positions.PSObject.Properties[$id] }
+
+  $L = New-Object System.Collections.Generic.List[string]
+  $L.Add("Фьючерсы — вечерний отчёт за $((MsToUtc $mskNowMs).ToString('dd.MM.yyyy'))")
+  $L.Add('')
+  $L.Add("Капитал бота: $(Fmt-Money ([double]$st.profile_eq) '₽' 0)")
+  $dpl = [double]$st.profile_eq - $baseEq
+  $dplPct = if ($baseEq -gt 0) { 100.0 * $dpl / $baseEq } else { 0 }
+  $hoursTail = if ($baseTs -gt 0 -and ($NowMs - $baseTs) -gt 26 * 3600000) { " (за последние $([math]::Round(($NowMs - $baseTs)/3600000.0)) ч — прошлый отчёт не отправлялся)" } else { '' }
+  $L.Add("За сутки: $(Fmt-Money $dpl '₽' 0 -Sign) ($(Fmt-Pct $dplPct)$hoursTail)")
+  $L.Add("От максимума капитала: $(Fmt-DdFromPeak ([double]$st.peak_eq) ([double]$st.profile_eq))")
+  if (Test-Weekend) { $L.Add('Биржа закрыта (выходной) — позиции без изменений.') }
+  $L.Add('')
+
+  $open = @()
+  foreach ($sn in 'core','setA') { foreach ($c in @($st.sleeves.$sn.positions)) { if ($null -ne $c) { $open += $c } } }
+  $open = @($open | Sort-Object { [string]$_.asset })
+  $L.Add("Открытые позиции: $($open.Count)")
+  $idx = 0
+  foreach ($c in $open) {
+    $idx++
+    $nm = Cap (RfName $c)
+    $L.Add("$idx) $nm — $(RuSide $c.side 'past') $([int]$c.lots) $(RuLots ([int]$c.lots)) по $(Fmt-Px ([double]$c.entry_px_pts)), стратегия «$(SleeveRu ([string]$c.sleeve))»")
+    $upnl = if ($c.PSObject.Properties['upnl_rub']) { [double]$c.upnl_rub } else { 0.0 }
+    $since = $upnl + [double]$c.realized_rub
+    $notional = [int]$c.lots_initial * [double]$c.entry_px_pts * [double]$c.rub_per_pt
+    $soPct = if ($notional -gt 0) { 100.0 * $since / $notional } else { 0 }
+    $openTag = if ([string]$c.entry_day -eq $mskToday) { 'сегодня' } else { [datetime]::ParseExact([string]$c.entry_day, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture).ToString('dd.MM') }
+    if (& $hasPosBase ([string]$c.id)) {
+      $day = $since - [double]$st.report_base.positions.([string]$c.id)
+      $dayPct = if ($notional -gt 0) { 100.0 * $day / $notional } else { 0 }
+      $L.Add("   за сутки: $(Fmt-Money $day '₽' 0 -Sign) ($(Fmt-Pct $dayPct)) · с открытия ($openTag): $(Fmt-Money $since '₽' 0 -Sign) ($(Fmt-Pct $soPct))")
+    } else {
+      $L.Add("   с открытия ($openTag): $(Fmt-Money $since '₽' 0 -Sign) ($(Fmt-Pct $soPct))")
+    }
+  }
+  $L.Add('')
+
+  # закрытые за окно (от прошлого отчёта; без базы - за сегодня по МСК)
+  $closed = @()
+  foreach ($x in @(Read-JsonFile (Join-Path $lrfDir 'trades.json'))) {
+    if ($null -eq $x) { continue }
+    $inWin = if ($baseTs -gt 0) { (UtcStrToMs ([string]$x.exitUtc)) -ge $baseTs } else { [string]$x.exitDay -eq $mskToday }
+    if ($inWin) { $closed += $x }
+  }
+  if ($closed.Count -eq 0) { $L.Add('Закрытых сделок за сутки: нет') }
+  else {
+    $L.Add("Закрытых сделок за сутки: $($closed.Count)")
+    foreach ($x in $closed) {
+      $nmC = Cap (RuName $namesRu 'fut' ([string]$x.asset) ([string]$x.secid))
+      $L.Add("• ${nmC}: $(Fmt-Money ([double]$x.pnlRub) '₽' 0 -Sign), $(RfReasonRu ([string]$x.exitReason))")
+    }
+  }
+  $L.Add('')
+
+  $L.Add("По стратегиям: ядро $(Fmt-Money ([double]$st.sleeves.core.equity_mtm) '₽' 0) · сетап А $(Fmt-Money ([double]$st.sleeves.setA.equity_mtm) '₽' 0) · портфель акций $(Fmt-Money ([double]$st.sleeves.mom.equity_mtm) '₽' 0)")
+  if ([double]$st.go.budget_rub -gt 0) {
+    $L.Add("Гарантийное обеспечение (ГО): занято $(Fmt-Money ([double]$st.go.used_rub) '₽' 0) из $(Fmt-Money ([double]$st.go.budget_rub) '₽' 0)")
+  }
+  $dsum = [int]$st.drift.D2 + [int]$st.drift.D4 + [int]$st.drift.D5 + [int]$st.drift.D6
+  if ($dsum -eq 0) { $L.Add("Расхождений с брокером нет (D2/D4/D5/D6 = $($st.drift.D2)/$($st.drift.D4)/$($st.drift.D5)/$($st.drift.D6))") }
+  else { $L.Add("Внимание, расхождения с брокером: D2/D4/D5/D6 = $($st.drift.D2)/$($st.drift.D4)/$($st.drift.D5)/$($st.drift.D6)") }
+  if ($st.entries_halt.active) { $L.Add("Новые входы остановлены: $([string]$st.entries_halt.reason)") }
+  else { $L.Add('Входы разрешены, торговля идёт штатно.') }
+  if ($open.Count -gt 0) { $L.Add('Проценты по позициям — от объёма позиции при входе.') }
+
+  $txt = ($L -join "`n")
+  $script:jr.Add("`r`n## $(MsToUtcStr $mskNowMs) MSK — вечерний отчёт`r`n$txt`r`n")
   try { Send-TgAlert $txt | Out-Null } catch {}
-  # фан-аут дневного отчёта второму получателю (только фьючерсы)
   if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert $txt -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
+
+  if (-not $Preview) {
+    $st.watermarks.last_report_day = $mskToday
+    # пересъём базы «за сутки»: одно число на позицию = её суммарный P&L сейчас
+    $posBase = [pscustomobject]@{}
+    foreach ($c in $open) {
+      $upnl = if ($c.PSObject.Properties['upnl_rub']) { [double]$c.upnl_rub } else { 0.0 }
+      $posBase | Add-Member -NotePropertyName ([string]$c.id) -NotePropertyValue ([math]::Round($upnl + [double]$c.realized_rub, 2)) -Force
+    }
+    $rb = [pscustomobject]@{ day = $mskToday; ts = $NowMs; profile_eq = [double]$st.profile_eq; positions = $posBase }
+    if ($st.PSObject.Properties['report_base']) { $st.report_base = $rb } else { $st | Add-Member -NotePropertyName report_base -NotePropertyValue $rb }
+  }
 }
 
 # ================= одноразовый ремонт: инцидент L00008 2026-07-21 =================
@@ -1765,7 +1877,7 @@ try {
     } catch {
       Write-LiveLog "preflight: маржа и портфель недоступны: $($_.Exception.Message)"
       $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue ([int]$st.consec_fail + 1) -Force
-      if ([int]$st.consec_fail -eq 5) { Alert 'preflight: 5 сбоев подряд' }
+      if ([int]$st.consec_fail -eq 5) { Alert 'брокер Т-Инвест не отвечает уже 5 проверок подряд — торговый цикл приостановлен до восстановления связи. Открытые позиции и стоп-заявки у брокера продолжают действовать.' }
       Save-State
       return
     }
@@ -1773,6 +1885,15 @@ try {
   $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue 0 -Force
   Update-GoBudget $margin
   Set-BotCapital $pfPre   # $null если маржа сработала -> функция дотянет GetPortfolio сама
+
+  # -ReportNow: пересчитать MTM, отправить вечерний отчёт с текущими числами и выйти БЕЗ сохранения
+  # (никаких сверок/заявок/губернаторов; вотермарка и база не двигаются - плановый отчёт в 21:00 всё равно уйдёт)
+  if ($ReportNow) {
+    Invoke-Mtm
+    Invoke-DailyReport -Preview
+    Write-LiveLog 'ReportNow: вечерний отчёт отправлен (состояние не сохранялось)'
+    return
+  }
 
   # 4. сверка (полная, каждый тик - нюансы #3/#4/#13): снимок стоп-заявок -> TP1-sync (ДО D5,
   # иначе усечение лотов опередит объяснение частичного филла) -> reconcile
@@ -1799,7 +1920,6 @@ try {
     if ((In-Window ([string]$LIVE.roll_from) ([string]$LIVE.roll_till)) -and (Can-PostOrders)) { Invoke-RollWindow }
     if ($mskHHmm -ge [string]$LIVE.mom_from -and $mskHHmm -le '18:00' -and (Can-PostOrders)) { Invoke-MomWindow }
     Invoke-HourlyPass   # частоту гейтит вотермарка last_hour_ts (новых закрытых часовиков нет - выходит сразу)
-    if ($mskHHmm -ge [string]$LIVE.report_at) { Invoke-DailyReport }
     # отложенные обновления стопов (после 00:20-хука вне сессии)
     if ($mskHHmm -ge '09:45' -and (Can-PostOrders)) {
       foreach ($sn in 'core','setA') {
@@ -1811,6 +1931,9 @@ try {
     }
     Invoke-IntentCleanup   # терминальные интенты окон убираем в этом же тике
   }
+
+  # вечерний отчёт 21:00 МСК - и в будни, и в выходные (MTM уже пересчитан в шаге 6)
+  if ($mskHHmm -ge [string]$LIVE.report_at) { Invoke-DailyReport }
 
   # 8. ops-вотермарка вперёд (операции старше часа уже учтены сверками)
   $script:opsCache = $null
