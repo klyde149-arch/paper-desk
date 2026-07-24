@@ -140,7 +140,7 @@ git clone git@github.com:klyde149-arch/paper-desk.git /home/trader/paper-desk
 | `/etc/trading-live.env` (VPS; шаблон `deploy\trading-live.env.example`) | `BYBIT_API_KEY`, `BYBIT_API_SECRET`, `TG_BOT_TOKEN`, `TG_CHAT_ID`, `TG_CHAT_ID_FUT`, `LIVE_DRYRUN`, `TINVEST_TOKEN`, `TINVEST_ACCOUNT_ID`, `TINVEST_MODE`, `TINVEST_SANDBOX_TOKEN` |
 | `/etc/trading-assistant.env` (VPS) | `OPENROUTER_API_KEY`, `ASSISTANT_MODEL`, `ASSISTANT_MODEL_FALLBACK`, `ASSISTANT_TG_ALLOWED_CHATS`, `ASSISTANT_DRY_ACTIONS`, `ASSISTANT_DAILY_*` |
 | `.secrets\tinvest.env.ps1` (ноут, gitignored) | те же `$env:TINVEST_*` для локальных прогонов |
-| `tools\ask.config.json` (ноут, gitignored) | `vps`, `key` — ssh-доступ к VPS для `tools\ask.ps1` |
+| ssh-доступ ноут→VPS для `tools\ask.ps1` | из `$env:ASSISTANT_VPS`/`$env:ASSISTANT_VPS_KEY` **или** опц. `tools\ask.config.json` (`{vps, key}`, gitignored — сейчас файла нет, доступ идёт через env). Настоящий секрет — приватный ssh-ключ ноута, авторизованный на VPS |
 | `~/.ssh/id_ed25519` (VPS) | GitHub deploy-key с write-доступом к `paper-desk` |
 
 Расшифровка бандла: `vps\secrets\vps_secrets.enc` (AES-256-CBC) — процедура в `vps\README.md` (локальный).
@@ -316,3 +316,14 @@ challenge/portfolio.json` → Pages artifact = `report\`.
   восстанавливаются; нужны из локальных бэкапов.
 - Пошаговая настройка VPS с нуля (провижининг, chrony, создание ключей) — в `deploy\README.md` и
   `deploy\README_RF.md`; здесь только порядок и точки входа.
+
+---
+
+## Родственный документ — машина Jarvis
+
+Локальный ИИ-стек Jarvis (диск D) — отдельная система со своей процедурой восстановления:
+**`RESTORE.md`** в репозитории `jarvis` (`D:\jarvis\RESTORE.md`, GitHub `klyde149-arch/jarvis`).
+Тот документ trading-sim не покрывает, этот — не покрывает Jarvis.
+
+Имена этого репозитория (trading-sim): локально — `c:\Users\klyde\trading-sim`;
+GitHub — `klyde149-arch/paper-desk`; на VPS — `/home/trader/paper-desk`.
