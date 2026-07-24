@@ -53,5 +53,5 @@ fi
 
 # 4) publication watchdog: alert to Telegram if our state stops reaching GitHub.
 # Never fails the tick; state timer is gitignored and local to this VPS.
-git_sync_watch "RF T-Invest" "data/live_rf/.git_sync_state" "$pull_ok" "live-rf-tick"
+git_sync_watch "Фьючерсы (Т-Инвест)" "data/live_rf/.git_sync_state" "$pull_ok" "live-rf-tick"
 exit 0

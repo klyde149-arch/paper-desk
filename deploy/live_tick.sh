@@ -43,5 +43,5 @@ fi
 
 # 4) publication watchdog: alert to Telegram if our state stops reaching GitHub.
 # Never fails the tick; state timer is gitignored and local to this VPS.
-git_sync_watch "LIVE Bybit" "data/live_real/.git_sync_state" "$pull_ok" "live-tick"
+git_sync_watch "Крипта (Bybit)" "data/live_real/.git_sync_state" "$pull_ok" "live-tick"
 exit 0
