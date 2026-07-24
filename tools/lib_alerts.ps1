@@ -1,4 +1,4 @@
-# lib_alerts.ps1 - Telegram alerts for the live executor. Dot-source. ASCII only.
+# lib_alerts.ps1 - Telegram alerts for the live executor. Dot-source. Messages are UTF-8 (Cyrillic ok).
 # Env: TG_BOT_TOKEN, TG_CHAT_ID. An alert failure must NEVER block trading:
 # every path is try/catch and returns $false instead of throwing.
 # Optional -Chat overrides the default TG_CHAT_ID (used to fan-out RF-LIVE futures
