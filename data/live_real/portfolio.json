@@ -53,7 +53,7 @@
       "symbol": "LINK-USDT",
       "side": "long",
       "status": "open",
-      "qty": 7.2,
+      "qty": 0.0,
       "qty_initial": 7.2,
       "entry_filled_qty": 7.2,
       "entry_price": 8.553,
@@ -65,14 +65,22 @@
       "tp1_done": false,
       "be_done": false,
       "close_reason": null,
-      "sl_exec": false,
+      "sl_exec": true,
       "entry_utc": "2026-07-24 08:00",
       "entry_ts": 1784880003273,
       "risk_usd": 1.16,
       "notional_usd": 61.55,
-      "fees_usd": 0.0615816,
+      "fees_usd": 0.121968,
       "funding_usd": 0.0,
-      "legs": [],
+      "legs": [
+        {
+          "part": "stop",
+          "qty": 7.2,
+          "price": 8.387,
+          "utc": "2026-07-24 13:05",
+          "pnl": -1.2
+        }
+      ],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
         "regime": "BTC 4h up; LINK-USDT 4h up; F&G 28",
@@ -92,7 +100,7 @@
   "auto": {
     "last_4h_ts": 1784865600000,
     "last_trail_4h_ts": 1784865600000,
-    "last_exec_ms": 1784889287837,
+    "last_exec_ms": 1784898333226,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -193,7 +201,8 @@
       "b815f01a-91bf-5a18-9612-059900bf87b3",
       "914781fc-8251-5171-9d15-8a242c4c4b13",
       "83cd387f-1833-508f-9c69-ed55223bf296",
-      "f8980579-1c2d-5bb0-adbf-0a69554b7be9"
+      "f8980579-1c2d-5bb0-adbf-0a69554b7be9",
+      "0d1234f0-9d68-58ee-9b13-4a9b33b4f387"
     ],
     "next_trade_id": 10,
     "halt_day_utc": null,
