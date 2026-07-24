@@ -51,18 +51,54 @@
           "last_stop_update": "2026-07-23 06:45",
           "lat_sp": 15033545,
           "lat_pf": 0,
-          "cur_px": 100.6,
-          "upnl_rub": 54554.85
+          "cur_px": 100.74,
+          "upnl_rub": 55212.7
         }
       ],
-      "equity_mtm": 754513.03
+      "equity_mtm": 755170.88
     },
     "setA": {
-      "eq_rub": 700000.0,
+      "eq_rub": 699968.340885429,
       "month_start_eq": 700000.0,
       "day_start_eq": 700000.0,
       "halt_day": null,
-      "positions": [],
+      "positions": [
+        {
+          "id": "L00011",
+          "sleeve": "setA",
+          "asset": "GOLD",
+          "secid": "GDU6",
+          "uid": "b23c0f58-94fe-4e95-b95e-535a6618eba3",
+          "figi": "FUTGOLD09260",
+          "side": "short",
+          "lots": 1,
+          "lots_initial": 1,
+          "entry_px_pts": 4037.9,
+          "entry_day": "2026-07-24",
+          "entry_ts": 1784865632983,
+          "stop_px_pts": 4182.6,
+          "stop_order_id": "5a5527cc-4a51-4b81-a5ac-74105e7f4fcd",
+          "stop_lots": 1,
+          "tp1_px_pts": 3820.85,
+          "tp1_order_id": "",
+          "tp1_done": false,
+          "be_moved": false,
+          "mfe_pts": 4037.9,
+          "atr_entry": 83.064286,
+          "risk_rub": 14000.0,
+          "rub_per_pt": 78.4049,
+          "go_per_lot": 29328.49,
+          "rolls": 0,
+          "fees_rub": 31.66,
+          "realized_rub": 0.0,
+          "d6_fails": 0,
+          "quarantine": false,
+          "stop_deferred": null,
+          "last_stop_update": "2026-07-24 04:00",
+          "lat_sp": 15032983,
+          "lat_pf": 0
+        }
+      ],
       "equity_mtm": 700000.0
     },
     "mom": {
@@ -74,7 +110,7 @@
       "equity_mtm": 350000.0
     }
   },
-  "profile_eq": 754513.03,
+  "profile_eq": 755170.88,
   "profile_month_start": 700000.0,
   "cur_month": "2026-07",
   "day_start_eq": 754513.03,
@@ -83,10 +119,10 @@
   "watermarks": {
     "last_daily_day": "2026-07-23",
     "last_hour_ts": 1784869200000,
-    "ops_since": "2026-07-24T02:45:33Z",
-    "last_eq_snap": 1784864253213,
+    "ops_since": "2026-07-24T03:00:32Z",
+    "last_eq_snap": 1784865212997,
     "last_report_day": "2026-07-23",
-    "orders_day": "2026-07-21",
+    "orders_day": "2026-07-24",
     "orders_day_n": 1
   },
   "fronts": {
@@ -159,7 +195,7 @@
     "used_rub": 87414.18,
     "budget_rub": 650000.0,
     "peak_day_rub": 87414.18,
-    "account_liquid_rub": 1512500.58,
+    "account_liquid_rub": 1511644.88,
     "bot_capital_rub": 818864.68
   },
   "drift": {
@@ -170,45 +206,13 @@
     "stocks_deficit": 0,
     "last": "D6 L00008 BR"
   },
-  "pending_intents": [
-    {
-      "id": "i00011",
-      "kind": "entry",
-      "sleeve": "setA",
-      "asset": "GOLD",
-      "ticker": "GDU6",
-      "uid": "b23c0f58-94fe-4e95-b95e-535a6618eba3",
-      "side": "sell",
-      "lots": 0,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "c9dcde46-5f3f-9348-6bc6-0ac2104aefd6",
-      "broker_order_id": "",
-      "state": "INTENT",
-      "attempts": 0,
-      "t_signal": 1784850600000,
-      "t_post": 0,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-07-23",
-      "state_ts": 1784841633182,
-      "last_error": "",
-      "ctx": {
-        "swing": 4182.6,
-        "atr": 83.064286,
-        "stop_dist": 0,
-        "risk_pct": 0.02,
-        "ref_px": 4070.0,
-        "note": "setup A pullback"
-      }
-    }
-  ],
+  "pending_intents": [],
   "next_intent_id": 12,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 0,
-    "orders_posted": 4,
-    "fills": 1,
+    "orders_posted": 5,
+    "fills": 2,
     "wins": 0,
     "losses": 0,
     "fees_rub": 0.0,
@@ -221,7 +225,7 @@
     "currencies": 818253.1,
     "futures": 611.58,
     "mom_shares": 0.0,
-    "user_assets": 693635.9,
-    "portfolio_total": 1512500.58
+    "user_assets": 692780.2,
+    "portfolio_total": 1511644.88
   }
 }
