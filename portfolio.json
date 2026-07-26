@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9756.17,
-    "equity_usd":  9753.22,
+    "balance_usd":  9752.88,
+    "equity_usd":  9747.74,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9740.66,
     "day_start_date_utc":  "2026-07-26",
@@ -57,6 +57,49 @@
                                                              "fearGreed":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T11",
+                               "symbol":  "DOT-USDT",
+                               "side":  "short",
+                               "qty":  7308.169,
+                               "qty_initial":  7308.169,
+                               "entry_price":  0.817555,
+                               "stop":  0.8309,
+                               "stop0":  0.8309,
+                               "tp1":  0.797537,
+                               "entry_utc":  "2026-07-26 20:01",
+                               "entry_ts":  1785096106691,
+                               "risk_usd":  97.53,
+                               "notional_usd":  5974.83,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  3.2861551921096468,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  0.817555,
+                               "mae_px":  0.817555,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h down; DOT-USDT 4h down; F\u0026G 26",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-07-26 16:00 UTC",
+                                              "indicators":  "RSI 48.5, ATR 1.34% (кэп 3%), фандинг 0.0001/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~0.817555, стоп 0.8309 (1.51%), TP1 0.797537 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $97.53",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -67,17 +110,17 @@
                   "total_funding_usd":  13.48,
                   "realized_pnl_usd":  -237.86
               },
-    "last_check_utc":  "2026-07-26 19:58",
+    "last_check_utc":  "2026-07-26 20:01",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1785095820000,
-                 "last_4h_ts":  1785067200000,
+                 "last_1m_ts":  1785096000000,
+                 "last_4h_ts":  1785081600000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
-                 "next_trade_id":  11,
-                 "ticks_since_viz":  1,
+                 "next_trade_id":  12,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-07-25",
-                 "last_tick_utc":  "2026-07-26 19:58"
+                 "last_tick_utc":  "2026-07-26 20:01"
              }
 }
