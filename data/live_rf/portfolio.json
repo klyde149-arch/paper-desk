@@ -77,14 +77,14 @@
   "profile_eq": 698330.37,
   "profile_month_start": 700000.0,
   "cur_month": "2026-07",
-  "day_start_eq": 700917.73,
-  "day_start_date": "2026-07-28",
+  "day_start_eq": 698330.37,
+  "day_start_date": "2026-07-29",
   "peak_eq": 761138.55,
   "watermarks": {
-    "last_daily_day": "2026-07-28",
-    "last_hour_ts": 1785362400000,
-    "ops_since": "2026-07-29T20:15:33Z",
-    "last_eq_snap": 1785359493252,
+    "last_daily_day": "2026-07-29",
+    "last_hour_ts": 1785366000000,
+    "ops_since": "2026-07-29T20:30:33Z",
+    "last_eq_snap": 1785360458182,
     "last_report_day": "2026-07-29",
     "orders_day": "2026-07-24",
     "orders_day_n": 1
@@ -97,10 +97,10 @@
       "next_lasttrade": "2026-08-31"
     },
     "NG": {
-      "secid": "NGN6",
-      "lasttrade": "2026-07-29",
-      "next": "NGQ6",
-      "next_lasttrade": "2026-08-27"
+      "secid": "NGQ6",
+      "lasttrade": "2026-08-27",
+      "next": "NGU6",
+      "next_lasttrade": "2026-09-28"
     },
     "GOLD": {
       "secid": "GDU6",
@@ -141,7 +141,7 @@
   },
   "active": {
     "BR": "BRQ6",
-    "NG": "NGN6",
+    "NG": "NGQ6",
     "GOLD": "GDU6",
     "SILV": "SVU6",
     "Si": "SiU6",
@@ -175,8 +175,40 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 16,
+  "pending_intents": [
+    {
+      "id": "i00016",
+      "kind": "entry",
+      "sleeve": "setA",
+      "asset": "BR",
+      "ticker": "",
+      "uid": "",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "64b400bb-9855-9de9-0c54-688abfb2f255",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1785369000000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-07-29",
+      "state_ts": 1785360032961,
+      "last_error": "",
+      "ctx": {
+        "swing": 82.63,
+        "atr": 5.333571,
+        "stop_dist": 0,
+        "risk_pct": 0.02,
+        "ref_px": 90.72,
+        "note": "setup A pullback"
+      }
+    }
+  ],
+  "next_intent_id": 17,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 1,
