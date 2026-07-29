@@ -59,11 +59,11 @@
           "last_stop_update": "2026-07-24 04:00",
           "lat_sp": 15032983,
           "lat_pf": 0,
-          "cur_px": 4061.6,
-          "upnl_rub": -1858.2
+          "cur_px": 4061.5,
+          "upnl_rub": -1850.36
         }
       ],
-      "equity_mtm": 698110.14
+      "equity_mtm": 698117.99
     },
     "mom": {
       "eq_rub": 350000.0,
@@ -74,7 +74,7 @@
       "equity_mtm": 350000.0
     }
   },
-  "profile_eq": 699577.0,
+  "profile_eq": 699584.85,
   "profile_month_start": 700000.0,
   "cur_month": "2026-07",
   "day_start_eq": 700917.73,
@@ -82,9 +82,9 @@
   "peak_eq": 761138.55,
   "watermarks": {
     "last_daily_day": "2026-07-28",
-    "last_hour_ts": 1785312000000,
-    "ops_since": "2026-07-29T06:15:33Z",
-    "last_eq_snap": 1785309033669,
+    "last_hour_ts": 1785315600000,
+    "ops_since": "2026-07-29T06:30:33Z",
+    "last_eq_snap": 1785309993246,
     "last_report_day": "2026-07-28",
     "orders_day": "2026-07-24",
     "orders_day_n": 1
@@ -164,8 +164,8 @@
     "used_rub": 29328.49,
     "budget_rub": 650000.0,
     "peak_day_rub": 29328.49,
-    "account_liquid_rub": 1494413.85,
-    "bot_capital_rub": 768038.74
+    "account_liquid_rub": 1495518.05,
+    "bot_capital_rub": 768598.91
   },
   "drift": {
     "D2": 0,
@@ -175,69 +175,7 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [
-    {
-      "id": "i00014",
-      "kind": "entry",
-      "sleeve": "setA",
-      "asset": "BR",
-      "ticker": "",
-      "uid": "",
-      "side": "sell",
-      "lots": 0,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "2d0aedfd-1440-9974-270f-fac10ce560ef",
-      "broker_order_id": "",
-      "state": "INTENT",
-      "attempts": 0,
-      "t_signal": 1785282600000,
-      "t_post": 0,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-07-28",
-      "state_ts": 1785273638309,
-      "last_error": "",
-      "ctx": {
-        "swing": 102.09,
-        "atr": 5.078571,
-        "stop_dist": 0,
-        "risk_pct": 0.02,
-        "ref_px": 83.99,
-        "note": "setup A pullback"
-      }
-    },
-    {
-      "id": "i00015",
-      "kind": "entry",
-      "sleeve": "core",
-      "asset": "NG",
-      "ticker": "",
-      "uid": "",
-      "side": "sell",
-      "lots": 0,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "786a44d6-98a4-3c49-9a86-0d8f56a7d1cb",
-      "broker_order_id": "",
-      "state": "INTENT",
-      "attempts": 0,
-      "t_signal": 1785282600000,
-      "t_post": 0,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-07-28",
-      "state_ts": 1785273638309,
-      "last_error": "",
-      "ctx": {
-        "stop_dist": 0.221562,
-        "atr": 0.110781,
-        "risk_pct": 0.05,
-        "ref_px": 2.663,
-        "note": "donchian close 2.663 vs [2.7409 / 3.366]"
-      }
-    }
-  ],
+  "pending_intents": [],
   "next_intent_id": 16,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
@@ -261,10 +199,10 @@
   },
   "consec_fail": 0,
   "capital_breakdown": {
-    "currencies": 767881.34,
-    "futures": 157.4,
+    "currencies": 768331.34,
+    "futures": 267.57,
     "mom_shares": 0.0,
-    "user_assets": 726375.11,
-    "portfolio_total": 1494413.85
+    "user_assets": 726919.14,
+    "portfolio_total": 1495518.05
   }
 }
