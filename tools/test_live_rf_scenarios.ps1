@@ -331,12 +331,20 @@ function Scn-D2 {
   Check 'D2: маркет-закрытие чужой позиции (sell 3)' ($posts.Count -eq 1 -and ($posts[0].body -match '"quantity":"3"') -and ($posts[0].body -match 'SELL'))
 }
 
+# мок «непустого, но без нашего фьючерса» портфеля: валютная строка есть (счёт не битый - гейт
+# пустого снимка в Invoke-Reconcile пропускает сверку дальше), фьючерса NGQ6 нет (реальный D4-кейс)
+function Write-CashOnlyPortfolio([string]$Root) {
+  Write-Json (Join-Path $Root 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = @(
+    [pscustomobject]@{ instrumentUid='uid-RUBCASH'; instrumentType='currency'; quantityLots=[pscustomobject]@{units='700000';nano=0} } ) })
+}
+
 # --- 10. D4-confirmed: карточки нет у брокера, операция стопа есть -> штатное закрытие
 function Scn-D4Confirmed {
   $r = New-Scenario 'd4-confirmed'
   $s = New-BaseState $r
   $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
   Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-CashOnlyPortfolio $r
   Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
     [pscustomobject]@{ id='op-stop'; date='2026-07-15T07:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='19'
       price=[pscustomobject]@{units='2';nano=676000000} } ) })
@@ -350,17 +358,66 @@ function Scn-D4Confirmed {
   Check 'D4-ok: убыток в леджере' ([double]$st.sleeves.core.eq_rub -lt 700000)
 }
 
-# --- 11. D4-quarantine: позиции нет и операции нет -> карантин + халт
+# --- 11. D4-quarantine: позиции нет и операции нет ДВА тика подряд -> карантин + халт.
+# Подтверждение двумя тиками (d4_fails) - фикс инцидента 2026-07-27 (L00011): разовый битый
+# снимок GetPortfolio без строки фьючерса раньше карантинил живую позицию с первого тика.
 function Scn-D4Quarantine {
   $r = New-Scenario 'd4-quarantine'
   $s = New-BaseState $r
   $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
   Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-CashOnlyPortfolio $r
   [void](Run-Tick $r '2026-07-15 11:00')
   $st = Get-State $r
-  Check 'D4-q: карточка в карантине' ([bool]@($st.sleeves.core.positions)[0].quarantine)
-  Check 'D4-q: счётчик D4' ([int]$st.drift.D4 -eq 1)
-  Check 'D4-q: entries_halt' ([bool]$st.entries_halt.active)
+  Check 'D4-q тик1: ещё НЕ в карантине (1-е подряд real=0)' (-not [bool]@($st.sleeves.core.positions)[0].quarantine)
+  Check 'D4-q тик1: d4_fails=1' ([int]@($st.sleeves.core.positions)[0].d4_fails -eq 1)
+  Check 'D4-q тик1: без халта' (-not [bool]$st.entries_halt.active)
+  Check 'D4-q тик1: счётчик D4 ещё 0' ([int]$st.drift.D4 -eq 0)
+  [void](Run-Tick $r '2026-07-15 11:15')
+  $st = Get-State $r
+  Check 'D4-q тик2: карточка в карантине (2-й подряд тик)' ([bool]@($st.sleeves.core.positions)[0].quarantine)
+  Check 'D4-q тик2: счётчик D4' ([int]$st.drift.D4 -eq 1)
+  Check 'D4-q тик2: entries_halt' ([bool]$st.entries_halt.active)
+}
+
+# --- 11b. D4-transient: разовый битый снимок (карточка "пропадает" на 1 тик, потом снова видна) ->
+# НЕ карантинится вовсе; регрессия ровно на инцидент 2026-07-27 (L00011, GDU6, 3 дня без входов)
+function Scn-D4Transient {
+  $r = New-Scenario 'd4-transient'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-CashOnlyPortfolio $r
+  [void](Run-Tick $r '2026-07-15 11:00')   # тик1: позиции у брокера "нет" (разовый глюк) - d4_fails=1
+  # тик2: позиция снова видна у брокера (глюк прошёл)
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = @(
+    [pscustomobject]@{ instrumentUid='uid-RUBCASH'; instrumentType='currency'; quantityLots=[pscustomobject]@{units='700000';nano=0} },
+    [pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='19';nano=0} } ) })
+  Write-Json (Join-Path $r 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @(
+    [pscustomobject]@{ stopOrderId='stop-live-1' } ) })
+  [void](Run-Tick $r '2026-07-15 11:15')
+  $st = Get-State $r
+  Check 'D4-transient: карточка жива, НЕ в карантине' (@($st.sleeves.core.positions).Count -eq 1 -and -not [bool]@($st.sleeves.core.positions)[0].quarantine)
+  Check 'D4-transient: d4_fails сброшен в 0' ([int]@($st.sleeves.core.positions)[0].d4_fails -eq 0)
+  Check 'D4-transient: счётчик D4 остался 0' ([int]$st.drift.D4 -eq 0)
+  Check 'D4-transient: халта не было' (-not [bool]$st.entries_halt.active)
+}
+
+# --- 11c. D4-empty-snapshot: снимок ПОЛНОСТЬЮ пуст (positions=[]) -> сверка целиком пропущена
+# (не только D4/D5 - карточка не трогается вообще, включая D6), решение отложено на след. тик
+function Scn-D4EmptySnapshot {
+  $r = New-Scenario 'd4-empty-snapshot'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  # дефолтная фикстура УЖЕ пустая (positions=@()) - ничего переопределять не нужно
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  Check 'D4-empty: карточка цела, НЕ в карантине' (@($st.sleeves.core.positions).Count -eq 1 -and -not [bool]@($st.sleeves.core.positions)[0].quarantine)
+  Check 'D4-empty: счётчик D4 остался 0' ([int]$st.drift.D4 -eq 0)
+  Check 'D4-empty: халта нет' (-not [bool]$st.entries_halt.active)
+  Check 'D4-empty: сверка отложена (лог)' ([string]$log -match 'снимок портфеля пуст')
 }
 
 # --- 12. D5: лоты разошлись без объяснения -> усечь к брокеру
@@ -806,7 +863,8 @@ function Scn-EmptySnapshot {
 $scenarios = @(
   ${function:Scn-EntryFill}, ${function:Scn-EntryReject}, ${function:Scn-EntryLostAdopt}, ${function:Scn-EntryLostRepost},
   ${function:Scn-Qty0}, ${function:Scn-GoCap}, ${function:Scn-GoTrim}, ${function:Scn-HardDd},
-  ${function:Scn-D2}, ${function:Scn-D4Confirmed}, ${function:Scn-D4Quarantine}, ${function:Scn-D5},
+  ${function:Scn-D2}, ${function:Scn-D4Confirmed}, ${function:Scn-D4Quarantine},
+  ${function:Scn-D4Transient}, ${function:Scn-D4EmptySnapshot}, ${function:Scn-D5},
   ${function:Scn-D6Repost}, ${function:Scn-D6Fail}, ${function:Scn-StocksDeficit}, ${function:Scn-StocksSurplus},
   ${function:Scn-ClearingGate}, ${function:Scn-Weekend}, ${function:Scn-HaltEntriesFile}, ${function:Scn-HaltCloseFile},
   ${function:Scn-FloodCap}, ${function:Scn-Tp1Sync}, ${function:Scn-RollFlow}, ${function:Scn-MomRebalance},

@@ -744,6 +744,17 @@ function Invoke-Reconcile($stopIds) {
     return
   }
   $pf = Get-TiPortfolio ([string]$st.account_id)
+  if (@($pf.positions).Count -eq 0) {
+    # ПУСТОЙ/БИТЫЙ снимок портфеля (тот же класс глюка, что инцидент 2026-07-23, см.
+    # Set-BotCapital): на реальном счету всегда есть хотя бы валютная строка позиций (рубли).
+    # Раньше "нет позиций вообще" тут читалось как "все карточки закрылись" - ложный D4 на живой
+    # позиции (инцидент 2026-07-27, L00011: разовый битый ответ GetPortfolio с пустым positions ->
+    # карантин на 3 дня без авто-снятия). Решение по дрифту откладываем до следующего тика вместо
+    # того, чтобы решать его по заведомо неполному ответу.
+    Write-LiveLog 'reconcile: снимок портфеля пуст (positions=0) - сверка отложена'
+    return
+  }
+  $driftHaltThisTick = $false
   $brokerFut = @{}; $brokerStk = @{}
   foreach ($p in @($pf.positions)) {
     if ($null -eq $p) { continue }
@@ -778,12 +789,16 @@ function Invoke-Reconcile($stopIds) {
         ctx = [pscustomobject]@{ card_id = ''; why = 'D2 foreign position' } }
       Save-State
       [void](Post-IntentMarket $it $dir ([int][math]::Abs([double]$brokerFut[$uid])))
+      $driftHaltThisTick = $true
       Set-EntriesHalt 'D2 foreign futures position'
     }
   }
   # D4/D5 по карточкам
   foreach ($sn in 'core','setA') {
     foreach ($c in @($st.sleeves.$sn.positions)) {
+      # миграция: карточки, открытые до появления d4_fails, поля не имеют - прямое присвоение
+      # на отсутствующий NoteProperty кидает исключение (в отличие от чтения, которое даёт $null)
+      if (-not $c.PSObject.Properties['d4_fails']) { $c | Add-Member -NotePropertyName d4_fails -NotePropertyValue 0 -Force }
       $sm = if ($c.side -eq 'long') { 1.0 } else { -1.0 }
       $real = if ($brokerFut.ContainsKey([string]$c.uid)) { [double]$brokerFut[[string]$c.uid] } else { 0.0 }
       $want = $sm * [double]$c.lots
@@ -801,13 +816,29 @@ function Invoke-Reconcile($stopIds) {
           $fee = [math]::Abs([double]$c.lots) * $px * [double]$c.rub_per_pt * [double]$LIVE.fee_est
           Close-CardLedger $c $px 'stop' $fee
         } else {
+          # ОДНОКРАТНОЕ real=0 подтверждаем ещё одним тиком (инцидент 2026-07-27: разовый битый
+          # снимок GetPortfolio без строки фьючерса дал ложный D4 на живой позиции L00011 - карантин
+          # провисел 3 дня без авто-снятия) - карантиним только на 2-й подряд тик без объяснения.
+          $c.d4_fails = [int]$c.d4_fails + 1
+          if ([int]$c.d4_fails -lt 2) {
+            Write-LiveLog "D4 $($c.id): нет позиции и нет операции закрытия (попытка $($c.d4_fails) из 2) - проверка на следующем тике"
+            continue
+          }
           $st.drift.D4 = [int]$st.drift.D4 + 1; $st.drift.last = "D4 $($c.id)"
           Alert ("по позиции {0} ({1}) у брокера нет ни позиции, ни сделки о закрытии (расхождение D4) — позиция отправлена в карантин, новые входы приостановлены. Пожалуйста, проверьте счёт вручную." -f $c.id, (RfName $c))
           $c.quarantine = $true
+          $driftHaltThisTick = $true
           Set-EntriesHalt "D4 $($c.id)"
         }
         continue
       }
+      if ($c.quarantine) {
+        # расхождение больше не подтверждается (real == want) - карточка возвращается под присмотр
+        # бота, D6-сторож стопа снова активен.
+        $c.quarantine = $false
+        Alert ("расхождение по позиции {0} ({1}) больше не подтверждается - карантин снят, бот возобновляет обычный присмотр." -f $c.id, (RfName $c))
+      }
+      $c.d4_fails = 0
       if ([math]::Abs($real - $want) -gt 0.0001) {
         $explain = @($st.pending_intents | Where-Object { $_.uid -eq $c.uid -and $_.state -in @('POSTED','PARTIAL','LOST') }).Count
         if (-not $explain) {
@@ -833,6 +864,14 @@ function Invoke-Reconcile($stopIds) {
     }
   }
   $st.sleeves.mom.holdings = ToArr (@($st.sleeves.mom.holdings) | Where-Object { [int]$_.lots -gt 0 })
+  # авто-снятие дрифт-халта (паритет с крипто-движком, live_engine.ps1 D2/D4/D5/D6): если в этом
+  # тике новых дрифт-халтов не поднималось и ни одна карточка не в карантине - причина 'D*' устарела
+  # (расхождение само рассосалось, ручного вмешательства не требуется) - снимаем автоматически.
+  $anyQuarantine = @((@($st.sleeves.core.positions) + @($st.sleeves.setA.positions)) | Where-Object { $_.quarantine }).Count -gt 0
+  if ($st.entries_halt.active -and [string]$st.entries_halt.reason -like 'D*' -and -not $anyQuarantine -and -not $driftHaltThisTick) {
+    Write-LiveLog "reconcile: дрифт-халт '$($st.entries_halt.reason)' снят - расхождение больше не подтверждается"
+    $st.entries_halt.active = $false; $st.entries_halt.reason = ''
+  }
 }
 
 # поиск исполнившейся операции по инструменту (подтверждение стоп-заявок и adopt LOST)
@@ -1019,7 +1058,7 @@ function Apply-FilledIntent($It) {
         risk_rub = [math]::Round([double]$It.ctx.risk_rub, 2); rub_per_pt = [double]$inst.rub_per_pt
         go_per_lot = $(if ($It.side -eq 'buy') { [double]$inst.go_buy } else { [double]$inst.go_sell })
         rolls = 0; fees_rub = [math]::Round($fee, 2); realized_rub = 0.0
-        d6_fails = 0; quarantine = $false; stop_deferred = $null; last_stop_update = ''
+        d6_fails = 0; d4_fails = 0; quarantine = $false; stop_deferred = $null; last_stop_update = ''
         lat_sp = $lat.sp; lat_pf = $lat.pf
       }
       $sl.positions = ToArr (@($sl.positions) + $card)
@@ -1358,13 +1397,16 @@ function Invoke-LiveDayHook([string]$D) {
 
 # ================= окна исполнения =================
 function Invoke-EntryWindow {
-  if ($st.entries_halt.active) { return }
-  # exits первыми (освобождают ГО), затем entries
+  # exits первыми (освобождают ГО), затем entries - халт (в т.ч. дрифт-халт D2/D4) должен
+  # останавливать ТОЛЬКО входы: свой же алерт обещает "открытые позиции продолжают вестись как
+  # обычно", а выход по сигналу стратегии (trail-ema20) - это pending exit-intent, который раньше
+  # застревал наравне со входами (инцидент 2026-07-27, entries_halt D4 L00011 держал халт 3 дня).
   foreach ($it in @($st.pending_intents | Where-Object { $_.kind -eq 'exit' -and $_.state -eq 'INTENT' })) {
     if (-not (Test-InstrumentTrading ([string]$it.uid))) { continue }   # ждём открытия торгов
     Save-State
     [void](Post-IntentMarket $it ([string]$it.side) ([int]$it.lots))
   }
+  if ($st.entries_halt.active) { return }
   foreach ($it in @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.state -eq 'INTENT' })) {
     if ([string]$it.created_day -ge $mskToday) { continue }   # вход на открытии СЛЕДУЮЩЕЙ сессии (как paper)
     $sl = Get-SleeveRef ([string]$it.sleeve)
