@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# .githooks/pre-push — blocks non-fast-forward pushes (the effect of force-push
+# / history rewind, regardless of which flag produced it) and direct pushes to
+# refs/heads/main. See CLAUDE.md for why: main only advances via GitHub PR merge,
+# never a local push, so origin/main's bot-authored history is never rewritten
+# from this side.
+#
+# Best-effort no-op for bot identities (defense-in-depth only — the real
+# guarantee is that core.hooksPath is a local, per-clone git config that never
+# reaches the VPS in the first place; see tools/install-hooks.ps1).
+set -u
+
+bot_name="$(git config user.name 2>/dev/null || true)"
+case "$bot_name" in
+  live-desk-bot|paper-desk-bot)
+    exit 0
+    ;;
+esac
+
+zero="0000000000000000000000000000000000000000"
+fail=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_ref" ] && continue
+
+  # Branch deletion (local_sha is all zeros) — nothing to validate.
+  if [ "$local_sha" = "$zero" ]; then
+    continue
+  fi
+
+  # New remote ref (remote_sha is all zeros) — no history to rewind, but still
+  # enforce the "no direct push to main" rule below.
+  if [ "$remote_sha" != "$zero" ]; then
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      echo "BLOCKED: push to $remote_ref is not a fast-forward (looks like force-push/rewind)." >&2
+      echo "This risks overwriting bot-authored history on origin/main. If you are certain," >&2
+      echo "resolve via a normal merge/rebase-on-top instead of forcing." >&2
+      fail=1
+    fi
+  fi
+
+  if [ "$remote_ref" = "refs/heads/main" ] && [ "${ALLOW_MAIN_PUSH:-0}" != "1" ]; then
+    echo "BLOCKED: direct push to refs/heads/main." >&2
+    echo "Protocol (see CLAUDE.md): push your branch and integrate via a Pull Request." >&2
+    echo "Override (only if you know what you're doing): ALLOW_MAIN_PUSH=1 git push ..." >&2
+    fail=1
+  fi
+done
+
+exit "$fail"

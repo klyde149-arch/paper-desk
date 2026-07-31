@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# .githooks/pre-commit — local guardrail against the "stale main + two writers"
+# risk. See CLAUDE.md for the full invariant this protects.
+#
+# Active only on machines that ran tools/install-hooks.ps1 (core.hooksPath is a
+# per-clone git config, never committed, never reaches the VPS). Even so, this
+# script is a deliberate no-op for the bot identities so it is harmless even if
+# it somehow ended up active on the VPS.
+set -u
+
+bot_name="$(git config user.name 2>/dev/null || true)"
+case "$bot_name" in
+  live-desk-bot|paper-desk-bot)
+    exit 0
+    ;;
+esac
+
+fail=0
+
+# ---------------------------------------------------------------------------
+# 1) Never let a human/Claude commit touch bot-owned live state. Bots own
+#    data/live_real/**, data/live_rf/** (except config.json + candles/, which
+#    are human-editable / build-artifact), journal_live*.md, and the
+#    manual-close request file. See CLAUDE.md's ownership table.
+# ---------------------------------------------------------------------------
+protected_re='^(data/live_real/|data/live_rf/|journal_live\.md$|journal_live_rf\.md$|data/rf/manual_close_req\.json$)'
+exempt_re='^data/live_rf/(config\.json$|candles/)'
+
+staged="$(git diff --cached --name-only 2>/dev/null || true)"
+protected_hits=""
+if [ -n "$staged" ]; then
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    if printf '%s\n' "$f" | grep -qE "$exempt_re"; then
+      continue
+    fi
+    if printf '%s\n' "$f" | grep -qE "$protected_re"; then
+      protected_hits="${protected_hits}${f}\n"
+    fi
+  done <<EOF
+$staged
+EOF
+fi
+
+if [ -n "$protected_hits" ]; then
+  echo "BLOCKED: commit stages bot-owned live state (see CLAUDE.md invariant):" >&2
+  printf '%b' "$protected_hits" >&2
+  echo "These paths belong to live-desk-bot / paper-desk-bot on the VPS/Actions." >&2
+  echo "If this is genuinely intentional, use: git commit --no-verify" >&2
+  fail=1
+fi
+
+# ---------------------------------------------------------------------------
+# 2) Never let a human/Claude commit land directly on branch 'main', and warn
+#    hard if the branch's fork point from origin/main is stale (default: more
+#    than 24h old). Bot ticks move origin/main every ~15min regardless, so we
+#    measure staleness of the FORK POINT's age, not raw commit-count-behind
+#    (which would false-positive on every normal feature branch).
+# ---------------------------------------------------------------------------
+branch="$(git symbolic-ref --short -q HEAD || true)"
+stale=0
+reason=""
+
+if [ "$branch" = "main" ]; then
+  stale=1
+  reason="you are committing directly onto local branch 'main'"
+else
+  if git rev-parse --verify -q origin/main >/dev/null 2>&1; then
+    base="$(git merge-base HEAD origin/main 2>/dev/null || true)"
+    if [ -n "$base" ]; then
+      base_ts="$(git show -s --format=%ct "$base" 2>/dev/null || true)"
+      now_ts="$(date +%s)"
+      threshold_hours="${STALE_HOURS:-24}"
+      if [ -n "$base_ts" ]; then
+        age_hours=$(( (now_ts - base_ts) / 3600 ))
+        if [ "$age_hours" -gt "$threshold_hours" ]; then
+          stale=1
+          reason="branch forked from origin/main ${age_hours}h ago (> ${threshold_hours}h) — main has likely moved a lot since"
+        fi
+      fi
+    fi
+  fi
+  # else: no local origin/main ref yet (never fetched) — can't check, skip silently
+fi
+
+if [ "$stale" = "1" ] && [ "${ALLOW_STALE_COMMIT:-0}" != "1" ]; then
+  echo "BLOCKED: $reason." >&2
+  echo "Protocol (see CLAUDE.md): git fetch origin && git switch -c <branch> origin/main" >&2
+  echo "Override (only if you know what you're doing): ALLOW_STALE_COMMIT=1 git commit ..." >&2
+  fail=1
+fi
+
+exit "$fail"
