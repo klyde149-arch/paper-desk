@@ -16,45 +16,19 @@
                       "day_number":  24,
                       "failed":  false,
                       "completed":  false,
-                      "consecutive_stop_losses":  0,
+                      "consecutive_stop_losses":  1,
                       "pause_next_day":  false,
                       "history":  [
 
                                   ]
                   },
-    "balance_usd":  587.62,
-    "equity_usd":  529.13,
+    "balance_usd":  521.87,
+    "equity_usd":  521.87,
     "peak_equity_usd":  1164.73,
     "day_start_equity_usd":  605.7,
     "day_start_date_utc":  "2026-08-01",
     "last_entry_day_utc":  "2026-08-01",
-    "open_position":  {
-                          "id":  "C17",
-                          "symbol":  "BNB-USDT",
-                          "side":  "long",
-                          "entry_utc":  "2026-08-01 10:02",
-                          "signal_bar_utc":  "2026-08-01 09:00",
-                          "entry_ts":  1785578521696,
-                          "entry_price":  582.894816,
-                          "qty":  11.48,
-                          "notional_usd":  6689.2,
-                          "margin_usd":  445.95,
-                          "leverage_effective":  15,
-                          "stop":  577.745208,
-                          "tp":  593.194032,
-                          "liq_price":  546.949636,
-                          "risk_usd":  59.1,
-                          "risk_pct_equity":  10,
-                          "max_hold_until_utc":  "2026-08-03 10:02",
-                          "entry_fee_usd":  3.34,
-                          "funding_accrued_usd":  0,
-                          "score":  1.385,
-                          "thesis":  {
-                                         "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 1.385 из 9 пар",
-                                         "riskPlan":  "риск 59.1$ (10% эквити), стоп 577.745208 (2×ATR 1h), тейк 593.194032 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 546.949636",
-                                         "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
-                                     }
-                      },
+    "open_position":  null,
     "closed_trades":  [
                           {
                               "id":  "C1",
@@ -395,20 +369,41 @@
                                              "riskPlan":  "риск 56.72$ (10% эквити), стоп 6.585262 (2×ATR 1h), тейк 6.221656 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 6.862677",
                                              "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
                                          }
+                          },
+                          {
+                              "id":  "C17",
+                              "symbol":  "BNB-USDT",
+                              "side":  "long",
+                              "entry_utc":  "2026-08-01 10:02",
+                              "entry":  582.894816,
+                              "qty":  11.48,
+                              "exit_utc":  "2026-08-01 13:02",
+                              "exit":  577.456335,
+                              "reason":  "stop",
+                              "bars_held_h":  3,
+                              "pnl_usd":  -69.09,
+                              "fees_usd":  6.65,
+                              "funding_usd":  0,
+                              "r_multiple":  -1.17,
+                              "thesis":  {
+                                             "setup":  "S4 свип-возврат N24 (АВТОВХОД): лучший скоринг дня 1.385 из 9 пар",
+                                             "riskPlan":  "риск 59.1$ (10% эквити), стоп 577.745208 (2×ATR 1h), тейк 593.194032 (2R), тайм-стоп 48ч, плечо 15x, ликвидация 546.949636",
+                                             "invalidation":  "закрепление за стопом = вынос был истинным пробоем; или 48ч без движения"
+                                         }
                           }
                       ],
     "stats":  {
-                  "trades":  16,
+                  "trades":  17,
                   "wins":  5,
-                  "losses":  11,
-                  "total_fees_usd":  55.03,
+                  "losses":  12,
+                  "total_fees_usd":  58.34,
                   "total_funding_usd":  4.38,
-                  "realized_pnl_usd":  -409.04
+                  "realized_pnl_usd":  -478.13
               },
-    "last_check_utc":  "2026-08-01 13:02",
+    "last_check_utc":  "2026-08-01 13:16",
     "auto":  {
                  "schema":  1,
-                 "last_1m_ts":  1785589260000,
+                 "last_1m_ts":  1785589320000,
                  "last_scan_1h_ts":  1785585600000,
                  "paused_day_utc":  "2026-07-29"
              }
