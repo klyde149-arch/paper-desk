@@ -2,112 +2,17 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 113.68,
+  "equity_usd": 112.96,
   "peak_equity_usd": 120.81,
-  "day_start_equity_usd": 116.14,
-  "day_start_date_utc": "2026-07-24",
+  "day_start_equity_usd": 112.96,
+  "day_start_date_utc": "2026-08-03",
   "trading_halted": false,
   "entries_halt_reason": "",
-  "open_trades": [
-    {
-      "id": "LT2",
-      "symbol": "SUI-USDT",
-      "side": "long",
-      "status": "open",
-      "qty": 0.0,
-      "qty_initial": 20.0,
-      "entry_filled_qty": 20.0,
-      "entry_price": 0.7596,
-      "stop": 0.7185,
-      "stop0": 0.7185,
-      "tp1": 0.821,
-      "tp1_qty": 10.0,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": true,
-      "entry_utc": "2026-07-14 16:00",
-      "entry_ts": 1784044803633,
-      "risk_usd": 0.82,
-      "notional_usd": 15.19,
-      "fees_usd": 0.029564,
-      "funding_usd": 0.0091,
-      "legs": [
-        {
-          "part": "stop",
-          "qty": 20.0,
-          "price": 0.7186,
-          "utc": "2026-07-24 13:54",
-          "pnl": -0.82
-        }
-      ],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h up; SUI-USDT 4h up; F&G 22",
-        "riskPlan": "вход ~0.7595, стоп 0.7185 (5.31%), TP1 0.821 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.82",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      }
-    },
-    {
-      "id": "LT8",
-      "symbol": "LINK-USDT",
-      "side": "long",
-      "status": "open",
-      "qty": 0.0,
-      "qty_initial": 7.2,
-      "entry_filled_qty": 7.2,
-      "entry_price": 8.553,
-      "stop": 8.388,
-      "stop0": 8.388,
-      "tp1": 8.79,
-      "tp1_qty": 3.6,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": true,
-      "entry_utc": "2026-07-24 08:00",
-      "entry_ts": 1784880003273,
-      "risk_usd": 1.16,
-      "notional_usd": 61.55,
-      "fees_usd": 0.121968,
-      "funding_usd": 0.0,
-      "legs": [
-        {
-          "part": "stop",
-          "qty": 7.2,
-          "price": 8.387,
-          "utc": "2026-07-24 13:05",
-          "pnl": -1.2
-        }
-      ],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h up; LINK-USDT 4h up; F&G 28",
-        "riskPlan": "вход ~8.549, стоп 8.388 (1.97%), TP1 8.79 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.16",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      }
-    }
-  ],
+  "open_trades": [],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1784865600000,
-    "last_trail_4h_ts": 1784865600000,
+    "last_4h_ts": 1785700800000,
+    "last_trail_4h_ts": 1785700800000,
     "last_exec_ms": 1784901286624,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
@@ -216,7 +121,7 @@
     "next_trade_id": 10,
     "halt_day_utc": null,
     "soft_dd": false,
-    "consec_api_fail": 1,
+    "consec_api_fail": 0,
     "leverage_set": [
       "BNB-USDT",
       "SUI-USDT",
@@ -226,11 +131,11 @@
       "SOL-USDT",
       "LINK-USDT"
     ],
-    "last_tick_utc": "2026-07-24 11:47",
-    "last_daily_summary_day": "2026-07-23"
+    "last_tick_utc": "2026-08-03 03:50",
+    "last_daily_summary_day": "2026-07-24"
   },
-  "week_start_equity_usd": 116.72,
-  "week_start_date_utc": "2026-07-20",
+  "week_start_equity_usd": 112.96,
+  "week_start_date_utc": "2026-08-03",
   "report": {
     "last_day_msk": "",
     "base_ts": 0,

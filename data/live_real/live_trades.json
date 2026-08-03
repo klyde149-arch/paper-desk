@@ -390,5 +390,93 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT2",
+    "sym": "SUI-USDT",
+    "side": "long",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-07-14 16:00",
+    "entryDay": "2026-07-14",
+    "entryTs": 1784044803633,
+    "entry": 0.7596,
+    "qty": 20.0,
+    "exitUtc": "2026-08-03 03:50",
+    "exitDay": "2026-08-03",
+    "exitTs": 1785729003274,
+    "exitPx": 0.7186,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 20.0,
+        "price": 0.7186,
+        "utc": "2026-07-24 13:54",
+        "pnl": -0.82
+      }
+    ],
+    "pnlUsd": -0.86,
+    "rMultiple": -1.05,
+    "riskUsd": 0.82,
+    "fees": 0.03,
+    "funding": 0.01,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; SUI-USDT 4h up; F&G 22",
+      "riskPlan": "вход ~0.7595, стоп 0.7185 (5.31%), TP1 0.821 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.82",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
+  },
+  {
+    "id": "LT8",
+    "sym": "LINK-USDT",
+    "side": "long",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-07-24 08:00",
+    "entryDay": "2026-07-24",
+    "entryTs": 1784880003273,
+    "entry": 8.553,
+    "qty": 7.2,
+    "exitUtc": "2026-08-03 03:50",
+    "exitDay": "2026-08-03",
+    "exitTs": 1785729003274,
+    "exitPx": 8.387,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 7.2,
+        "price": 8.387,
+        "utc": "2026-07-24 13:05",
+        "pnl": -1.2
+      }
+    ],
+    "pnlUsd": -1.32,
+    "rMultiple": -1.14,
+    "riskUsd": 1.16,
+    "fees": 0.12,
+    "funding": 0.0,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; LINK-USDT 4h up; F&G 28",
+      "riskPlan": "вход ~8.549, стоп 8.388 (1.97%), TP1 8.79 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.16",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
