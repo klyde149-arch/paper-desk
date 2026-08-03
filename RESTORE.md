@@ -237,6 +237,23 @@ git clone git@github.com:klyde149-arch/paper-desk.git /home/trader/paper-desk
 **понизить на первые сутки** (например `{ "base_rub": 175000 }`), дождаться чистого тика и сверки,
 затем вернуть штатный рамп (175k → 350k → 700k по `deploy\README_RF.md`, Phase 4).
 
+**На чистой VPS обязательно (иначе контур не заработает вообще):** `invest-public-api.tinkoff.ru`
+с 2026-08-03 отдаёт цепочку УЦ Минцифры, корня которой в Ubuntu нет — без него КАЖДЫЙ тик падает на
+preflight с `The SSL connection could not be established` (мгновенно, `status=0` в `latency_log.csv`).
+Лечится один раз:
+
+```bash
+curl -o /usr/local/share/ca-certificates/russian_trusted_root_ca.crt \
+  https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt
+openssl x509 -in /usr/local/share/ca-certificates/russian_trusted_root_ca.crt -noout -fingerprint -sha256
+# ДОЛЖНО быть D2:6D:2D:02:31:B7:C3:9F:92:CC:73:85:12:BA:54:10:35:19:E4:40:5D:68:B5:BD:70:3E:97:88:CA:8E:CF:31
+update-ca-certificates
+```
+
+Отпечаток сверять обязательно — корневой сертификат из непроверенного источника означает
+возможность перехвата любого TLS на машине. Проверка: `openssl s_client -connect invest-public-api.tinkoff.ru:443` →
+`Verify return code: 0 (ok)`. Bybit/MOEX ISS/GitHub этот корень не требуют.
+
 Смоук: `tools\tinvest_selftest.ps1` (аудит счёта/8 фьюч/12 акций/клирингов/латентности),
 `tools\sandbox_drill.ps1` (полный цикл + kill-drill в песочнице).
 
