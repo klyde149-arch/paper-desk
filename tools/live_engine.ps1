@@ -142,7 +142,8 @@ function Add-ExitLeg($T, [string]$Part, [double]$Qty, [double]$Px, [long]$Ts, [d
 # ---- вечерний отчёт: разбивка P&L по позициям (см. lib_msg_ru.ps1) ----
 function Stamp-CurUpnl($Trades, $ExBySym) {
   # штампуем текущий нереализованный P&L биржи в карточку - кормит отчёт и ассистента
-  foreach ($t in @($Trades)) {
+  # NB: перебирать $Trades напрямую - @($genericList) кидает «Argument types do not match» на pwsh 7 (VPS)
+  foreach ($t in $Trades) {
     if ([string]$t.status -ne 'open') { continue }
     $bs = Bs $t.symbol
     if ($ExBySym.ContainsKey($bs)) {
