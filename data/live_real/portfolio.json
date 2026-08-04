@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 111.2,
+  "equity_usd": 110.87,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 111.69,
   "day_start_date_utc": "2026-08-04",
@@ -47,47 +47,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": -0.3832
-    },
-    {
-      "id": "LT11",
-      "symbol": "SOL-USDT",
-      "side": "short",
-      "status": "open",
-      "qty": 0.7,
-      "qty_initial": 0.7,
-      "entry_filled_qty": 0.7,
-      "entry_price": 72.85,
-      "stop": 74.31,
-      "stop0": 74.31,
-      "tp1": 70.66,
-      "tp1_qty": 0.3,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": false,
-      "entry_utc": "2026-08-03 04:00",
-      "entry_ts": 1785729603597,
-      "risk_usd": 1.02,
-      "notional_usd": 50.99,
-      "fees_usd": 0.050995,
-      "funding_usd": -0.009,
-      "legs": [],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h down; SOL-USDT 4h down; F&G 28",
-        "riskPlan": "вход ~72.85, стоп 74.31 (2%), TP1 70.66 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.02",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      },
-      "cur_upnl_usd": -0.8841
+      "cur_upnl_usd": -0.4452
     },
     {
       "id": "LT12",
@@ -127,14 +87,14 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": -0.4676
+      "cur_upnl_usd": -0.52772
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1785844800000,
     "last_trail_4h_ts": 1785844800000,
-    "last_exec_ms": 1785859200000,
+    "last_exec_ms": 1785867901887,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -255,7 +215,8 @@
       "3ca09fe8-2fa9-4ad6-88b6-32338c161ece",
       "6cd8acba-6ad7-468f-9683-d9873b172b8d",
       "368b0ee8-f42f-462f-8972-2f7bab1131bc",
-      "553eec73-6874-40c9-8093-e735ee40b5dc"
+      "553eec73-6874-40c9-8093-e735ee40b5dc",
+      "c474aa28-98da-54d5-a459-6baa03c05e25"
     ],
     "next_trade_id": 13,
     "halt_day_utc": null,
@@ -272,7 +233,7 @@
       "ETH-USDT",
       "DOGE-USDT"
     ],
-    "last_tick_utc": "2026-08-04 18:15",
+    "last_tick_utc": "2026-08-04 18:25",
     "last_daily_summary_day": "2026-08-03",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
