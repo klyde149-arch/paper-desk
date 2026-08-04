@@ -13,7 +13,7 @@
   "sleeves": {
     "core": {
       "eq_rub": 701466.8550328662,
-      "month_start_eq": 700000.0,
+      "month_start_eq": 701466.86,
       "day_start_eq": 701466.8550328662,
       "halt_day": null,
       "positions": [],
@@ -21,7 +21,7 @@
     },
     "setA": {
       "eq_rub": 694980.99657189,
-      "month_start_eq": 700000.0,
+      "month_start_eq": 694981.0,
       "day_start_eq": 694980.99657189,
       "halt_day": null,
       "positions": [],
@@ -32,31 +32,37 @@
       "month_start_eq": 350000.0,
       "cash_rub": 350000.0,
       "holdings": [],
-      "last_rebalance_month": "",
-      "equity_mtm": 350000.0
+      "last_rebalance_month": "2026-08",
+      "equity_mtm": 350000.0,
+      "reb_target": {
+        "day": "2026-08-03",
+        "gate": false,
+        "target": [],
+        "done": true
+      }
     }
   },
   "profile_eq": 696447.86,
-  "profile_month_start": 700000.0,
-  "cur_month": "2026-07",
+  "profile_month_start": 696447.86,
+  "cur_month": "2026-08",
   "day_start_eq": 696447.86,
-  "day_start_date": "2026-07-31",
+  "day_start_date": "2026-08-03",
   "peak_eq": 761138.55,
   "watermarks": {
-    "last_daily_day": "2026-08-02",
-    "last_hour_ts": 1785794400000,
-    "ops_since": "2026-08-03T20:00:33Z",
-    "last_eq_snap": 1785790293325,
+    "last_daily_day": "2026-08-03",
+    "last_hour_ts": 1785819600000,
+    "ops_since": "2026-08-04T02:45:32Z",
+    "last_eq_snap": 1785814774022,
     "last_report_day": "2026-08-03",
     "orders_day": "2026-07-24",
     "orders_day_n": 1
   },
   "fronts": {
     "BR": {
-      "secid": "BRQ6",
-      "lasttrade": "2026-08-03",
-      "next": "BRU6",
-      "next_lasttrade": "2026-08-31"
+      "secid": "BRU6",
+      "lasttrade": "2026-08-31",
+      "next": "BRV6",
+      "next_lasttrade": "2026-10-01"
     },
     "NG": {
       "secid": "NGQ6",
@@ -102,7 +108,7 @@
     }
   },
   "active": {
-    "BR": "BRQ6",
+    "BR": "BRU6",
     "NG": "NGQ6",
     "GOLD": "GDU6",
     "SILV": "SVU6",
@@ -126,7 +132,7 @@
     "used_rub": 0.0,
     "budget_rub": 650000.0,
     "peak_day_rub": 0.0,
-    "account_liquid_rub": 1495032.84,
+    "account_liquid_rub": 1495159.0,
     "bot_capital_rub": 768071.2
   },
   "drift": {
@@ -137,8 +143,69 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 17,
+  "pending_intents": [
+    {
+      "id": "i00017",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "Si",
+      "ticker": "SiU6",
+      "uid": "574d37d8-9de4-423a-9e33-b936002d8bda",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "6b32235d-00c4-3ffe-82c4-21bcbea6767e",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1785801000000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-08-03",
+      "state_ts": 1785814774022,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 2196.857143,
+        "atr": 1098.428571,
+        "risk_pct": 0.05,
+        "ref_px": 81560.0,
+        "note": "donchian close 81560 vs [76530 / 81354]"
+      }
+    },
+    {
+      "id": "i00018",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "CNY",
+      "ticker": "CRU6",
+      "uid": "81f07a5c-99af-4b3a-a939-067e2ed3dd7a",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "3b1c52a2-8226-e43b-a278-a8277660eb51",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1785801000000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-08-03",
+      "state_ts": 1785814774022,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 0.317,
+        "atr": 0.1585,
+        "risk_pct": 0.05,
+        "ref_px": 12.073,
+        "note": "donchian close 12.073 vs [11.276 / 12.03]"
+      }
+    }
+  ],
+  "next_intent_id": 19,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 2,
@@ -162,7 +229,7 @@
     "currencies": 768071.2,
     "futures": 0.0,
     "mom_shares": 0.0,
-    "user_assets": 726961.64,
-    "portfolio_total": 1495032.84
+    "user_assets": 727087.8,
+    "portfolio_total": 1495159.0
   }
 }
