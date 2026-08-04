@@ -34,6 +34,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Внешний сторож живости боевых контуров. Стоит ПЕРВЫМ и с continue-on-error:
+      # он должен отработать даже если paper-тик потом упадёт, и не имеет права уронить
+      # тик сам. Смысл в том, что Actions - единственная сторона вне VPS: сторож внутри
+      # тика (deploy/git_sync_watch.sh) о смерти хоста сообщить не может.
+      - name: Live contours dead-man's switch
+        continue-on-error: true
+        shell: powershell
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          TG_CHAT_ID_FUT: ${{ secrets.TG_CHAT_ID_FUT }}
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\live_watch.ps1
+
       - name: Probe market data endpoints
         shell: powershell
         run: |

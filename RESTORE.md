@@ -23,6 +23,19 @@
 - Умер **VPS** — боевые контуры не тикают: см. шаг 2, это срочно.
 - Умер **GitHub** — VPS не может `git pull`, но торгует на локальном состоянии; paper-бот и дашборд стоят.
 
+**Сначала проверь скучное.** Признак «оба таймера замолчали в одну минуту, алертов нет» —
+это почти наверняка отказ уровня хоста, а не софта. Порядок проверки: **оплачена ли подписка
+на VPS** (инцидент 2026-08-03: хостинг отключил сервер в 21:01 UTC, оба контура молчали
+6 ч 45 мин, ни одного алерта не ушло — алертинг тогда весь жил внутри тика и умер вместе с
+ним), питание/сеть у хостера, затем `systemctl status live-tick.timer live-rf-tick.timer`,
+затем `df -h` (переполненный диск ломает git и запись состояния). Если после оплаты/загрузки
+хост поднялся сам — контуры догоняют пропущенное без ручных действий (см. шаг 2 ниже о том,
+что при этом всё же надо проверить).
+
+С 2026-08-04 такая тишина ловится снаружи: `tools\live_watch.ps1` крутится в GitHub Actions
+и пишет в Telegram, если состояние боевого контура не обновлялось больше 60 мин. Если алерта
+не было, а контуры молчат — проверь заодно, жив ли сам paper-тик в Actions.
+
 **Шаг 2. Защита капитала. Приоритет: РФ первым, Bybit вторым.**
 
 Почему такой порядок — РФ-контур операционно хрупче: фьючерсы FORTS имеют **экспирацию** (нужен
@@ -140,7 +153,7 @@ git clone git@github.com:klyde149-arch/paper-desk.git /home/trader/paper-desk
 | `/etc/trading-live.env` (VPS; шаблон `deploy\trading-live.env.example`) | `BYBIT_API_KEY`, `BYBIT_API_SECRET`, `TG_BOT_TOKEN`, `TG_CHAT_ID`, `TG_CHAT_ID_FUT`, `LIVE_DRYRUN`, `TINVEST_TOKEN`, `TINVEST_ACCOUNT_ID`, `TINVEST_MODE`, `TINVEST_SANDBOX_TOKEN` |
 | `/etc/trading-assistant.env` (VPS) | `OPENROUTER_API_KEY`, `ASSISTANT_MODEL`, `ASSISTANT_MODEL_FALLBACK`, `ASSISTANT_TG_ALLOWED_CHATS`, `ASSISTANT_DRY_ACTIONS`, `ASSISTANT_DAILY_*` |
 | `.secrets\tinvest.env.ps1` (ноут, gitignored) | те же `$env:TINVEST_*` для локальных прогонов |
-| ssh-доступ ноут→VPS для `tools\ask.ps1` | из `$env:ASSISTANT_VPS`/`$env:ASSISTANT_VPS_KEY` **или** опц. `tools\ask.config.json` (`{vps, key}`, gitignored — сейчас файла нет, доступ идёт через env). Настоящий секрет — приватный ssh-ключ ноута, авторизованный на VPS |
+| ssh-доступ ноут→VPS для `tools\ask.ps1` | из `$env:ASSISTANT_VPS`/`$env:ASSISTANT_VPS_KEY` **или** опц. `tools\ask.config.json` (`{vps, key}`, gitignored). Настоящий секрет — приватный ssh-ключ ноута, авторизованный на VPS. **Проверено 2026-08-04: на текущем ноуте не настроено ни то, ни другое** — обе переменные пусты (в т.ч. в User-scope), файла нет. То есть документированного пути ноут→VPS сейчас НЕТ, и выясняется это в самый неподходящий момент. Завести заранее: `setx ASSISTANT_VPS "trader@<хост>"` и `setx ASSISTANT_VPS_KEY "<путь к приватному ключу>"` |
 | `~/.ssh/id_ed25519` (VPS) | GitHub deploy-key с write-доступом к `paper-desk` |
 
 Расшифровка бандла: `vps\secrets\vps_secrets.enc` (AES-256-CBC) — процедура в `vps\README.md` (локальный).
