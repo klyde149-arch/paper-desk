@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9321.02,
-    "equity_usd":  9219.44,
+    "balance_usd":  9219.39,
+    "equity_usd":  9206.39,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9352.32,
     "day_start_date_utc":  "2026-08-04",
@@ -100,70 +100,27 @@
                                                              "atrCapLong":  true
                                                          }
                                           }
-                           },
-                           {
-                               "id":  "T18",
-                               "symbol":  "LTC-USDT",
-                               "side":  "short",
-                               "qty":  184.0319,
-                               "qty_initial":  184.0319,
-                               "entry_price":  44.606614,
-                               "stop":  45.111472,
-                               "stop0":  45.111472,
-                               "tp1":  43.849327,
-                               "entry_utc":  "2026-08-03 00:01",
-                               "entry_ts":  1785715314742,
-                               "risk_usd":  92.91,
-                               "notional_usd":  8209.04,
-                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  false,
-                               "fees_usd":  4.5149719598426312,
-                               "funding_usd":  -2.539331046408,
-                               "legs":  [
-
-                                        ],
-                               "mfe_px":  44.01,
-                               "mae_px":  45.1,
-                               "thesis":  {
-                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
-                                              "regime":  "BTC 4h down; LTC-USDT 4h down; F\u0026G 28",
-                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-08-02 20:00 UTC",
-                                              "indicators":  "RSI 45.1, ATR 1.03% (кэп 3%), фандинг 8.2E-05/8ч",
-                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
-                                              "riskPlan":  "вход ~44.606614, стоп 45.111472 (1.03%), TP1 43.849327 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $92.91",
-                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
-                                              "checks":  {
-                                                             "setupA":  true,
-                                                             "btcFilter":  true,
-                                                             "flatMode":  true,
-                                                             "atrCap":  true,
-                                                             "funding":  true,
-                                                             "fearGreed":  true,
-                                                             "btcMom5d":  true,
-                                                             "atrCapLong":  true
-                                                         }
-                                          }
                            }
                        ],
     "stats":  {
-                  "closed_trades":  15,
+                  "closed_trades":  16,
                   "wins":  4,
-                  "losses":  11,
-                  "total_fees_usd":  82.81,
-                  "total_funding_usd":  9.53,
-                  "realized_pnl_usd":  -668.88
+                  "losses":  12,
+                  "total_fees_usd":  91.89,
+                  "total_funding_usd":  6.99,
+                  "realized_pnl_usd":  -772.48
               },
-    "last_check_utc":  "2026-08-04 23:17",
+    "last_check_utc":  "2026-08-04 23:32",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1785885360000,
+                 "last_1m_ts":  1785886260000,
                  "last_4h_ts":  1785859200000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
                  "next_trade_id":  19,
-                 "ticks_since_viz":  1,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-08-03",
-                 "last_tick_utc":  "2026-08-04 23:17"
+                 "last_tick_utc":  "2026-08-04 23:32"
              }
 }
