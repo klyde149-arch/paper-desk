@@ -1830,55 +1830,45 @@ function Invoke-DailyReport([switch]$Preview) {
   }
 }
 
-# ================= одноразовый ремонт: инцидент L00008 2026-07-21 =================
-# Вход BR записался как 14.83 (initial_order_price_pt за 1 лот поделили на 6 лотов):
-# фантом +497%, биржевой стоп на 7.896 (несрабатываемый), заражённый peak_eq. Guard
-# идемпотентен: после ремонта entry/stop > 20 и условие ложно. Удалить после закрытия L00008.
-function Invoke-RepairL00008 {
-  $cs = @($st.sleeves.core.positions | Where-Object {
-      [string]$_.id -eq 'L00008' -and ([double]$_.entry_px_pts -lt 20 -or [double]$_.stop_px_pts -lt 20) })
-  if (-not $cs.Count) { return }
-  $c = $cs[0]
-  $oldEntry = [double]$c.entry_px_pts; $oldStop = [double]$c.stop_px_pts
-  if ($oldEntry -lt 20) {
-    $truePx = [math]::Round($oldEntry * [int]$c.lots_initial, 6)
-    $c.entry_px_pts = $truePx
-    if ([double]$c.mfe_pts -lt $truePx) { $c.mfe_pts = $truePx }
-    $newFee = [math]::Round([int]$c.lots_initial * $truePx * [double]$c.rub_per_pt * [double]$LIVE.fee_est, 2)
-    $st.sleeves.core.eq_rub = [double]$st.sleeves.core.eq_rub - ($newFee - [double]$c.fees_rub)
-    $c.fees_rub = $newFee
+# ================= живость брокера: алерты о потере связи =================
+# Закрывает дыры, вскрытые инцидентом 2026-08-03 (TLS-цепочка Минцифры): алерт стрелял
+# ровно один раз (consec_fail -eq 5), о восстановлении не сообщал, при затяжном сбое
+# молчал, а отозванный токен давал ровно тот же текст «до восстановления связи» - хотя
+# сам он не восстановится никогда. Образец поведения - deploy/git_sync_watch.sh.
+$BROKER_ALERT_AFTER = 5    # неудачных preflight подряд до первого алерта
+$BROKER_REPEAT_MIN = 60    # период напоминаний, пока связи нет
+
+function Note-BrokerFail([string]$ErrText) {
+  $n = [int]$st.consec_fail + 1
+  $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue $n -Force
+  if (-not $st.PSObject.Properties['fail_since_ms'] -or [long]$st.fail_since_ms -le 0) {
+    $st | Add-Member -NotePropertyName fail_since_ms -NotePropertyValue $NowMs -Force
   }
-  $st.peak_eq = [double]$LIVE.base_rub   # фантомный пик 1.048М; легитимного роста не было (0 закрытых сделок)
-  $newStop = [math]::Round([double]$c.entry_px_pts - 2.0 * [double]$c.atr_entry, 6)
-  $ok = Replace-CardStop $c $newStop
-  $msg = ("REPAIR L00008: вход {0}->{1}, стоп {2}->{3}{4}, peak_eq сброшен на {5}, фантомный P&L удалён" -f `
-      $oldEntry, [double]$c.entry_px_pts, $oldStop, $newStop,
-      $(if ($ok) { ' (заявка перевыставлена)' } else { ' (перевыставление отложено/не удалось - добьёт следующий тик)' }),
-      [double]$LIVE.base_rub)
-  if ($ok -or $oldEntry -lt 20) {   # повторные тики с отложенным стопом не спамят журнал
-    $script:ev.Add($msg)
-    $script:jr.Add(("`r`n## {0} MSK — RF-LIVE: {1}`r`n" -f (MsToUtcStr $mskNowMs), $msg))
+  if ($n -lt $BROKER_ALERT_AFTER) { return }
+  $lastMsg = if ($st.PSObject.Properties['fail_alert_ms']) { [long]$st.fail_alert_ms } else { 0 }
+  $due = ($lastMsg -le 0) -or ((($NowMs - $lastMsg) / 60000.0) -ge $BROKER_REPEAT_MIN)
+  if (-not $due) { return }
+  $downMin = [int][math]::Floor(($NowMs - [long]$st.fail_since_ms) / 60000.0)
+  $nw = Plural $n 'проверка' 'проверки' 'проверок'
+  $mw = Plural $downMin 'минута' 'минуты' 'минут'
+  # 401/403 от gateway - это «ключ», а не «сеть»: ждать восстановления бессмысленно
+  if ($ErrText -match 'TINVEST_HTTP_40[13]') {
+    Alert ("брокер отклоняет авторизацию ({0} {1} подряд, {2} {3}). Это НЕ сетевой сбой: токен отозван или просрочен, сам он не восстановится - нужно заменить TINVEST_TOKEN в /etc/trading-live.env. Торговый цикл приостановлен, открытые позиции и стоп-заявки у брокера продолжают действовать." -f $n, $nw, $downMin, $mw)
+  } else {
+    Alert ("брокер Т-Инвест не отвечает уже {0} {1} подряд ({2} {3}) — торговый цикл приостановлен до восстановления связи. Открытые позиции и стоп-заявки у брокера продолжают действовать." -f $n, $nw, $downMin, $mw)
   }
-  if ($ok) { Alert $msg }
-  Save-State
+  $st | Add-Member -NotePropertyName fail_alert_ms -NotePropertyValue $NowMs -Force
 }
 
-# Одноразовая чистка снапшотов эквити за 2026-07-21: строки с total>0.9M (фантомный uPnL от
-# кривого входа L00008) и/или bot_capital>0.95M (номинал фьючерса в Set-BotCapital до фикса).
-# Идемпотентно: после перезаписи совпадений нет. Удалить вместе с Invoke-RepairL00008.
-function Invoke-CleanupEquity20260721 {
-  $eqPath = Join-Path $lrfDir 'equity.json'
-  $rows = @((Read-JsonFile $eqPath) | Where-Object { $null -ne $_ })
-  if (-not $rows.Count) { return }
-  $from = UtcStrToMs '2026-07-21 00:00'; $to = UtcStrToMs '2026-07-22 00:00'
-  $keep = @($rows | Where-Object { -not (
-      [long]$_.ts -ge $from -and [long]$_.ts -lt $to -and (
-        [double]$_.total -gt 900000 -or
-        ($_.PSObject.Properties['bot_capital'] -and $null -ne $_.bot_capital -and [double]$_.bot_capital -gt 950000)
-      )) })
-  if ($keep.Count -eq $rows.Count) { return }
-  Write-JsonAtomic $eqPath (ToArr $keep) 4
-  $script:ev.Add("CLEANUP equity 2026-07-21: удалено $($rows.Count - $keep.Count) фантомных снапшотов")
+function Note-BrokerOk {
+  $alerted = $st.PSObject.Properties['fail_alert_ms'] -and [long]$st.fail_alert_ms -gt 0
+  if ($alerted) {
+    $downMin = [int][math]::Floor(($NowMs - [long]$st.fail_since_ms) / 60000.0)
+    Alert ("связь с брокером восстановлена, торговый цикл продолжен (простой был около {0} {1})." -f $downMin, (Plural $downMin 'минута' 'минуты' 'минут'))
+  }
+  $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue 0 -Force
+  $st | Add-Member -NotePropertyName fail_since_ms -NotePropertyValue 0 -Force
+  $st | Add-Member -NotePropertyName fail_alert_ms -NotePropertyValue 0 -Force
 }
 
 # ================= RUN: пайплайн тика =================
@@ -1918,13 +1908,12 @@ try {
       $margin = [pscustomobject]@{ liquid = [double](M2D (Get-TiField $pfPre 'total_amount_portfolio')).value }
     } catch {
       Write-LiveLog "preflight: маржа и портфель недоступны: $($_.Exception.Message)"
-      $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue ([int]$st.consec_fail + 1) -Force
-      if ([int]$st.consec_fail -eq 5) { Alert 'брокер Т-Инвест не отвечает уже 5 проверок подряд — торговый цикл приостановлен до восстановления связи. Открытые позиции и стоп-заявки у брокера продолжают действовать.' }
+      Note-BrokerFail ([string]$_.Exception.Message)
       Save-State
       return
     }
   }
-  $st | Add-Member -NotePropertyName consec_fail -NotePropertyValue 0 -Force
+  Note-BrokerOk   # сброс счётчика + «связь восстановлена», если алерт уже уходил
   Update-GoBudget $margin
   Set-BotCapital $pfPre   # $null если маржа сработала -> функция дотянет GetPortfolio сама
 
@@ -1945,11 +1934,6 @@ try {
 
   # 5. state machine polling
   Invoke-IntentPolling
-
-  # 5b. одноразовый ремонт L00008 - строго ДО MTM/governors: peak_eq должен
-  # сброситься раньше пересчёта DD, иначе ложный hard-halt (DD 33% от фантомного пика)
-  Invoke-RepairL00008
-  Invoke-CleanupEquity20260721
 
   # 6. MTM + governors
   Invoke-Mtm

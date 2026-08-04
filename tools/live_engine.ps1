@@ -82,6 +82,60 @@ $script:lp = $null
 
 function Save-State { if ($null -ne $script:lp) { Write-JsonAtomic $lpPath $script:lp 12 } }
 
+# ---------- живость биржи: алерты о потере связи ----------
+# Закрывает дыры, вскрытые инцидентами 2026-08: алерт стрелял ровно один раз (-eq 5),
+# о восстановлении не сообщал, при затяжном сбое молчал, а отозванный/просроченный ключ
+# выглядел ровно как сетевой сбой - хотя связь сама уже не восстановится никогда.
+$script:API_ALERT_AFTER = 5    # неудачных проверок подряд до первого алерта
+$script:API_REPEAT_MIN = 60    # период напоминаний, пока связи нет
+
+# retCode Bybit, которые означают «ключ/доступ», а не «сеть»: 10003 неверный ключ,
+# 10004 подпись, 10005 нет прав, 10010 IP вне белого списка, 33004 ключ просрочен.
+function Test-BybitAuthError([string]$Err) {
+  return ($Err -match 'retCode=(10003|10004|10005|10010|33004)\b')
+}
+
+# Kind: 'api' - preflight не достучался до биржи; 'tick' - тик упал целиком (не обязательно
+# из-за связи, поэтому текст другой). Счётчик и дедупликация общие: подряд идущие сбои
+# любой природы - это один эпизод «бот не работает».
+function Note-ApiFail([string]$ErrText, [long]$NowMs, [string]$Kind = 'api') {
+  if ($null -eq $script:lp) { return }
+  $a = $script:lp.auto
+  Ensure-Prop $a 'fail_since_ms' 0
+  Ensure-Prop $a 'fail_alert_ms' 0
+  $n = [int]$a.consec_api_fail + 1
+  $a.consec_api_fail = $n
+  if ([long]$a.fail_since_ms -le 0) { $a.fail_since_ms = $NowMs }
+  if ($n -lt $script:API_ALERT_AFTER) { return }
+  $due = ([long]$a.fail_alert_ms -le 0) -or ((($NowMs - [long]$a.fail_alert_ms) / 60000.0) -ge $script:API_REPEAT_MIN)
+  if (-not $due) { return }
+  $downMin = [int][math]::Floor(($NowMs - [long]$a.fail_since_ms) / 60000.0)
+  $nw = Plural $n 'проверка' 'проверки' 'проверок'
+  $mw = Plural $downMin 'минута' 'минуты' 'минут'
+  if (Test-BybitAuthError $ErrText) {
+    [void](Send-TgAlert "${tgPfx}биржа отклоняет ключ доступа ($n $nw подряд, $downMin $mw). Это НЕ сетевой сбой: ключ просрочен, отозван или IP сервера выпал из белого списка — само не восстановится, нужен новый ключ в /etc/trading-live.env. Торговля приостановлена; защитные стоп-заявки на бирже продолжают действовать. Причина: $ErrText")
+  } elseif ($Kind -eq 'tick') {
+    [void](Send-TgAlert "${tgPfx}бот $n $nw подряд завершается с ошибкой ($downMin $mw) — нужна диагностика. Защитные стоп-заявки на бирже продолжают действовать. Причина: $ErrText")
+  } else {
+    [void](Send-TgAlert "${tgPfx}биржа Bybit не отвечает уже $n $nw подряд ($downMin $mw). Торговля приостановлена до восстановления связи; защитные стоп-заявки стоят на самой бирже и продолжают действовать. Причина: $ErrText")
+  }
+  $a.fail_alert_ms = $NowMs
+}
+
+function Note-ApiOk([long]$NowMs) {
+  if ($null -eq $script:lp) { return }
+  $a = $script:lp.auto
+  Ensure-Prop $a 'fail_since_ms' 0
+  Ensure-Prop $a 'fail_alert_ms' 0
+  if ([long]$a.fail_alert_ms -gt 0) {
+    $downMin = [int][math]::Floor(($NowMs - [long]$a.fail_since_ms) / 60000.0)
+    [void](Send-TgAlert "${tgPfx}связь с биржей восстановлена, торговля продолжена (простой был около $downMin $(Plural $downMin 'минута' 'минуты' 'минут')).")
+  }
+  $a.consec_api_fail = 0
+  $a.fail_since_ms = 0
+  $a.fail_alert_ms = 0
+}
+
 function New-LiveState([double]$Equity) {
   [pscustomobject]@{
     schema = 1; engine = 'v2-combo-live'; mode = $modeTag
@@ -98,6 +152,7 @@ function New-LiveState([double]$Equity) {
       next_trade_id = 1
       halt_day_utc = $null; soft_dd = $false
       consec_api_fail = 0
+      fail_since_ms = 0; fail_alert_ms = 0   # эпизод потери связи: начало и последний алерт
       leverage_set = @()
       last_tick_utc = ''; last_daily_summary_day = ''
     }
@@ -254,8 +309,7 @@ try {
     $wallet = Get-WalletEquity
   } catch {
     if ($null -ne $script:lp) {
-      $script:lp.auto.consec_api_fail = [int]$script:lp.auto.consec_api_fail + 1
-      if ([int]$script:lp.auto.consec_api_fail -eq 5) { [void](Send-TgAlert "${tgPfx}биржа Bybit не отвечает уже 5 проверок подряд. Торговля приостановлена до восстановления связи; защитные стоп-заявки стоят на самой бирже и продолжают действовать. Причина: $($_.Exception.Message)") }
+      Note-ApiFail ([string]$_.Exception.Message) $nowMs
       Save-State
     }
     LLog "PREFLIGHT FAIL: $($_.Exception.Message)"
@@ -273,7 +327,7 @@ try {
     [void](Send-TgAlert "${tgPfx}режим работы переключён: $($lp.mode) -> $modeTag. Капитал: $(Fmt-Money $equity '$' 2).")
     $lp.mode = $modeTag
   }
-  $lp.auto.consec_api_fail = 0
+  Note-ApiOk $nowMs   # сброс счётчика + «связь восстановлена», если алерт уже уходил
   # миграция состояния: поля недельного отчёта (могли отсутствовать в ранних версиях)
   Ensure-Prop $lp 'week_start_equity_usd' $equity
   Ensure-Prop $lp 'week_start_date_utc' ''
@@ -319,8 +373,17 @@ try {
   $exPos = Get-PositionsLive           # только size>0
   $exOrders = Get-OpenOrdersLive
   $sinceMs = [long]$lp.auto.last_exec_ms - 300000
-  $floorMs = $nowMs - 6*24*3600000     # окно /v5/execution/list = 7 дней
-  if ($sinceMs -lt $floorMs) { $sinceMs = $floorMs }
+  $floorMs = $nowMs - 7*24*3600000     # окно /v5/execution/list = 7 дней
+  # Простой длиннее окна = филлы за время тишины уже недоступны, и позиция, закрытая
+  # стопом в этот период, придёт как D4 «исчезла без executions» с халтом входов.
+  # Молча подрезать вотермарку тут нельзя - это тихая потеря истории, о ней надо сказать.
+  if ($sinceMs -lt $floorMs) {
+    $lostH = [int][math]::Round(($floorMs - $sinceMs) / 3600000.0)
+    LLog "EXEC WINDOW OVERFLOW: простой длиннее 7 суток, потеряно ~$lostH ч истории филлов"
+    $script:events.Add("EXEC-WINDOW: потеряно ~$lostH ч истории филлов")
+    [void](Send-TgAlert "${tgPfx}бот молчал дольше 7 суток — история сделок за это время у биржи уже недоступна (потеряно ~$lostH ч). Позиции, закрытые стопом в этот период, движок увидит как расхождение и остановит входы до ручной сверки. Проверьте счёт и журнал.")
+    $sinceMs = $floorMs
+  }
   $execs = Get-ExecutionsSince $sinceMs
 
   $seen = New-Object System.Collections.Generic.HashSet[string]
@@ -865,8 +928,7 @@ try {
   LLog ("TICK ERROR: " + $_.Exception.Message + ' @ ' + ("$($_.ScriptStackTrace)" -split "`n")[0])
   try {
     if ($null -ne $script:lp) {
-      $script:lp.auto.consec_api_fail = [int]$script:lp.auto.consec_api_fail + 1
-      if ([int]$script:lp.auto.consec_api_fail -eq 5) { [void](Send-TgAlert "${tgPfx}бот 5 проверок подряд завершается с ошибкой — нужна диагностика. Защитные стоп-заявки на бирже продолжают действовать. Причина: $($_.Exception.Message)") }
+      Note-ApiFail ([string]$_.Exception.Message) $nowMs 'tick'
       Save-State
     }
   } catch {}
