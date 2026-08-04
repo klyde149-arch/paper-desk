@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 701211.7230328663,
       "month_start_eq": 701466.86,
-      "day_start_eq": 701466.8550328662,
+      "day_start_eq": 701211.7230328663,
       "halt_day": null,
       "positions": [
         {
@@ -126,14 +126,14 @@
   "profile_eq": 689432.28,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
-  "day_start_eq": 696447.86,
-  "day_start_date": "2026-08-03",
+  "day_start_eq": 689432.28,
+  "day_start_date": "2026-08-04",
   "peak_eq": 761138.55,
   "watermarks": {
-    "last_daily_day": "2026-08-03",
-    "last_hour_ts": 1785880800000,
-    "ops_since": "2026-08-04T20:15:32Z",
-    "last_eq_snap": 1785878072618,
+    "last_daily_day": "2026-08-04",
+    "last_hour_ts": 1785884400000,
+    "ops_since": "2026-08-04T20:30:32Z",
+    "last_eq_snap": 1785878972735,
     "last_report_day": "2026-08-04",
     "orders_day": "2026-08-04",
     "orders_day_n": 2
@@ -224,8 +224,39 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 19,
+  "pending_intents": [
+    {
+      "id": "i00019",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "NG",
+      "ticker": "",
+      "uid": "",
+      "side": "sell",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "288f8fed-c855-e542-d675-8a8f68fd6335",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1785887400000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-08-04",
+      "state_ts": 1785878432632,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 0.190489,
+        "atr": 0.095244,
+        "risk_pct": 0.05,
+        "ref_px": 2.687,
+        "note": "donchian close 2.687 vs [2.696 / 3.4672]"
+      }
+    }
+  ],
+  "next_intent_id": 20,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 2,
