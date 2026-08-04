@@ -12,7 +12,7 @@
   },
   "sleeves": {
     "core": {
-      "eq_rub": 701210.9430328662,
+      "eq_rub": 701211.7230328663,
       "month_start_eq": 701466.86,
       "day_start_eq": 701466.8550328662,
       "halt_day": null,
@@ -27,7 +27,7 @@
           "side": "long",
           "lots": 15,
           "lots_initial": 15,
-          "entry_px_pts": 81794.0,
+          "entry_px_pts": 81548.4,
           "entry_day": "2026-08-04",
           "entry_ts": 1785816032893,
           "stop_px_pts": 79597.142857,
@@ -37,13 +37,13 @@
           "tp1_order_id": "",
           "tp1_done": false,
           "be_moved": false,
-          "mfe_pts": 81794.0,
+          "mfe_pts": 81548.4,
           "atr_entry": 1098.428571,
           "risk_rub": 35073.34,
           "rub_per_pt": 1.0,
           "go_per_lot": 12510.7,
           "rolls": 0,
-          "fees_rub": 122.69,
+          "fees_rub": 122.32,
           "realized_rub": 0.0,
           "d6_fails": 0,
           "d4_fails": 0,
@@ -52,8 +52,10 @@
           "last_stop_update": "2026-08-04 04:00",
           "lat_sp": 15032893,
           "lat_pf": 0,
-          "cur_px": 81434.0,
-          "upnl_rub": -5400.0
+          "entry_px_tries": 1,
+          "entry_px_ok": true,
+          "cur_px": 81544.0,
+          "upnl_rub": -66.0
         },
         {
           "id": "L00018",
@@ -65,7 +67,7 @@
           "side": "long",
           "lots": 110,
           "lots_initial": 110,
-          "entry_px_pts": 12.111,
+          "entry_px_pts": 12.074,
           "entry_day": "2026-08-04",
           "entry_ts": 1785816032893,
           "stop_px_pts": 11.794,
@@ -75,13 +77,13 @@
           "tp1_order_id": "",
           "tp1_done": false,
           "be_moved": false,
-          "mfe_pts": 12.111,
+          "mfe_pts": 12.074,
           "atr_entry": 0.1585,
           "risk_rub": 35067.21,
           "rub_per_pt": 1000.0,
           "go_per_lot": 1087.94,
           "rolls": 0,
-          "fees_rub": 133.22,
+          "fees_rub": 132.81,
           "realized_rub": 0.0,
           "d6_fails": 0,
           "d4_fails": 0,
@@ -90,11 +92,13 @@
           "last_stop_update": "2026-08-04 04:00",
           "lat_sp": 15032893,
           "lat_pf": 0,
-          "cur_px": 12.061,
-          "upnl_rub": -5500.0
+          "entry_px_tries": 1,
+          "entry_px_ok": true,
+          "cur_px": 12.076,
+          "upnl_rub": 220.0
         }
       ],
-      "equity_mtm": 690310.94
+      "equity_mtm": 701365.72
     },
     "setA": {
       "eq_rub": 694980.99657189,
@@ -119,7 +123,7 @@
       }
     }
   },
-  "profile_eq": 685371.76,
+  "profile_eq": 696347.44,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
   "day_start_eq": 696447.86,
@@ -128,8 +132,8 @@
   "watermarks": {
     "last_daily_day": "2026-08-03",
     "last_hour_ts": 1785823200000,
-    "ops_since": "2026-08-04T04:00:32Z",
-    "last_eq_snap": 1785819392696,
+    "ops_since": "2026-08-04T04:15:32Z",
+    "last_eq_snap": 1785820352539,
     "last_report_day": "2026-08-03",
     "orders_day": "2026-08-04",
     "orders_day_n": 2
@@ -209,8 +213,8 @@
     "used_rub": 307333.9,
     "budget_rub": 650000.0,
     "peak_day_rub": 307333.9,
-    "account_liquid_rub": 1493318.84,
-    "bot_capital_rub": 762378.84
+    "account_liquid_rub": 1493416.59,
+    "bot_capital_rub": 765733.84
   },
   "drift": {
     "D2": 0,
@@ -245,9 +249,9 @@
   "fail_alert_ms": 0,
   "capital_breakdown": {
     "currencies": 765519.84,
-    "futures": -3141.0,
+    "futures": 214.0,
     "mom_shares": 0.0,
-    "user_assets": 730940.0,
-    "portfolio_total": 1493318.84
+    "user_assets": 727682.75,
+    "portfolio_total": 1493416.59
   }
 }
