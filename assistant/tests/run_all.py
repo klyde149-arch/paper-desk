@@ -414,8 +414,14 @@ class TestManualClose(unittest.TestCase):
         out = self.actions.watch_results()
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0]['chat_id'], '42')
-        self.assertIn('R7', out[0]['text'])
-        self.assertIn('+0.25R', out[0]['text'])
+        # текст для владельца, а не машинный: без сырого id сделки, сторона и инструмент
+        # по-русски, R — словами. Ср. _format_result в actions.py
+        text = out[0]['text']
+        self.assertIn('Профиль C2', text)
+        self.assertIn('шорт', text)
+        self.assertIn('RTS', text)
+        self.assertIn('+74,65$', text)
+        self.assertIn('0,25 изначального риска', text)
         self.assertEqual(self.actions.watch_results(), [])
 
     def test_dry_actions_sandbox(self):
