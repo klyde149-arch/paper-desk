@@ -119,10 +119,14 @@ function Write-DefaultFixtures([string]$Mock) {
     min_price_increment_amount = [pscustomobject]@{ units = '7'; nano = 749120000 } })
   # семантика боевого API (прод 2026-07-21, инцидент L00008): executedOrderPrice = ИТОГО ₽ за все
   # лоты; initialOrderPricePt = пункты ЗА 1 ЛОТ (не сумма! деление на лоты дало вход 14.83 вместо 88.99)
+  # Оба поля ОБЯЗАНЫ описывать одну сделку: 19 лот x 2.905 x 7749.12 ₽/пункт = 427712.6784 ₽.
+  # До 2026-08-04 здесь стояло 427675 (=2.90474 за лот) — расхождение не всплывало, потому что
+  # лестница брала initialOrderPricePt первым. Теперь первой идёт исполненная цена, и фикстура,
+  # не сходящаяся сама с собой, ломает тест — как и должна.
   Write-Json (Join-Path $Mock 'OrdersService.PostOrder.json') ([pscustomobject]@{
     orderId = 'ord-default'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '19'
     initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 905000000 }   # 2.905 за лот
-    executedOrderPrice = [pscustomobject]@{ units = '427675'; nano = 0; currency = 'rub' } })
+    executedOrderPrice = [pscustomobject]@{ units = '427712'; nano = 678400000; currency = 'rub' } })
   Write-Json (Join-Path $Mock 'StopOrdersService.PostStopOrder.json') ([pscustomobject]@{ stopOrderId = 'stop-new-1' })
   Write-Json (Join-Path $Mock 'OrdersService.CancelOrder.json') ([pscustomobject]@{})
   Write-Json (Join-Path $Mock 'StopOrdersService.CancelStopOrder.json') ([pscustomobject]@{})
@@ -859,8 +863,60 @@ function Scn-EmptySnapshot {
   Check 'empty-snap: точка эквити с валидным bot_capital (не мусор)' ($eq.Count -ge 1 -and [double]$eq[-1].bot_capital -eq 796000.0)
 }
 
+# --- 33. entry-px-exec: у рыночной заявки «подано» != «исполнено» -> берём исполненную цену
+# Инцидент 2026-08-04: initialOrderPricePt у рыночной заявки MOEX идёт с защитной полосой
+# (~0.2% в сторону сделки). Лестница брала его первым, расхождение проходило сквозь 30%-ые
+# ворота, и записанный вход ложился ВНЕ диапазона рынка — всегда в худшую сторону.
+function Scn-EntryPxExecuted {
+  $r = New-Scenario 'entry-px-exec'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  # подано 2.912 (защитная полоса), исполнено 2.905 = 19 лот x 2.905 x 7749.12 ₽/пункт
+  Write-Json (Join-Path $r 'mock\OrdersService.PostOrder.json') ([pscustomobject]@{
+    orderId = 'ord-px'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '19'
+    initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 912000000 }
+    executedOrderPrice = [pscustomobject]@{ units = '427712'; nano = 678400000; currency = 'rub' } })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $pos = @((Get-State $r).sleeves.core.positions)
+  Check 'entry-px-exec: карточка создана' ($pos.Count -eq 1)
+  if ($pos.Count) {
+    Check 'entry-px-exec: вход 2.905 (исполнено), а НЕ 2.912 (подано)' ([math]::Abs([double]$pos[0].entry_px_pts - 2.905) -lt 1e-9)
+    Check 'entry-px-exec: стоп от реальной цены = 2.676' ([math]::Abs([double]$pos[0].stop_px_pts - 2.676) -lt 1e-9)
+  }
+}
+
+# --- 34. entry-px-repair: исполненной цены в ответе НЕТ -> карточка чинится по операциям
+# Ровно случай L00017/L00018 (04.08): в ответе только «подано», карточка записала защитную
+# цену. Confirm-EntryPx подтверждает вход по операциям брокера — источнику, которому движок
+# уже верит при стопах/TP1/adopt — и правит цену. Живую стоп-заявку при этом НЕ двигает.
+function Scn-EntryPxRepair {
+  $r = New-Scenario 'entry-px-repair'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'mock\OrdersService.PostOrder.json') ([pscustomobject]@{
+    orderId = 'ord-pxr'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '19'
+    initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 912000000 } })   # только «подано»
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id = 'op-px'; date = '2026-07-15T07:05:30Z'; instrumentUid = 'uid-NGQ6'
+      operationType = 'OPERATION_TYPE_BUY'; quantity = '19'
+      price = [pscustomobject]@{ units = '2'; nano = 905000000 } } ) })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $pos = @((Get-State $r).sleeves.core.positions)
+  Check 'entry-px-repair: карточка создана' ($pos.Count -eq 1)
+  if ($pos.Count) {
+    Check 'entry-px-repair: вход исправлен на 2.905 по операциям' ([math]::Abs([double]$pos[0].entry_px_pts - 2.905) -lt 1e-9)
+    Check 'entry-px-repair: помечен подтверждённым (повторно не дёргаем API)' ([bool]$pos[0].entry_px_ok)
+    # намеренно: живая стоп-заявка осталась там, где встала при входе (2.912-0.229)
+    Check 'entry-px-repair: стоп у брокера НЕ сдвинут' ([math]::Abs([double]$pos[0].stop_px_pts - 2.683) -lt 1e-9)
+    Check 'entry-px-repair: комиссия пересчитана от реальной цены' ([math]::Abs([double]$pos[0].fees_rub - [math]::Round(19 * 2.905 * 7749.12 * 0.0001, 2)) -lt 0.01)
+  }
+}
+
 # ================= запуск =================
 $scenarios = @(
+  ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
   ${function:Scn-EntryFill}, ${function:Scn-EntryReject}, ${function:Scn-EntryLostAdopt}, ${function:Scn-EntryLostRepost},
   ${function:Scn-Qty0}, ${function:Scn-GoCap}, ${function:Scn-GoTrim}, ${function:Scn-HardDd},
   ${function:Scn-D2}, ${function:Scn-D4Confirmed}, ${function:Scn-D4Quarantine},

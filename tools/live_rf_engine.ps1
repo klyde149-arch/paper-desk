@@ -291,12 +291,23 @@ function Set-EntriesHalt([string]$Reason) {
 }
 
 # цена филла ЗА ЕДИНИЦУ из ответа PostOrder/GetOrderState. Боевые факты:
-# executed_order_price = ИТОГО в РУБЛЯХ за все лоты (песочница 2026-07-17);
+# executed_order_price = ИТОГО в РУБЛЯХ за все лоты (песочница 2026-07-17) - это цена
+#   ИСПОЛНЕНИЯ, единственное поле ответа, отражающее реальную сделку;
 # initial_order_price_pt = пункты ЗА 1 ЛОТ, а НЕ сумма (прод 2026-07-21, инцидент L00008:
-# BR 6 лот, поле=88.99, деление на лоты записало вход 14.83 -> фантом +497%, стоп 7.9).
-# Семантика полей уже расходилась с ожиданием, поэтому слепо не верим ни одной трактовке:
-# кандидаты проверяются лестницей против референса (ref_px сигнала -> рублёвый пересчёт ->
-# карточка), берётся первый в пределах 30%; ни одного = не распарсилось ($null -> референс).
+#   BR 6 лот, поле=88.99, деление на лоты записало вход 14.83 -> фантом +497%, стоп 7.9).
+#   Но это цена ПОДАННОЙ заявки: у рыночной заявки MOEX она идёт с защитной полосой
+#   (~0.2% в сторону сделки), а не по факту сделки.
+# ПОРЯДОК КАНДИДАТОВ (инцидент 2026-08-04): сначала исполненная цена, потом поданная.
+# Раньше первым стоял initial_order_price_pt и всегда выигрывал - расхождение 0.2%
+# проходит сквозь 30%-ые ворота незаметно. Итог: три записанных входа подряд легли ВНЕ
+# диапазона рынка и всегда в худшую сторону (Si 81794 при максимуме за 30 дней 81650,
+# CNY 12.111 при 12.089, GOLD-шорт 4037.9 при минимуме дня 4041.3); стоп считается от
+# входа, поэтому был на ~10% теснее задуманных 2xATR, а P&L нёс фантомный минус.
+# Семантика полей уже дважды расходилась с ожиданием, поэтому слепо не верим ни одной
+# трактовке: кандидаты проверяются лестницей против референса (ref_px сигнала ->
+# рублёвый пересчёт -> карточка), берётся первый в пределах 30%; ни одного = не
+# распарсилось ($null -> референс). Окончательная истина - операции брокера, см.
+# Confirm-EntryPx: цена сделки подтверждается по ним и карточка чинится сама.
 function Get-FillPxPerUnit($It, $Resp, [int]$Lots) {
   if ($Lots -le 0 -or $null -eq $Resp) { return $null }
   $isShare = ([string]$It.kind -like 'mom_*')
@@ -323,8 +334,13 @@ function Get-FillPxPerUnit($It, $Resp, [int]$Lots) {
       }
     }
     if ($ref -le 0) { return $null }
-    # лестница: pt за 1 лот (прод) -> pt/лоты (если поле вдруг сумма: мимо гейта в 2+ раза) -> из рублей
-    foreach ($x in @($ptRaw, $(if ($ptRaw -gt 0) { $ptRaw / $Lots } else { 0.0 }), $rubPx)) {
+    # расхождение «исполнено vs подано» — то самое, что скрывалось за 30%-ыми воротами.
+    # Пишем в лог всегда: если брокер однажды поменяет семантику, это будет видно сразу.
+    if ($rubPx -gt 0 -and $ptRaw -gt 0 -and [math]::Abs($ptRaw / $rubPx - 1) -gt 0.0005) {
+      Write-LiveLog ("fill $($It.id) $($It.ticker): исполнено $([math]::Round($rubPx,6)) vs подано $([math]::Round($ptRaw,6)) (расх. $([math]::Round(100*($ptRaw/$rubPx-1),3))%) - берём исполненную")
+    }
+    # лестница: исполненная цена (из рублей) -> pt за 1 лот (прод) -> pt/лоты (если поле вдруг сумма)
+    foreach ($x in @($rubPx, $ptRaw, $(if ($ptRaw -gt 0) { $ptRaw / $Lots } else { 0.0 }))) {
       if ($x -gt 0 -and [math]::Abs($x / $ref - 1) -le 0.30) { return [math]::Round($x, 6) }
     }
     return $null
@@ -1830,6 +1846,99 @@ function Invoke-DailyReport([switch]$Preview) {
   }
 }
 
+# ================= подтверждение цены входа по операциям брокера =================
+# Ответ PostOrder — не истина в последней инстанции: поле «подано» дважды маскировалось под
+# «исполнено» (L00008 2026-07-21, протектив-полоса рыночной заявки 2026-08-04). Истина —
+# операции брокера, и движок уже верит им при закрытии по стопу, TP1 и adopt. Здесь та же
+# проверка применяется ко ВХОДУ.
+#
+# Почему это не всплывало само: Invoke-Reconcile сравнивает ЛОТЫ, а не цены. Расхождение
+# в 0.2% не даёт ни одного дрифта и тихо живёт в P&L, в стопе (он считается от входа) и в
+# статистике контура.
+#
+# Окно операций запрашивается ЯВНО от времени сделки: кэш Get-OpsSince скользит на час, и
+# к моменту проверки вход из него уже мог выпасть. Одна карточка — один успешный запрос.
+$ENTRY_PX_MAX_TRIES = 20      # после стольких безуспешных попыток перестаём дёргать API
+$ENTRY_PX_MAX_AGE_MS = 259200000   # 3 суток: дальше операции запрашивать бессмысленно
+
+function Confirm-EntryPx($C) {
+  if ($C.PSObject.Properties['entry_px_ok'] -and $C.entry_px_ok) { return }
+  $ageMs = $NowMs - [long]$C.entry_ts
+  $tries = if ($C.PSObject.Properties['entry_px_tries']) { [int]$C.entry_px_tries } else { 0 }
+  if ($ageMs -gt $ENTRY_PX_MAX_AGE_MS -or $tries -ge $ENTRY_PX_MAX_TRIES) {
+    $C | Add-Member -NotePropertyName entry_px_ok -NotePropertyValue $true -Force   # сдаёмся молча
+    return
+  }
+  $C | Add-Member -NotePropertyName entry_px_tries -NotePropertyValue ($tries + 1) -Force
+
+  $want = if ([string]$C.side -eq 'long') { 'OPERATION_TYPE_BUY' } else { 'OPERATION_TYPE_SELL' }
+  $ops = @()
+  try {
+    $ops = @(Get-TiOperations ([string]$st.account_id) `
+        ((MsToUtc ([long]$C.entry_ts - 300000)).ToString('yyyy-MM-ddTHH:mm:ssZ')) `
+        ((MsToUtc $NowMs).ToString('yyyy-MM-ddTHH:mm:ssZ')))
+  } catch {
+    # операции недоступны — не сдаёмся, попробуем следующим тиком (как adopt/D4)
+    Write-LiveLog "entry-px $($C.id): operations недоступны ($($_.Exception.Message)) - проверка отложена"
+    return
+  }
+  # СТРОГИЙ матчинг, как в Find-FillOperation: инструмент + направление + количество
+  $op = $null
+  foreach ($o in $ops) {
+    if ($null -eq $o) { continue }
+    if ([string](Get-TiField $o 'instrument_uid') -ne [string]$C.uid) { continue }
+    if ([string](Get-TiField $o 'operation_type') -ne $want) { continue }
+    $q = 0.0
+    try { $q = [double][string](Get-TiField $o 'quantity') } catch {}
+    if ($q -ne [int]$C.lots_initial) { continue }
+    $op = $o; break
+  }
+  if ($null -eq $op) { return }   # ещё не проросла в операции — следующий тик
+
+  $real = 0.0
+  try { $real = [double](M2D $op.price).value } catch {}
+  $old = [double]$C.entry_px_pts
+  # тот же 30%-ый предохранитель, что в лестнице: мусорную цену в карточку не пускаем
+  if ($real -le 0 -or $old -le 0 -or [math]::Abs($real / $old - 1) -gt 0.30) {
+    Write-LiveLog "entry-px $($C.id): операция даёт $real против $old - вне ворот, игнор"
+    $C | Add-Member -NotePropertyName entry_px_ok -NotePropertyValue $true -Force
+    return
+  }
+  $C | Add-Member -NotePropertyName entry_px_ok -NotePropertyValue $true -Force
+  if ([math]::Abs($real - $old) -lt 1e-9) { return }   # совпало — тихо
+
+  # чиним всё, что считается ОТ цены входа
+  $lots0 = [int]$C.lots_initial
+  $newFee = [math]::Round($lots0 * $real * [double]$C.rub_per_pt * [double]$LIVE.fee_est, 2)
+  $sl = Get-SleeveRef ([string]$C.sleeve)
+  $sl.eq_rub = [double]$sl.eq_rub - ($newFee - [double]$C.fees_rub)
+  $C.fees_rub = $newFee
+  if ([math]::Abs([double]$C.mfe_pts - $old) -lt 1e-9) { $C.mfe_pts = [math]::Round($real, 6) }
+  $C.entry_px_pts = [math]::Round($real, 6)
+  if ($C.PSObject.Properties['tp1_px_pts'] -and $null -ne $C.tp1_px_pts -and -not $C.tp1_done) {
+    $C.tp1_px_pts = [math]::Round($real + ([double]$C.tp1_px_pts - $old), 6)
+  }
+  # Стоп-заявку у брокера НЕ трогаем: двигать живую защиту на реальных деньгах — отдельное
+  # решение пользователя. Считаем, каким он должен был быть, и говорим об этом вслух;
+  # дневной трейл-хук всё равно приведёт его к правилу.
+  $sm = if ([string]$C.side -eq 'long') { 1.0 } else { -1.0 }
+  $wantStop = [math]::Round($real - $sm * 2.0 * [double]$C.atr_entry, 6)
+  $msg = ("цена входа {0} уточнена по операциям брокера: {1} -> {2} (в ответе на заявку была цена ПОДАННОЙ заявки, а не сделки). Комиссия пересчитана. Стоп у брокера остался {3}; по правилу 2xATR от реальной цены он должен быть {4} — живую стоп-заявку бот не двигает, это решение за вами." -f `
+      $C.id, $old, [double]$C.entry_px_pts, [double]$C.stop_px_pts, $wantStop)
+  $script:ev.Add("ENTRY-PX FIX $($C.id): $old -> $($C.entry_px_pts)")
+  $script:jr.Add(("`r`n## {0} MSK — RF-LIVE: {1}`r`n" -f (MsToUtcStr $mskNowMs), $msg))
+  Alert $msg
+}
+
+function Invoke-ConfirmEntryPx {
+  foreach ($sn in 'core', 'setA') {
+    foreach ($c in @((Get-SleeveRef $sn).positions)) {
+      if ($null -eq $c) { continue }
+      try { Confirm-EntryPx $c } catch { Write-LiveLog "entry-px $($c.id): $($_.Exception.Message)" }
+    }
+  }
+}
+
 # ================= живость брокера: алерты о потере связи =================
 # Закрывает дыры, вскрытые инцидентом 2026-08-03 (TLS-цепочка Минцифры): алерт стрелял
 # ровно один раз (consec_fail -eq 5), о восстановлении не сообщал, при затяжном сбое
@@ -1935,6 +2044,10 @@ try {
   # 5. state machine polling
   Invoke-IntentPolling
 
+  # 5b. цена входа по операциям брокера - СТРОГО до MTM: переоценка и governors должны
+  # считать от реальной цены сделки, а не от цены поданной заявки (инцидент 2026-08-04)
+  Invoke-ConfirmEntryPx
+
   # 6. MTM + governors
   Invoke-Mtm
   Invoke-Governors
@@ -1956,6 +2069,10 @@ try {
       }
     }
     Invoke-IntentCleanup   # терминальные интенты окон убираем в этом же тике
+    # второй проход: карточка, родившаяся в окне входов ВЫШЕ, до шага 5b ещё не существовала.
+    # Флаг entry_px_ok делает проход no-op для всех уже подтверждённых, поэтому лишний вызов
+    # стоит один запрос операций на свежий вход - зато цена чинится сразу, а не через минуту.
+    Invoke-ConfirmEntryPx
   }
 
   # вечерний отчёт 21:00 МСК - и в будни, и в выходные (MTM уже пересчитан в шаге 6)
