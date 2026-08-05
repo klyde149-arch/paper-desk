@@ -12,7 +12,7 @@
   },
   "sleeves": {
     "core": {
-      "eq_rub": 701211.7230328663,
+      "eq_rub": 701183.2783591152,
       "month_start_eq": 701466.86,
       "day_start_eq": 701211.7230328663,
       "halt_day": null,
@@ -54,8 +54,8 @@
           "lat_pf": 0,
           "entry_px_tries": 1,
           "entry_px_ok": true,
-          "cur_px": 81329.0,
-          "upnl_rub": -3291.0
+          "cur_px": 81309.0,
+          "upnl_rub": -3591.0
         },
         {
           "id": "L00018",
@@ -94,11 +94,48 @@
           "lat_pf": 0,
           "entry_px_tries": 1,
           "entry_px_ok": true,
-          "cur_px": 12.042,
-          "upnl_rub": -3520.0
+          "cur_px": 12.05,
+          "upnl_rub": -2640.0
+        },
+        {
+          "id": "L00019",
+          "sleeve": "core",
+          "asset": "NG",
+          "secid": "NGQ6",
+          "uid": "79d16f7f-3ca4-4ae2-aa5b-183ed22618e9",
+          "figi": "FUTNG0826000",
+          "side": "short",
+          "lots": 13,
+          "lots_initial": 13,
+          "entry_px_pts": 2.697,
+          "entry_day": "2026-08-05",
+          "entry_ts": 1785902432754,
+          "stop_px_pts": 2.887489,
+          "stop_order_id": "0ac6055a-6487-4b61-806b-265fd76609c8",
+          "stop_lots": 13,
+          "tp1_px_pts": null,
+          "tp1_order_id": "",
+          "tp1_done": false,
+          "be_moved": false,
+          "mfe_pts": 2.697,
+          "atr_entry": 0.095244,
+          "risk_rub": 35060.59,
+          "rub_per_pt": 8112.909999999999,
+          "go_per_lot": 6263.25,
+          "rolls": 0,
+          "fees_rub": 28.44,
+          "realized_rub": 0.0,
+          "d6_fails": 0,
+          "d4_fails": 0,
+          "quarantine": false,
+          "stop_deferred": null,
+          "last_stop_update": "2026-08-05 04:00",
+          "lat_sp": 15032754,
+          "lat_pf": 0,
+          "entry_px_tries": 1
         }
       ],
-      "equity_mtm": 694400.72
+      "equity_mtm": 694980.72
     },
     "setA": {
       "eq_rub": 694980.99657189,
@@ -123,7 +160,7 @@
       }
     }
   },
-  "profile_eq": 689432.28,
+  "profile_eq": 690008.13,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
   "day_start_eq": 689432.28,
@@ -132,11 +169,11 @@
   "watermarks": {
     "last_daily_day": "2026-08-04",
     "last_hour_ts": 1785906000000,
-    "ops_since": "2026-08-05T02:45:32Z",
-    "last_eq_snap": 1785901532561,
+    "ops_since": "2026-08-05T03:00:32Z",
+    "last_eq_snap": 1785902432754,
     "last_report_day": "2026-08-04",
-    "orders_day": "2026-08-04",
-    "orders_day_n": 2
+    "orders_day": "2026-08-05",
+    "orders_day_n": 1
   },
   "fronts": {
     "BR": {
@@ -213,7 +250,7 @@
     "used_rub": 307333.9,
     "budget_rub": 650000.0,
     "peak_day_rub": 307333.9,
-    "account_liquid_rub": 1527126.86,
+    "account_liquid_rub": 1529126.46,
     "bot_capital_rub": 791027.64
   },
   "drift": {
@@ -224,44 +261,13 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [
-    {
-      "id": "i00019",
-      "kind": "entry",
-      "sleeve": "core",
-      "asset": "NG",
-      "ticker": "NGQ6",
-      "uid": "79d16f7f-3ca4-4ae2-aa5b-183ed22618e9",
-      "side": "sell",
-      "lots": 0,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "288f8fed-c855-e542-d675-8a8f68fd6335",
-      "broker_order_id": "",
-      "state": "INTENT",
-      "attempts": 0,
-      "t_signal": 1785887400000,
-      "t_post": 0,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-08-04",
-      "state_ts": 1785878432632,
-      "last_error": "",
-      "ctx": {
-        "stop_dist": 0.190489,
-        "atr": 0.095244,
-        "risk_pct": 0.05,
-        "ref_px": 2.687,
-        "note": "donchian close 2.687 vs [2.696 / 3.4672]"
-      }
-    }
-  ],
+  "pending_intents": [],
   "next_intent_id": 20,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 2,
-    "orders_posted": 7,
-    "fills": 6,
+    "orders_posted": 8,
+    "fills": 7,
     "wins": 1,
     "losses": 1,
     "fees_rub": 147.6,
@@ -285,7 +291,7 @@
     "currencies": 796922.64,
     "futures": -5895.0,
     "mom_shares": 0.0,
-    "user_assets": 736099.22,
-    "portfolio_total": 1527126.86
+    "user_assets": 738098.82,
+    "portfolio_total": 1529126.46
   }
 }
