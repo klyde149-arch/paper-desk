@@ -378,10 +378,31 @@ if (Test-Path $lrPf) {
     $lrClosed = [object[]]@((Get-Content (Join-Path $lrDir 'trades.json') -Raw -Encoding UTF8 | ConvertFrom-Json) | Where-Object { $null -ne $_ })
   }
   $lrCandDir = Join-Path $lrDir 'candles'
+  # брокерский P&L (expected_yield по uid, см. Set-BotCapital) вместо внутреннего upnl_rub - тот
+  # же источник, что уходит в вечерний TG-отчёт (tools/live_rf_engine.ps1: Get-CardPnlMap).
+  # Пропорционально по лотам, если один инструмент держат оба рукава одновременно (редкий кейс).
+  $lrCardPnl = @{}
+  if ($lp.PSObject.Properties['broker_pnl_by_uid']) {
+    $lrAllPos = @()
+    foreach ($snName in 'core','setA') { $lrAllPos += @($lp.sleeves.$snName.positions | Where-Object { $null -ne $_ }) }
+    $lrByUid = @{}
+    foreach ($p in $lrAllPos) { $u = [string]$p.uid; if (-not $lrByUid.ContainsKey($u)) { $lrByUid[$u] = @() }; $lrByUid[$u] += $p }
+    foreach ($u in $lrByUid.Keys) {
+      $prop = $lp.broker_pnl_by_uid.PSObject.Properties[$u]
+      if ($null -eq $prop) { continue }
+      $total = [double]$prop.Value; $cards = $lrByUid[$u]
+      $lotsSum = ($cards | Measure-Object -Property lots -Sum).Sum
+      foreach ($p in $cards) {
+        $share = if ($lotsSum -gt 0) { [double]$p.lots / [double]$lotsSum } else { 1.0 / $cards.Count }
+        $lrCardPnl[[string]$p.id] = $total * $share
+      }
+    }
+  }
   $lrPos = [object[]]@()
   foreach ($snName in 'core','setA') {
     $lrPos += [object[]]@(@($lp.sleeves.$snName.positions) | Where-Object { $null -ne $_ } | ForEach-Object {
       $asset = [string]$_.asset; $secid = [string]$_.secid
+      $brokerUpnl = if ($lrCardPnl.ContainsKey([string]$_.id)) { [math]::Round($lrCardPnl[[string]$_.id], 2) } else { $_.upnl_rub }
       $rpp = [double]$_.rub_per_pt
       $notional = [math]::Round([double]$_.lots * [double]$_.entry_px_pts * $rpp, 0)
       $pct = $(if ($null -ne $_.cur_px -and [double]$_.entry_px_pts -ne 0) { [math]::Round(([double]$_.cur_px / [double]$_.entry_px_pts - 1) * 100, 2) } else { $null })
@@ -397,23 +418,23 @@ if (Test-Path $lrPf) {
       }
       [ordered]@{ id = $_.id; sleeve = $snName; asset = $_.asset; secid = $_.secid; side = $_.side
         lots = $_.lots; entry = $_.entry_px_pts; stop = $_.stop_px_pts; tp1 = $_.tp1_px_pts
-        cur = $_.cur_px; upnl = $_.upnl_rub; riskRub = $_.risk_rub; entryDay = $_.entry_day; entryTs = $_.entry_ts
+        cur = $_.cur_px; upnl = $brokerUpnl; riskRub = $_.risk_rub; entryDay = $_.entry_day; entryTs = $_.entry_ts
         rolls = $_.rolls; rubPerPt = $rpp; notional = $notional; pctChg = $pct; candles1h = $c1h } })
   }
   $lrHold = [object[]]@(@($lp.sleeves.mom.holdings) | Where-Object { $null -ne $_ } | ForEach-Object {
     [ordered]@{ sym = $_.sym; lots = $_.lots; lotSize = $_.lot_size; avg = $_.avg_px; last = $_.last_px } })
   $rfReal = [ordered]@{
     mode = [string]$lp.mode
-    equityNow = [double]$lp.profile_eq
-    startEq = [double]$lp.meta.base_rub
-    peak = [double]$lp.peak_eq
-    dayStartEq = [double]$lp.day_start_eq
     entriesHalt = [bool]$lp.entries_halt.active
     haltReason = [string]$lp.entries_halt.reason
     goUsed = [double]$lp.go.used_rub
     goBudget = [double]$lp.go.budget_rub
     accountLiquid = $(if ($lp.go.PSObject.Properties['account_liquid_rub']) { [double]$lp.go.account_liquid_rub } else { $null })
     capitalNow = $(if ($lp.go.PSObject.Properties['bot_capital_rub']) { [double]$lp.go.bot_capital_rub } else { [double]$lp.profile_eq })
+    # реальный исторический пик (Set-BotCapital: Get-CapitalPeakSeed), НЕ profile_eq/peak_eq -
+    # прежние equityNow/startEq/peak/dayStartEq здесь были мёртвыми полями (фронтенд их не читал,
+    # см. отчёт-фикс 2026-08-06) и сидели на другой шкале, чем реальный капитал бота - убраны.
+    capitalPeak = $(if ($lp.go.PSObject.Properties['capital_peak_rub']) { [double]$lp.go.capital_peak_rub } else { $null })
     capitalBreakdown = $(if ($lp.PSObject.Properties['capital_breakdown']) { $lp.capital_breakdown } else { $null })
     drift = $lp.drift
     sleeves = [ordered]@{ core = [double]$lp.sleeves.core.equity_mtm; setA = [double]$lp.sleeves.setA.equity_mtm; mom = [double]$lp.sleeves.mom.equity_mtm }

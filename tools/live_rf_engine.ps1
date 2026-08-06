@@ -45,7 +45,7 @@ $LIVE = [ordered]@{
   entry_from = '06:01'; entry_till = '10:15'   # окно входов/выходов «на открытии» (MSK)
   roll_from  = '06:05'; roll_till  = '18:00'   # окно роллов
   mom_from   = '06:10'                          # mom-ребаланс
-  report_at  = '21:00'                          # вечерний отчёт (МСК)
+  report_at  = '23:55'                          # вечерний отчёт (МСК) - после закрытия вечерней сессии FORTS (~23:50)
   whitelist  = @()               # Phase 3: @('CNY','NG'); пусто = весь универсум
   max_lots_override = 0          # Phase 3: 1 (0 = без лимита)
   mom_enabled = $true            # Phase 3: $false
@@ -684,6 +684,25 @@ function Update-GoBudget($Margin) {
   $st.go.budget_rub = [math]::Round([double]$LIVE.base_rub - $stockVal - [double]$LIVE.reserve_rub, 2)
   if ([double]$st.go.used_rub -gt [double]$st.go.peak_day_rub) { $st.go.peak_day_rub = [double]$st.go.used_rub }
 }
+# Восстановить реальный исторический пик bot_capital из equity.json (вызывается один раз,
+# при первом тике после деплоя этого кода - дальше пик просто растёт монотонно, как peak_day_rub).
+# ПОЧЕМУ не с нуля: пик 2026-08-06 руками сверен по data/live_rf/equity.json (поле bot_capital -
+# реальная брокерская var_margin, НЕ наш расчёт по цене входа, поэтому не подвержен багам класса
+# L00008): первая точка 768793.33 (17.07 20:01), гладкий рост без единого скачка до истинного
+# максимума 824650.96 (23.07 18:06 - бумажный пик по нефти L00008 BR, который потом растаял до
+# +1508.67 при закрытии 27.07). Обнулять эту историю - терять реальную просадку бота.
+function Get-CapitalPeakSeed {
+  $eqPath = Join-Path $lrfDir 'equity.json'
+  $best = 0.0
+  foreach ($r in @(Read-JsonFile $eqPath)) {
+    if ($null -eq $r -or -not $r.PSObject.Properties['bot_capital'] -or $null -eq $r.bot_capital) { continue }
+    $liq = if ($r.PSObject.Properties['account_liquid']) { $r.account_liquid } else { $null }
+    if ($null -eq $liq -or [double]$liq -le 0) { continue }   # тот же фильтр битых снимков, что и build_vizdata.ps1
+    $v = [double]$r.bot_capital
+    if ($v -gt $best) { $best = $v }
+  }
+  return $best
+}
 # Точный капитал бота (сверено на боевом счёте 2026-07-17): валюты (рубли+USD+серебро) +
 # фьючерсы + momentum-акции бота. Чужие акции/облигации пользователя автоматически ВНЕ:
 # их нет в total_amount_currencies и они не куплены ботом (mom.holdings). Серебро SLVRUB_TOM
@@ -711,13 +730,25 @@ function Set-BotCapital($Pf) {
   # «вырастал» на номинал при каждом входе; сам брокер в total_amount_portfolio номинал не считает).
   # Приоритет: var_margin позиций (боевой факт: несведённая вариационка) -> Σ upnl карточек (sandbox/mock).
   $gotVm = $false
+  # брокерский P&L по инструменту (expected_yield, с момента открытия позиции) - заменяет наш
+  # внутренний upnl_rub (зависит от entry_px_pts и потенциально повторяем той же категории
+  # багов, что и L00008/протектив-полоса 2026-08-04) везде, где отчёт/дашборд показывают P&L
+  # конкретной позиции. Ключ - instrument_uid: если один инструмент одновременно держат оба
+  # рукава (редкий кейс, MAXPOS=3 на счёт), делить пропорционально лотам - делает вызывающий код.
+  $brokerPnl = [pscustomobject]@{}
   foreach ($p in @($Pf.positions)) {
     if ($null -eq $p) { continue }
     $itype = [string](Get-TiField $p 'instrument_type')
     if ($itype -ne 'futures') { continue }
     $vm = Get-TiField $p 'var_margin'
     if ($null -ne $vm) { $futRub += [double](M2D $vm).value; $gotVm = $true }
+    $puid = [string](Get-TiField $p 'instrument_uid')
+    $ey = Get-TiField $p 'expected_yield'
+    if ($puid -and $null -ne $ey) {
+      $brokerPnl | Add-Member -NotePropertyName $puid -NotePropertyValue ([math]::Round([double](M2D $ey).value, 2)) -Force
+    }
   }
+  $st | Add-Member -NotePropertyName broker_pnl_by_uid -NotePropertyValue $brokerPnl -Force
   if (-not $gotVm) {
     foreach ($sn in 'core','setA') {
       foreach ($cc in @($st.sleeves.$sn.positions)) {
@@ -731,6 +762,13 @@ function Set-BotCapital($Pf) {
   if ($cap -le 0 -and $totRub -gt 0) { $cap = [math]::Round($totRub, 2) }   # sandbox/фолбэк: нет разбивки -> весь портфель
   $userRub = [math]::Round($totRub - $curRub - $futRub - $momRub, 2)         # чужие акции+облигации (для сверки)
   $st.go | Add-Member -NotePropertyName bot_capital_rub -NotePropertyValue $cap -Force
+  if (-not $st.go.PSObject.Properties['capital_peak_rub']) {
+    $seed = Get-CapitalPeakSeed
+    $st.go | Add-Member -NotePropertyName capital_peak_rub -NotePropertyValue ([math]::Max($seed, $cap)) -Force
+    Write-LiveLog "Set-BotCapital: capital_peak_rub восстановлен из истории = $($st.go.capital_peak_rub)"
+  } elseif ($cap -gt [double]$st.go.capital_peak_rub) {
+    $st.go.capital_peak_rub = $cap
+  }
   $st | Add-Member -NotePropertyName capital_breakdown -NotePropertyValue ([pscustomobject]@{
     currencies = [math]::Round($curRub, 2); futures = [math]::Round($futRub, 2)
     mom_shares = [math]::Round($momRub, 2); user_assets = $userRub; portfolio_total = [math]::Round($totRub, 2)
@@ -1756,47 +1794,138 @@ function Save-EquitySnapshot {
   Write-JsonAtomic $eqPath (ToArr $eq) 4
 }
 
+# Брокерский P&L каждой открытой карточки (expected_yield по uid из Set-BotCapital), поделенный
+# пропорционально лотам, если инструмент одновременно держат оба рукава. Fallback на внутренний
+# upnl_rub там, где брокерских данных нет (dryrun/sandbox, либо uid выпал из снимка на этом тике).
+function Get-CardPnlMap($OpenCards) {
+  $map = @{}
+  $haveBroker = $st.PSObject.Properties['broker_pnl_by_uid']
+  $byUid = @{}
+  foreach ($c in $OpenCards) {
+    $u = [string]$c.uid
+    if (-not $byUid.ContainsKey($u)) { $byUid[$u] = New-Object System.Collections.Generic.List[object] }
+    $byUid[$u].Add($c)
+  }
+  foreach ($u in $byUid.Keys) {
+    $cards = $byUid[$u]
+    $prop = if ($haveBroker) { $st.broker_pnl_by_uid.PSObject.Properties[$u] } else { $null }
+    if ($null -ne $prop) {
+      $total = [double]$prop.Value
+      $lotsSum = 0.0; foreach ($c in $cards) { $lotsSum += [double]$c.lots }
+      foreach ($c in $cards) {
+        $share = if ($lotsSum -gt 0) { [double]$c.lots / $lotsSum } else { 1.0 / $cards.Count }
+        $map[[string]$c.id] = $total * $share
+      }
+    } else {
+      foreach ($c in $cards) {
+        $map[[string]$c.id] = if ($c.PSObject.Properties['upnl_rub']) { [double]$c.upnl_rub } else { 0.0 }
+      }
+    }
+  }
+  return $map
+}
+
+# ================= ИИ-проверка готового отчёта (Gemma/Qwen через OpenRouter) =================
+# НЕ формулирует и не пересчитывает отчёт - только сверяет уже готовый текст с уже готовыми
+# числами по жёсткому чек-листу (без права придумывать свои критерии). Вызывается ПОСЛЕ того,
+# как основной отчёт уже ушёл в Telegram (см. Invoke-DailyReport) - любой сбой здесь (нет ключа,
+# сеть, таймаут, битый JSON) молча логируется и ни на что не влияет: отчёт никогда не зависит
+# от этого шага. Модель отдельная от Python-ассистента (тот на DeepSeek/Gemini для тул-коллинга,
+# см. assistant/config.py) - тут своя пара, по умолчанию Gemma с фолбэком на Qwen.
+$script:OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+$script:REPORT_VERIFY_PROMPT = @'
+Проверь готовый отчёт трейдинг-бота СТРОГО по пунктам ниже. Ты НЕ пересчитываешь и не переписываешь
+цифры отчёта - только сверяешь текст с приложенными фактами (JSON).
+1. peak_rub >= capital_rub (иначе просадка не может быть отрицательной - формат сломан).
+2. Сумма positions[].day_pnl (по всем открытым позициям) + сумма closed[].pnl примерно равна
+   capital_day_delta (допуск на комиссии/округление - до нескольких тысяч рублей, не больше).
+3. Все числовые поля из фактов присутствуют в тексте и не NaN/пустые/null.
+4. В тексте есть все секции: капитал, открытые позиции, закрытые сделки, по стратегиям, ГО, статус входов.
+5. Ненулевые drift (D2/D4/D5/D6) - это ожидаемое, штатно отображаемое состояние, а НЕ ошибка отчёта
+   сама по себе; сверяй только что цифры в тексте совпадают с фактами.
+Ответь СТРОГО одним словом OK, если всё сошлось. Если нет - одной короткой строкой на русском:
+что именно разошлось и почему. Не пиши ничего кроме этого - ни цифр отчёта, ни пояснений сверх сути.
+'@
+function Invoke-ReportVerify([string]$ReportText, $Facts) {
+  try {
+    $key = $env:OPENROUTER_API_KEY
+    if (-not $key) { return }
+    $model   = if ($env:RF_VERIFY_MODEL)          { $env:RF_VERIFY_MODEL }          else { 'google/gemma-3-27b-it' }
+    $modelFb = if ($env:RF_VERIFY_MODEL_FALLBACK) { $env:RF_VERIFY_MODEL_FALLBACK } else { 'qwen/qwen-2.5-72b-instruct' }
+    $headers = @{ Authorization = "Bearer $key"; 'Content-Type' = 'application/json' }
+    $userMsg = "ФАКТЫ:`n$($Facts | ConvertTo-Json -Depth 6 -Compress)`n`nТЕКСТ ОТЧЁТА:`n$ReportText"
+    $answer = $null
+    foreach ($mdl in @($model, $modelFb)) {
+      $body = @{ model = $mdl; temperature = 0; max_tokens = 300
+        messages = @(@{ role = 'system'; content = $script:REPORT_VERIFY_PROMPT }, @{ role = 'user'; content = $userMsg }) }
+      try {
+        $resp = Invoke-RestMethod -Uri $script:OPENROUTER_URL -Method Post -Headers $headers `
+          -Body ($body | ConvertTo-Json -Depth 8) -TimeoutSec 20
+        $answer = [string]$resp.choices[0].message.content
+        break
+      } catch { Write-LiveLog "Invoke-ReportVerify: $mdl недоступна ($($_.Exception.Message))" }
+    }
+    if ($null -eq $answer) { return }
+    $answer = $answer.Trim()
+    if ($answer -and $answer -ne 'OK' -and $answer -ne 'ОК') {
+      $warn = "⚠️ Проверка вечернего отчёта: $answer"
+      [void](Send-TgAlert $warn)
+      if ($env:TG_CHAT_ID_FUT) { [void](Send-TgAlert $warn -Chat $env:TG_CHAT_ID_FUT) }
+    }
+  } catch { Write-LiveLog "Invoke-ReportVerify: пропущено ($($_.Exception.Message))" }
+}
+
 function Invoke-DailyReport([switch]$Preview) {
   # $Preview=true (для -ReportNow): собрать и отправить, НО не двигать вотермарку/базу.
   if (-not $Preview -and [string]$st.watermarks.last_report_day -eq $mskToday) { return }
 
+  # реальный, сверенный с брокером капитал (Set-BotCapital); profile_eq/peak_eq остаются
+  # НЕТРОНУТЫМИ и продолжают питать Invoke-Governors - тут только то, что видит пользователь.
+  $capNow = if ($st.go.PSObject.Properties['bot_capital_rub']) { [double]$st.go.bot_capital_rub } else { [double]$st.profile_eq }
+  $peakNow = if ($st.go.PSObject.Properties['capital_peak_rub']) { [double]$st.go.capital_peak_rub } else { $capNow }
+
   $baseTs = if ($st.PSObject.Properties['report_base'] -and $st.report_base.PSObject.Properties['ts']) { [long]$st.report_base.ts } else { 0 }
-  $baseEq = if ($baseTs -gt 0) { [double]$st.report_base.profile_eq } else { [double]$st.day_start_eq }
+  $baseCap = if ($baseTs -gt 0 -and $st.report_base.PSObject.Properties['bot_capital_rub']) { [double]$st.report_base.bot_capital_rub } else { $capNow }
   $hasPosBase = { param($id) $baseTs -gt 0 -and $st.report_base.positions.PSObject.Properties[$id] }
 
   $L = New-Object System.Collections.Generic.List[string]
   $L.Add("Фьючерсы — вечерний отчёт за $((MsToUtc $mskNowMs).ToString('dd.MM.yyyy'))")
   $L.Add('')
-  $L.Add("Капитал бота: $(Fmt-Money ([double]$st.profile_eq) '₽' 0)")
-  $dpl = [double]$st.profile_eq - $baseEq
-  $dplPct = if ($baseEq -gt 0) { 100.0 * $dpl / $baseEq } else { 0 }
+  $L.Add("Капитал бота: $(Fmt-Money $capNow '₽' 0)")
+  $dpl = $capNow - $baseCap
+  $dplPct = if ($baseCap -gt 0) { 100.0 * $dpl / $baseCap } else { 0 }
   $hoursTail = if ($baseTs -gt 0 -and ($NowMs - $baseTs) -gt 26 * 3600000) { " (за последние $([math]::Round(($NowMs - $baseTs)/3600000.0)) ч — прошлый отчёт не отправлялся)" } else { '' }
   $L.Add("За сутки: $(Fmt-Money $dpl '₽' 0 -Sign) ($(Fmt-Pct $dplPct)$hoursTail)")
-  $L.Add("От максимума капитала: $(Fmt-DdFromPeak ([double]$st.peak_eq) ([double]$st.profile_eq))")
+  $L.Add("От максимума капитала: $(Fmt-DdFromPeak $peakNow $capNow)")
   if (Test-Weekend) { $L.Add('Биржа закрыта (выходной) — позиции без изменений.') }
   $L.Add('')
 
   $open = @()
   foreach ($sn in 'core','setA') { foreach ($c in @($st.sleeves.$sn.positions)) { if ($null -ne $c) { $open += $c } } }
   $open = @($open | Sort-Object { [string]$_.asset })
+  $pnlMap = Get-CardPnlMap $open
   $L.Add("Открытые позиции: $($open.Count)")
   $idx = 0
+  $factPositions = New-Object System.Collections.Generic.List[object]
   foreach ($c in $open) {
     $idx++
     $nm = Cap (RfName $c)
     $L.Add("$idx) $nm — $(RuSide $c.side 'past') $([int]$c.lots) $(RuLots ([int]$c.lots)) по $(Fmt-Px ([double]$c.entry_px_pts)), стратегия «$(SleeveRu ([string]$c.sleeve))»")
-    $upnl = if ($c.PSObject.Properties['upnl_rub']) { [double]$c.upnl_rub } else { 0.0 }
+    $upnl = if ($pnlMap.ContainsKey([string]$c.id)) { [double]$pnlMap[[string]$c.id] } else { 0.0 }
     $since = $upnl + [double]$c.realized_rub
     $notional = [int]$c.lots_initial * [double]$c.entry_px_pts * [double]$c.rub_per_pt
     $soPct = if ($notional -gt 0) { 100.0 * $since / $notional } else { 0 }
     $openTag = if ([string]$c.entry_day -eq $mskToday) { 'сегодня' } else { [datetime]::ParseExact([string]$c.entry_day, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture).ToString('dd.MM') }
+    $dayVal = $since
     if (& $hasPosBase ([string]$c.id)) {
       $day = $since - [double]$st.report_base.positions.([string]$c.id)
+      $dayVal = $day
       $dayPct = if ($notional -gt 0) { 100.0 * $day / $notional } else { 0 }
-      $L.Add("   за сутки: $(Fmt-Money $day '₽' 0 -Sign) ($(Fmt-Pct $dayPct)) · с открытия ($openTag): $(Fmt-Money $since '₽' 0 -Sign) ($(Fmt-Pct $soPct))")
+      $L.Add("   за сутки: $(Fmt-Money $day '₽' 0 -Sign) ($(Fmt-Pct $dayPct)$hoursTail) · с открытия ($openTag): $(Fmt-Money $since '₽' 0 -Sign) ($(Fmt-Pct $soPct))")
     } else {
       $L.Add("   с открытия ($openTag): $(Fmt-Money $since '₽' 0 -Sign) ($(Fmt-Pct $soPct))")
     }
+    $factPositions.Add([pscustomobject]@{ asset = [string]$c.asset; day_pnl = [math]::Round($dayVal, 2); since_open_pnl = [math]::Round($since, 2) })
   }
   $L.Add('')
 
@@ -1807,12 +1936,14 @@ function Invoke-DailyReport([switch]$Preview) {
     $inWin = if ($baseTs -gt 0) { (UtcStrToMs ([string]$x.exitUtc)) -ge $baseTs } else { [string]$x.exitDay -eq $mskToday }
     if ($inWin) { $closed += $x }
   }
+  $factClosed = New-Object System.Collections.Generic.List[object]
   if ($closed.Count -eq 0) { $L.Add('Закрытых сделок за сутки: нет') }
   else {
     $L.Add("Закрытых сделок за сутки: $($closed.Count)")
     foreach ($x in $closed) {
       $nmC = Cap (RuName $namesRu 'fut' ([string]$x.asset) ([string]$x.secid))
       $L.Add("• ${nmC}: $(Fmt-Money ([double]$x.pnlRub) '₽' 0 -Sign), $(RfReasonRu ([string]$x.exitReason))")
+      $factClosed.Add([pscustomobject]@{ asset = [string]$x.asset; pnl = [math]::Round([double]$x.pnlRub, 2) })
     }
   }
   $L.Add('')
@@ -1833,15 +1964,25 @@ function Invoke-DailyReport([switch]$Preview) {
   try { Send-TgAlert $txt | Out-Null } catch {}
   if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert $txt -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
 
+  # ИИ-проверка ПОСЛЕ отправки: сверка уже готового текста с фактами, никогда не блокирует
+  # и не задерживает сам отчёт (см. Invoke-ReportVerify - fail-open по конструкции).
+  $facts = [pscustomobject]@{
+    capital_rub = $capNow; peak_rub = $peakNow; capital_day_delta = $dpl
+    positions = $factPositions; closed = $factClosed
+    drift = $st.drift
+  }
+  Invoke-ReportVerify $txt $facts
+
   if (-not $Preview) {
     $st.watermarks.last_report_day = $mskToday
-    # пересъём базы «за сутки»: одно число на позицию = её суммарный P&L сейчас
+    # пересъём базы «за сутки»: одно число на позицию = её суммарный брокерский P&L сейчас
     $posBase = [pscustomobject]@{}
     foreach ($c in $open) {
-      $upnl = if ($c.PSObject.Properties['upnl_rub']) { [double]$c.upnl_rub } else { 0.0 }
+      $upnl = if ($pnlMap.ContainsKey([string]$c.id)) { [double]$pnlMap[[string]$c.id] } else { 0.0 }
       $posBase | Add-Member -NotePropertyName ([string]$c.id) -NotePropertyValue ([math]::Round($upnl + [double]$c.realized_rub, 2)) -Force
     }
-    $rb = [pscustomobject]@{ day = $mskToday; ts = $NowMs; profile_eq = [double]$st.profile_eq; positions = $posBase }
+    $rb = [pscustomobject]@{ day = $mskToday; ts = $NowMs; profile_eq = [double]$st.profile_eq
+      bot_capital_rub = $capNow; positions = $posBase }
     if ($st.PSObject.Properties['report_base']) { $st.report_base = $rb } else { $st | Add-Member -NotePropertyName report_base -NotePropertyValue $rb }
   }
 }
