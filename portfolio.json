@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9218.97,
-    "equity_usd":  9299.42,
+    "balance_usd":  9287.38,
+    "equity_usd":  9386.39,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9220.54,
     "day_start_date_utc":  "2026-08-06",
@@ -105,10 +105,10 @@
                                "id":  "T19",
                                "symbol":  "ADA-USDT",
                                "side":  "long",
-                               "qty":  15243.5854,
+                               "qty":  7621.7927,
                                "qty_initial":  15243.5854,
                                "entry_price":  0.192158,
-                               "stop":  0.1861,
+                               "stop":  0.192158,
                                "stop0":  0.1861,
                                "tp1":  0.201244,
                                "entry_utc":  "2026-08-06 12:04",
@@ -116,13 +116,19 @@
                                "risk_usd":  92.34,
                                "notional_usd":  2929.17,
                                "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  false,
-                               "fees_usd":  1.6110441837416312,
+                               "tp1_done":  true,
+                               "fees_usd":  2.454656211306971,
                                "funding_usd":  0,
                                "legs":  [
-
+                                            {
+                                                "part":  "TP1",
+                                                "qty":  7621.7927,
+                                                "price":  0.201244,
+                                                "utc":  "2026-08-06 14:42",
+                                                "pnl":  69.25
+                                            }
                                         ],
-                               "mfe_px":  0.1966,
+                               "mfe_px":  0.2035,
                                "mae_px":  0.1901,
                                "thesis":  {
                                               "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
@@ -153,17 +159,17 @@
                   "total_funding_usd":  6.99,
                   "realized_pnl_usd":  -772.48
               },
-    "last_check_utc":  "2026-08-06 14:34",
+    "last_check_utc":  "2026-08-06 14:47",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1786026780000,
+                 "last_1m_ts":  1786027560000,
                  "last_4h_ts":  1786003200000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
                  "next_trade_id":  20,
-                 "ticks_since_viz":  3,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-08-05",
-                 "last_tick_utc":  "2026-08-06 14:34"
+                 "last_tick_utc":  "2026-08-06 14:47"
              }
 }
