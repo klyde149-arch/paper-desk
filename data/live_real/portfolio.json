@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 113.52,
+  "equity_usd": 113.69,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 110.79,
   "day_start_date_utc": "2026-08-06",
@@ -47,7 +47,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.45424
+      "cur_upnl_usd": 0.50768
     },
     {
       "id": "LT13",
@@ -95,13 +95,52 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 1.302
+      "cur_upnl_usd": 1.4196
+    },
+    {
+      "id": "LT14",
+      "symbol": "BCH-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 0.33,
+      "qty_initial": 0.33,
+      "entry_filled_qty": 0.0,
+      "entry_price": 213.7,
+      "stop": 210.3,
+      "stop0": 210.3,
+      "tp1": 218.8,
+      "tp1_qty": 0.16,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-08-06 16:00",
+      "entry_ts": 1786032003776,
+      "risk_usd": 1.12,
+      "notional_usd": 70.52,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; BCH-USDT 4h up; F&G 25",
+        "riskPlan": "вход ~213.7, стоп 210.3 (1.64%), TP1 218.8 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.12",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
     }
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1786003200000,
-    "last_trail_4h_ts": 1786003200000,
+    "last_4h_ts": 1786017600000,
+    "last_trail_4h_ts": 1786017600000,
     "last_exec_ms": 1786027439387,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
@@ -237,7 +276,7 @@
       "938403ce-f302-5632-9b60-52e46f7d9b5b",
       "3008fe7d-d719-530b-adcb-b07648ec850a"
     ],
-    "next_trade_id": 14,
+    "next_trade_id": 15,
     "halt_day_utc": null,
     "soft_dd": false,
     "consec_api_fail": 0,
@@ -250,9 +289,10 @@
       "SOL-USDT",
       "LINK-USDT",
       "ETH-USDT",
-      "DOGE-USDT"
+      "DOGE-USDT",
+      "BCH-USDT"
     ],
-    "last_tick_utc": "2026-08-06 15:45",
+    "last_tick_utc": "2026-08-06 16:00",
     "last_daily_summary_day": "2026-08-05",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
