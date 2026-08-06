@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9220.58,
-    "equity_usd":  9235.75,
+    "balance_usd":  9218.97,
+    "equity_usd":  9231.72,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9220.54,
     "day_start_date_utc":  "2026-08-06",
@@ -100,6 +100,49 @@
                                                              "atrCapLong":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T19",
+                               "symbol":  "ADA-USDT",
+                               "side":  "long",
+                               "qty":  15243.5854,
+                               "qty_initial":  15243.5854,
+                               "entry_price":  0.192158,
+                               "stop":  0.1861,
+                               "stop0":  0.1861,
+                               "tp1":  0.201244,
+                               "entry_utc":  "2026-08-06 12:04",
+                               "entry_ts":  1786017879089,
+                               "risk_usd":  92.34,
+                               "notional_usd":  2929.17,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  1.6110441837416312,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  0.192158,
+                               "mae_px":  0.192158,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h up; ADA-USDT 4h up; F\u0026G 25",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-08-06 08:00 UTC",
+                                              "indicators":  "RSI 57.1, ATR 2.4% (кэп 3%), фандинг -8.3E-05/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~0.192158, стоп 0.1861 (3.22%), TP1 0.201244 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $92.34",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -110,17 +153,17 @@
                   "total_funding_usd":  6.99,
                   "realized_pnl_usd":  -772.48
               },
-    "last_check_utc":  "2026-08-06 11:47",
+    "last_check_utc":  "2026-08-06 12:04",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1786016760000,
-                 "last_4h_ts":  1785988800000,
+                 "last_1m_ts":  1786017780000,
+                 "last_4h_ts":  1786003200000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
-                 "next_trade_id":  19,
+                 "next_trade_id":  20,
                  "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-08-05",
-                 "last_tick_utc":  "2026-08-06 11:47"
+                 "last_tick_utc":  "2026-08-06 12:04"
              }
 }
