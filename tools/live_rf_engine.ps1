@@ -1871,6 +1871,10 @@ function Invoke-ReportVerify([string]$ReportText, $Facts) {
       $warn = "⚠️ Проверка вечернего отчёта: $answer"
       [void](Send-TgAlert $warn)
       if ($env:TG_CHAT_ID_FUT) { [void](Send-TgAlert $warn -Chat $env:TG_CHAT_ID_FUT) }
+    } else {
+      # успех молчит в Telegram нарочно (не спамить) - но должен быть виден в логе тика,
+      # иначе "ничего не пришло" неотличимо от "проверка вообще не запускалась"
+      Write-LiveLog 'Invoke-ReportVerify: OK'
     }
   } catch { Write-LiveLog "Invoke-ReportVerify: пропущено ($($_.Exception.Message))" }
 }
