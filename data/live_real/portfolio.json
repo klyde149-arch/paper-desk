@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 111.38,
+  "equity_usd": 111.36,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 110.79,
   "day_start_date_utc": "2026-08-06",
@@ -47,16 +47,16 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.42084
+      "cur_upnl_usd": 0.4342
     },
     {
       "id": "LT13",
       "symbol": "ADA-USDT",
       "side": "long",
-      "status": "pending",
+      "status": "open",
       "qty": 168.0,
       "qty_initial": 168.0,
-      "entry_filled_qty": 0.0,
+      "entry_filled_qty": 168.0,
       "entry_price": 0.1923,
       "stop": 0.1857,
       "stop0": 0.1857,
@@ -71,7 +71,7 @@
       "entry_ts": 1786017607844,
       "risk_usd": 1.11,
       "notional_usd": 32.31,
-      "fees_usd": 0.0,
+      "fees_usd": 0.0323064,
       "funding_usd": 0.0,
       "legs": [],
       "thesis": {
@@ -86,14 +86,15 @@
           "funding": true,
           "fearGreed": true
         }
-      }
+      },
+      "cur_upnl_usd": 0.0168
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1786003200000,
     "last_trail_4h_ts": 1786003200000,
-    "last_exec_ms": 1786003200000,
+    "last_exec_ms": 1786017652680,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -224,7 +225,8 @@
       "6ab218d1-76b4-41b6-94d8-3cff896f6fbb",
       "798a3339-a45d-504e-ba89-998cb63a7c01",
       "c4332dc5-ef0f-48fa-85fc-703a8677cba0",
-      "017679b7-e508-44cc-afbc-8013680b4c28"
+      "017679b7-e508-44cc-afbc-8013680b4c28",
+      "938403ce-f302-5632-9b60-52e46f7d9b5b"
     ],
     "next_trade_id": 14,
     "halt_day_utc": null,
@@ -241,7 +243,7 @@
       "ETH-USDT",
       "DOGE-USDT"
     ],
-    "last_tick_utc": "2026-08-06 12:00",
+    "last_tick_utc": "2026-08-06 12:01",
     "last_daily_summary_day": "2026-08-05",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
