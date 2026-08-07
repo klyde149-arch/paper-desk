@@ -300,16 +300,21 @@ function Scn-GoTrim {
   Check 'go-trim: entries_halt активен' ([bool]$st.entries_halt.active)
 }
 
-# --- 8. hard-dd: -35% от пика -> закрыть всё + HALT_RF_LIVE
+# --- 8. hard-dd: -35% от пика РЕАЛЬНОГО капитала брокера -> закрыть всё + HALT_RF_LIVE
+# С 2026-08-07 governors считают dd от bot_capital_rub/capital_peak_rub (Set-BotCapital), а не
+# от блендовой profile_eq/peak_eq - тот же источник, что вечерний отчёт (a21d81456). Пик 700k
+# засеян явно (в проде он тянется из истории equity.json/растёт монотонно), капитал брокера
+# в GetPortfolio упал до 420k -> dd 40% > 35%.
 function Scn-HardDd {
   $r = New-Scenario 'hard-dd'
   $s = New-BaseState $r
   $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
-  $s.sleeves.core.eq_rub = 420000.0   # rC = -0.4 -> profile_eq ~ 420k при peak 700k -> DD 40% > 35%
-  $s.sleeves.core.equity_mtm = 420000.0
+  $s.go | Add-Member -NotePropertyName capital_peak_rub -NotePropertyValue 700000.0 -Force
   Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
-  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = @(
-    [pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='19';nano=0} } ) })
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{
+    total_amount_currencies = [pscustomobject]@{ units = '420000'; nano = 0; currency = 'rub' }
+    total_amount_portfolio  = [pscustomobject]@{ units = '420000'; nano = 0; currency = 'rub' }
+    positions = @([pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='19';nano=0} }) })
   Write-Json (Join-Path $r 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @(
     [pscustomobject]@{ stopOrderId='stop-live-1' } ) })
   [void](Run-Tick $r '2026-07-15 11:00')
@@ -318,6 +323,47 @@ function Scn-HardDd {
   Check 'hard-dd: HALT_RF_LIVE создан' (Test-Path (Join-Path $r 'data\HALT_RF_LIVE'))
   $out2 = Run-Tick $r '2026-07-15 11:01'
   Check 'hard-dd: следующий тик не торгует (halt-файл)' ($out2 -notmatch 'tick ok')
+}
+
+# --- 8b. hard-dd НЕ путает загрязнённый блендовый peak_eq с реальной просадкой (регресс против
+# старого источника): profile_eq/peak_eq оставлены в состоянии «фантомного» пика 2M (класс
+# инцидента L00008, 2026-07-21), но реальный капитал брокера здоров и близок к своему пику ->
+# governors не должны сработать вообще (до 2026-08-07 сработали бы: dd от блендовой пары = 65%).
+function Scn-HardDdIgnoresBlendedPeak {
+  $r = New-Scenario 'hard-dd-ignores-blended'
+  $s = New-BaseState $r
+  $s.peak_eq = 2000000.0
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{
+    total_amount_currencies = [pscustomobject]@{ units = '700000'; nano = 0; currency = 'rub' }
+    total_amount_portfolio  = [pscustomobject]@{ units = '700000'; nano = 0; currency = 'rub' }
+    positions = @() })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  Check 'hard-dd-ignores-blended: HALT_RF_LIVE НЕ создан' (-not (Test-Path (Join-Path $r 'data\HALT_RF_LIVE')))
+  Check 'hard-dd-ignores-blended: entries_halt не активен' (-not [bool]$st.entries_halt.active)
+  Check 'hard-dd-ignores-blended: тик выжил (tick ok в логе)' ([string]$log -match 'tick ok')
+}
+
+# --- 8c. дневной стоп -8% - тоже от реального капитала (day_start_eq теперь несёт bot_capital_rub
+# со старта дня, см. Invoke-LiveDayHook), а не от блендового profile_eq. capital_peak_rub не
+# засеян нарочно - Set-BotCapital сам засеет его текущим капиталом (730k), так что hard-dd тут не
+# должен вмешаться и заслонить дневную проверку.
+function Scn-DayHaltReal {
+  $r = New-Scenario 'day-halt-real'
+  $s = New-BaseState $r
+  $s.day_start_eq = 800000.0
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{
+    total_amount_currencies = [pscustomobject]@{ units = '730000'; nano = 0; currency = 'rub' }
+    total_amount_portfolio  = [pscustomobject]@{ units = '730000'; nano = 0; currency = 'rub' }
+    positions = @() })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'day-halt-real: entries_halt активен' ([bool]$st.entries_halt.active)
+  Check 'day-halt-real: причина "day -..."' ([string]$st.entries_halt.reason -like 'day -*')
+  Check 'day-halt-real: HALT_RF_LIVE НЕ создан (это не hard-dd)' (-not (Test-Path (Join-Path $r 'data\HALT_RF_LIVE')))
 }
 
 # --- 9. D2: чужая фьючерс-позиция -> аварийное закрытие + халт входов
@@ -919,6 +965,7 @@ $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
   ${function:Scn-EntryFill}, ${function:Scn-EntryReject}, ${function:Scn-EntryLostAdopt}, ${function:Scn-EntryLostRepost},
   ${function:Scn-Qty0}, ${function:Scn-GoCap}, ${function:Scn-GoTrim}, ${function:Scn-HardDd},
+  ${function:Scn-HardDdIgnoresBlendedPeak}, ${function:Scn-DayHaltReal},
   ${function:Scn-D2}, ${function:Scn-D4Confirmed}, ${function:Scn-D4Quarantine},
   ${function:Scn-D4Transient}, ${function:Scn-D4EmptySnapshot}, ${function:Scn-D5},
   ${function:Scn-D6Repost}, ${function:Scn-D6Fail}, ${function:Scn-StocksDeficit}, ${function:Scn-StocksSurplus},

@@ -125,7 +125,12 @@ def _rf_digest():
     if not p:
         return {'error': 'нет data/live_rf/portfolio.json'}
     sl = p.get('sleeves') or {}
-    eq = p.get('profile_eq')
+    go = p.get('go') or {}
+    # реальный капитал брокера (Set-BotCapital), тот же источник, что вечерний отчёт и governors
+    # с 2026-08-07 - fallback на блендовый profile_eq/peak_eq для старого состояния до первого
+    # тика с посчитанным bot_capital_rub (dryrun, либо ещё не было ни одного валидного снимка).
+    eq = go.get('bot_capital_rub') or p.get('profile_eq')
+    peak = go.get('capital_peak_rub') or p.get('peak_eq')
     d = {
         'контур': 'T-Invest C3b (RF, фьючерсы MOEX)',
         'режим': p.get('mode'),
@@ -133,9 +138,9 @@ def _rf_digest():
         'капитал_руб': eq,
         'база_руб': (p.get('meta') or {}).get('base_rub'),
         'день_pct': _pct(eq, p.get('day_start_eq')),
-        'месяц_pct': _pct(eq, p.get('profile_month_start')),
-        'просадка_от_пика_pct': _pct(eq, p.get('peak_eq')),
-        'пик_руб': p.get('peak_eq'),
+        'месяц_pct': _pct(p.get('profile_eq'), p.get('profile_month_start')),
+        'просадка_от_пика_pct': _pct(eq, peak),
+        'пик_руб': peak,
         'слипы': {},
         'позиций_всего': 0,
         'ГО': p.get('go'),

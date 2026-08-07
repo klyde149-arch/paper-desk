@@ -1334,11 +1334,19 @@ function Invoke-LiveDayHook([string]$D) {
     $st.cur_month = $mon
   }
   if ([string]$st.day_start_date -ne $D) {
-    $st.day_start_date = $D; $st.day_start_eq = [double]$st.profile_eq
+    $st.day_start_date = $D
+    # реальный капитал (не блендовый profile_eq) - governors с 2026-08-07 считают от него же,
+    # что и вечерний отчёт (см. Invoke-Governors); bot_capital_rub уже свежий - Set-BotCapital
+    # выполняется раньше в этом же тике (шаг 3 главного цикла, до Invoke-Mtm/Invoke-LiveDaily).
+    # Если Set-BotCapital его не посчитал (dryrun, либо первый снимок портфеля битый) - не топить
+    # день нулём, нести прошлое значение (тот же принцип, что в Set-BotCapital при пустом снимке).
+    if ($st.go.PSObject.Properties['bot_capital_rub'] -and [double]$st.go.bot_capital_rub -gt 0) {
+      $st.day_start_eq = [double]$st.go.bot_capital_rub
+    }
     $st.sleeves.core.day_start_eq = [double]$st.sleeves.core.eq_rub
     $st.sleeves.setA.day_start_eq = [double]$st.sleeves.setA.eq_rub
     $st.sleeves.core.halt_day = $null; $st.sleeves.setA.halt_day = $null
-    if ($st.entries_halt.active -and [string]$st.entries_halt.reason -like 'profile day*') {
+    if ($st.entries_halt.active -and [string]$st.entries_halt.reason -like 'day -*') {
       $st.entries_halt.active = $false; $st.entries_halt.reason = ''   # дневной халт снимается новым днём
     }
     $st.go.peak_day_rub = 0.0
@@ -1732,32 +1740,43 @@ function Invoke-Mtm {
 
 function Invoke-Governors {
   # HARD -35% от пика: закрыть всё + HALT_RF_LIVE (решение пользователя; помнить: бэктест-DD 40-44%)
-  $dd = 1.0 - [double]$st.profile_eq / [double]$st.peak_eq
-  if ($dd -gt 0.90) {
-    # санити-гард (урок песочницы 2026-07-17: мусорные котировки дали «DD 25044%»): DD>90% - почти
-    # наверняка ошибка данных, а не рынок -> НЕ флэттенить по ней; стоп входов + ручной разбор
-    Alert ("расчётная просадка {0:P0} — это похоже на ошибку в котировках, а не реальный убыток. Автоматическое закрытие НЕ выполняется, новые входы остановлены до ручной проверки." -f $dd)
-    Set-EntriesHalt 'suspicious DD>90% (data error?)'
-    return
-  }
-  if ($dd -ge [double]$LIVE.hard_dd) {
-    Alert ("АВАРИЙНАЯ ОСТАНОВКА — просадка достигла {0:P1} от максимума капитала. Все позиции закрываются по рынку, торговля остановлена до ручного разбора." -f $dd)
-    foreach ($sn in 'core','setA') {
-      foreach ($c in @($st.sleeves.$sn.positions)) { Invoke-EmergencyClose $c 'hard-dd' }
+  # с 2026-08-07 считаем от реального капитала брокера (bot_capital_rub/capital_peak_rub из
+  # Set-BotCapital), а не от блендовой paper-модели (profile_eq/peak_eq) - тот же источник,
+  # что и вечерний отчёт с 06.08 (a21d81456); капитал/пик уже свежие на этот тик (шаг 3 цикла).
+  # Set-BotCapital в dryrun вообще не пишет эти поля (ранний return), а на самом первом тике
+  # прод-жизни может не успеть, если первый снимок портфеля битый (total_amount_portfolio<=0) -
+  # в обоих случаях НЕ считаем dd от отсутствующих/нулевых чисел (0/0 = NaN тихо гасит все
+  # сравнения ниже, но лучше явно пропустить тик, чем полагаться на NaN-семантику).
+  $capNow = if ($st.go.PSObject.Properties['bot_capital_rub']) { [double]$st.go.bot_capital_rub } else { 0.0 }
+  $capPeak = if ($st.go.PSObject.Properties['capital_peak_rub']) { [double]$st.go.capital_peak_rub } else { 0.0 }
+  if ($capNow -gt 0 -and $capPeak -gt 0) {
+    $dd = 1.0 - $capNow / $capPeak
+    if ($dd -gt 0.90) {
+      # санити-гард (урок песочницы 2026-07-17: мусорные котировки дали «DD 25044%»): DD>90% - почти
+      # наверняка ошибка данных, а не рынок -> НЕ флэттенить по ней; стоп входов + ручной разбор
+      Alert ("расчётная просадка {0:P0} — это похоже на ошибку в котировках, а не реальный убыток. Автоматическое закрытие НЕ выполняется, новые входы остановлены до ручной проверки." -f $dd)
+      Set-EntriesHalt 'suspicious DD>90% (data error?)'
+      return
     }
-    foreach ($h in @($st.sleeves.mom.holdings)) {
-      $it = New-Intent 'mom_sell' @{ sleeve = 'mom'; ticker = [string]$h.sym; uid = [string]$h.uid
-        side = 'sell'; lots = [int]$h.lots; ctx = [pscustomobject]@{ ref_px = [double]$h.last_px } }
-      Save-State
-      [void](Post-IntentMarket $it 'sell' ([int]$h.lots))
+    if ($dd -ge [double]$LIVE.hard_dd) {
+      Alert ("АВАРИЙНАЯ ОСТАНОВКА — просадка достигла {0:P1} от максимума капитала. Все позиции закрываются по рынку, торговля остановлена до ручного разбора." -f $dd)
+      foreach ($sn in 'core','setA') {
+        foreach ($c in @($st.sleeves.$sn.positions)) { Invoke-EmergencyClose $c 'hard-dd' }
+      }
+      foreach ($h in @($st.sleeves.mom.holdings)) {
+        $it = New-Intent 'mom_sell' @{ sleeve = 'mom'; ticker = [string]$h.sym; uid = [string]$h.uid
+          side = 'sell'; lots = [int]$h.lots; ctx = [pscustomobject]@{ ref_px = [double]$h.last_px } }
+        Save-State
+        [void](Post-IntentMarket $it 'sell' ([int]$h.lots))
+      }
+      Set-Content (Join-Path $Root 'data\HALT_RF_LIVE') "hard-dd $(MsToUtcStr $NowMs)" -Encoding UTF8
+      return
     }
-    Set-Content (Join-Path $Root 'data\HALT_RF_LIVE') "hard-dd $(MsToUtcStr $NowMs)" -Encoding UTF8
-    return
   }
-  # профиль-день -8% -> entries_halt до завтра
-  if ([double]$st.day_start_eq -gt 0) {
-    $dl = 1.0 - [double]$st.profile_eq / [double]$st.day_start_eq
-    if ($dl -ge [double]$LIVE.profile_day_halt) { Set-EntriesHalt ("profile day -{0:P1}" -f $dl) }
+  # день -8% (от реального капитала на старт дня, day_start_eq repoint см. Invoke-LiveDayHook) -> entries_halt до завтра
+  if ($capNow -gt 0 -and [double]$st.day_start_eq -gt 0) {
+    $dl = 1.0 - $capNow / [double]$st.day_start_eq
+    if ($dl -ge [double]$LIVE.profile_day_halt) { Set-EntriesHalt ("day -{0:P1}" -f $dl) }
   }
   # ГО-мониторинг (нюанс #12): >60% -> entries_halt; >75% -> LIFO-закрытие
   if ([double]$st.go.budget_rub -gt 0) {
