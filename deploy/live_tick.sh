@@ -44,4 +44,8 @@ fi
 # 4) publication watchdog: alert to Telegram if our state stops reaching GitHub.
 # Never fails the tick; state timer is gitignored and local to this VPS.
 git_sync_watch "Крипта (Bybit)" "data/live_real/.git_sync_state" "$pull_ok" "live-tick"
+
+# 5) disk watchdog: state file is shared with live_rf_tick.sh (same host disk); the two
+# ticks are offset by 30s (this one runs on :00) so writes never collide.
+disk_watch "data/.disk_watch_state"
 exit 0

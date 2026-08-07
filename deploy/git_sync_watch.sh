@@ -1,5 +1,6 @@
-# git_sync_watch.sh - detect when a VPS tick stops PUBLISHING state to GitHub, and
-# alert to Telegram. Dot-sourced by live_tick.sh / live_rf_tick.sh. Pure bash + curl.
+# git_sync_watch.sh - tick-side watchdogs for the VPS host. Two independent guards live
+# here: git_sync_watch (state stops PUBLISHING to GitHub) and disk_watch (disk fills up).
+# Dot-sourced by live_tick.sh / live_rf_tick.sh. Pure bash + curl.
 #
 # Philosophy mirror of the tick scripts: this NEVER fails the tick. Every path is
 # guarded and returns 0; a broken alert must not affect trading. Trading safety does
@@ -12,10 +13,17 @@
 # In a normal tick nothing is committed between the 15-min push marks, so HEAD does
 # not move and ahead==0 -> healthy (no false alarms while waiting to publish).
 #
+# Incident 2026-08-07: the VPS disk filled up and silently stopped both contours (git
+# could not write objects, the engine could not persist portfolio.json). Nothing was
+# watching disk usage, so it was discovered only once trading had already stopped.
+# disk_watch() closes that gap the same way: a state-machine watchdog called every tick.
+#
 # Env (from /etc/trading-live.env via systemd EnvironmentFile):
-#   TG_BOT_TOKEN, TG_CHAT_ID   - Telegram creds (empty -> alerts are silent no-ops)
-#   GIT_ALERT_AFTER_MIN=30     - minutes of stalled publication before the first alert
-#   GIT_ALERT_REPEAT_MIN=120   - minutes between reminder alerts while still stalled
+#   TG_BOT_TOKEN, TG_CHAT_ID     - Telegram creds (empty -> alerts are silent no-ops)
+#   GIT_ALERT_AFTER_MIN=30       - minutes of stalled publication before the first alert
+#   GIT_ALERT_REPEAT_MIN=120     - minutes between reminder alerts while still stalled
+#   DISK_WARN_PCT=85             - % used on / that first triggers a disk alert
+#   DISK_ALERT_REPEAT_MIN=180    - minutes between reminder alerts while still over threshold
 
 # Send one Telegram message. Mirror of Send-TgAlert in tools/lib_alerts.ps1.
 # Never throws, never blocks the tick (|| true, bounded timeout, silent on missing creds).
@@ -86,6 +94,66 @@ git_sync_watch() {
   fi
 
   # Persist fault state atomically (tmp + mv) so a torn read next tick can't corrupt it.
+  {
+    echo "BAD_SINCE=$BAD_SINCE"
+    echo "ALERTED=$ALERTED"
+    echo "LAST_MSG=$LAST_MSG"
+  } > "${state_file}.tmp" 2>/dev/null && mv -f "${state_file}.tmp" "$state_file" 2>/dev/null || true
+  return 0
+}
+
+# disk_watch <state_file>
+#   state_file - ONE shared gitignored file (not per-contour: both tick call this on the
+#                same host disk, and a shared state avoids a duplicate alert per contour)
+#
+# Same state-machine shape as git_sync_watch: warn once past DISK_WARN_PCT, remind every
+# DISK_ALERT_REPEAT_MIN while still over, announce recovery once back under threshold.
+disk_watch() {
+  local state_file="$1"
+  local warn="${DISK_WARN_PCT:-85}" repeat="${DISK_ALERT_REPEAT_MIN:-180}"
+  local now used_pct avail_h healthy
+  now=$(date -u +%s)
+
+  # df -P for portable single-line output; second data line, 5th field is "Use%" (e.g. "87%").
+  used_pct=$(df -P / 2>/dev/null | awk 'NR==2 {gsub("%","",$5); print $5}') || used_pct=100
+  case "$used_pct" in ''|*[!0-9]*) used_pct=100 ;; esac
+  avail_h=$(df -h / 2>/dev/null | awk 'NR==2 {print $4}')
+  [ -n "$avail_h" ] || avail_h='?'
+
+  healthy=1
+  [ "$used_pct" -ge "$warn" ] && healthy=0
+
+  local BAD_SINCE='' ALERTED=0 LAST_MSG=0
+  if [ -f "$state_file" ]; then
+    # shellcheck disable=SC1090
+    . "$state_file" 2>/dev/null || { BAD_SINCE=''; ALERTED=0; LAST_MSG=0; }
+  fi
+
+  if [ "$healthy" = "1" ]; then
+    if [ -n "$BAD_SINCE" ]; then
+      if [ "$ALERTED" = "1" ]; then
+        tg_alert "VPS: диск в норме (занято ${used_pct}%, свободно ${avail_h})."
+      fi
+      rm -f "$state_file" 2>/dev/null || true
+    fi
+    return 0
+  fi
+
+  if [ -z "$BAD_SINCE" ]; then
+    BAD_SINCE=$now
+  fi
+
+  if [ "$ALERTED" != "1" ]; then
+    tg_alert "VPS: диск занят ${used_pct}% (свободно ${avail_h}). Торговля пока идёт, но при 100% встанут git и запись состояния. Проверь: sudo systemctl start vps-cleanup.service"
+    ALERTED=1
+    LAST_MSG=$now
+  else
+    if [ $(( (now - LAST_MSG) / 60 )) -ge "$repeat" ]; then
+      tg_alert "VPS: диск всё ещё занят ${used_pct}% (свободно ${avail_h})."
+      LAST_MSG=$now
+    fi
+  fi
+
   {
     echo "BAD_SINCE=$BAD_SINCE"
     echo "ALERTED=$ALERTED"

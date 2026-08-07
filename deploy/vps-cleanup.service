@@ -1,0 +1,19 @@
+[Unit]
+Description=paper-desk VPS disk cleanup (journald/apt/cache/git maintenance)
+Documentation=file:///home/trader/paper-desk/deploy/README_CLEANUP.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/etc/trading-live.env
+Environment=LC_ALL=C.UTF-8
+WorkingDirectory=/home/trader/paper-desk
+ExecStart=/usr/bin/flock -n /run/lock/vps-cleanup.lock /home/trader/paper-desk/deploy/vps_cleanup.sh
+# repack/prune can take a while on this box; give it real headroom but still bounded.
+TimeoutStartSec=900
+Restart=no
+# stay out of the trading ticks' way for CPU/IO if they overlap
+Nice=10
+IOSchedulingClass=idle

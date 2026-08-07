@@ -1,0 +1,15 @@
+[Unit]
+Description=paper-desk VPS disk cleanup - nightly
+
+[Timer]
+# 01:10 UTC = 04:10 MSK: past the ETC overnight clearing window (23:48-00:32 MSK, see
+# live_rf_engine.ps1 $CLEARING), well before MOEX open at 06:00 MSK.
+OnCalendar=*-*-* 01:10:00 UTC
+AccuracySec=1min
+RandomizedDelaySec=300
+# catch up a missed run after a reboot/downtime; unlike the per-minute trading timers
+# this one is fine to run late since it's not tied to a market event
+Persistent=true
+
+[Install]
+WantedBy=timers.target
