@@ -102,6 +102,7 @@ journalctl -u live-tick -f        # смотреть тики; лог движк
 | Аварийно с телефона | приложение Bybit → закрыть позиции руками (ключ бота этому не мешает) |
 | Снять халт после HALT_CLOSE / −35% | остановить таймер → удалить файл HALT_CLOSE → в `data/live_real/portfolio.json` выставить `"trading_halted": false` и `"entries_halt_reason": ""` → запустить таймер |
 | Алерт «дашборд онемел» | `deploy/git_sync_watch.sh` шлёт в Telegram, если состояние перестало доходить до GitHub (застрявший `git pull`/`push`) дольше `GIT_ALERT_AFTER_MIN` (деф. 30 мин); при восстановлении — «восстановлено». Заглушить: пустые `TG_*` в `/etc/trading-live.env`. Пороги: `GIT_ALERT_AFTER_MIN` / `GIT_ALERT_REPEAT_MIN`. Торговлю НЕ трогает (тик всегда `exit 0`), состояние-таймер `data/live_real/.git_sync_state` — local-only (gitignored). |
+| Алерт «GitHub Actions встал» | `deploy/git_sync_watch.sh` → `actions_watch()`, вызывается из обоих тиков; смотрит на возраст последней точки `data/live_equity.json` (пишет только Actions) — единственный способ увидеть со стороны VPS, что `tick.yml` перестал выдавать раны (инцидент 2026-08-06/07: гейт `github-pages` завис на approval, очередь встала на 17.5 ч). Уходит в оба TG-чата (`TG_CHAT_ID` + `TG_CHAT_ID_FUT`) — останавливается и бумага, и публикация вкладки «Фьючерсы→Реал». Пороги: `ACTIONS_ALERT_AFTER_MIN` (деф. 60 мин) / `ACTIONS_ALERT_REPEAT_MIN` (деф. 120 мин). Состояние-таймер `data/.actions_watch_state` — local-only (gitignored). |
 
 ## Гейт масштабирования
 

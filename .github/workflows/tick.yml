@@ -2,6 +2,13 @@ name: tick
 # Автономный торговый тик (paper trading): каждые ~15 мин GitHub Actions
 # запускает tools\auto_trade.ps1, пересобирает дашборд и публикует Pages.
 # Килл-свитч: закоммитить файл data/HALT в main - тики выходят сразу.
+#
+# Публикация Pages - отдельная джоба ниже (deploy), не часть tick. Инцидент 2026-08-07:
+# гейт окружения github-pages завис в approval на джобе tick, а workflow-уровневая
+# concurrency-группа "tick" держала весь ран целиком - следующие раны не могли даже
+# начать торговый тик, пока не разрешится approval. 17.5 часов ни сделок, ни коммитов
+# состояния. Правило: гейт Pages не имеет права останавливать торговлю - точно так же,
+# как сторожа (live_watch.ps1, git_sync_watch.sh) не имеют права ронять тик.
 
 on:
   schedule:
@@ -20,17 +27,15 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: tick
-  cancel-in-progress: false
-
 jobs:
   tick:
     runs-on: windows-latest
     timeout-minutes: 14
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    # Группа держит только эту джобу: раны сериализуются на торговом тике (не мешают друг
+    # другу коммитить/пушить состояние), но джоба deploy ниже в неё не входит и не блокируется.
+    concurrency:
+      group: tick
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -96,6 +101,19 @@ jobs:
         with:
           path: report
 
+  deploy:
+    needs: tick
+    runs-on: ubuntu-latest
+    # Отдельная группа: только публикация Pages, торгового тика не касается. cancel-in-progress
+    # тут безопасен и нужен - актуальна только последняя сборка дашборда, накопление очереди
+    # ранов ожидающих approval - это и есть баг, который чинит этот сплит.
+    concurrency:
+      group: tick-pages
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

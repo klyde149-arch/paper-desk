@@ -217,7 +217,7 @@
     <p class="eyebrow">PAPER + LIVE · СИМУЛЯЦИЯ И РЕАЛЬНЫЙ СЧЁТ BYBIT (ВКЛАДКА «РЕАЛ»)</p>
     <h1 class="hero-h">Торговый <em>терминал</em><span class="dot">.</span></h1>
     <p class="sub">Торгует автономный бот 24/7 (GitHub Actions, тик ~15 мин): входы по стратегии v2 «комбо», стопы и тейки по касанию цены, комиссии Bybit 0.055%. Котировки Bybit и MOEX. Страница автообновляется сама. Все графики интерактивные: колесо — зум, перетаскивание — прокрутка, двойной клик — сброс.</p>
-    <div class="stamp" style="margin-top:14px"><span class="dot"></span> Обновлено: <b class="num" id="genTime">—</b> UTC · счёт: <b class="num" id="eqNow">—</b></div>
+    <div class="stamp" style="margin-top:14px"><span class="dot"></span> Обновлено: <b class="num" id="genTime">—</b> UTC <span id="genAge"></span> · счёт: <b class="num" id="eqNow">—</b></div>
     <div class="hero-kpis">
       <div class="hkpi"><p class="l">Счёт (эквити)</p><div class="v" id="heroEq">—</div><p class="s" id="heroEqS">виртуальные $10 000 на старте</p></div>
       <div class="hkpi"><p class="l">Свободный баланс</p><div class="v" id="heroBal">—</div><p class="s">вне позиций</p></div>
@@ -1886,6 +1886,33 @@
   }
   setInterval(checkBuild, 30000);
   checkBuild();
+
+  // ---------- возраст данных: VIZ.generatedUtc ("yyyy-MM-dd HH:mm", всегда UTC) как есть
+  // от build_vizdata.ps1. Если тик (GitHub Actions) встаёт, эта метка перестаёт двигаться -
+  // без явного возраста протухание незаметно (инцидент 2026-08-06/07: 17.5 ч без пересборки
+  // выглядели на странице так же, как и норма). Пороги совпадают со сторожем на VPS
+  // (deploy/git_sync_watch.sh actions_watch): >90 мин почти наверняка тот же сбой.
+  function parseGenUtc(s){
+    const m = s && s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+    return m ? Date.UTC(+m[1], +m[2]-1, +m[3], +m[4], +m[5]) : NaN;
+  }
+  function fmtAge(min){
+    if(min < 1) return "только что";
+    if(min < 60) return min + " мин назад";
+    const h = Math.floor(min/60), m = min % 60;
+    return h + " ч" + (m ? " " + m + " мин" : "") + " назад";
+  }
+  function updateGenAge(){
+    const el = $("genAge"); if(!el) return;
+    const ms = parseGenUtc(VIZ.generatedUtc);
+    if(isNaN(ms)){ el.textContent = ""; return; }
+    const min = Math.max(0, Math.floor((Date.now() - ms) / 60000));
+    el.textContent = "· " + fmtAge(min);
+    el.style.color = min >= 90 ? "var(--loss)" : (min >= 30 ? "#d9a441" : "");
+    el.title = min >= 90 ? "Данные устарели — похоже, тик (GitHub Actions) не публикует уже больше 90 мин" : "";
+  }
+  setInterval(updateGenAge, 30000);
+  updateGenAge();
 })();
 </script>
 </body>

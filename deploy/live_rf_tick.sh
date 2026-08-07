@@ -58,4 +58,8 @@ git_sync_watch "Фьючерсы (Т-Инвест)" "data/live_rf/.git_sync_stat
 # 5) disk watchdog: state file is shared with live_tick.sh (same host disk); the two
 # ticks are offset by 30s (this one runs on :30) so writes never collide.
 disk_watch "data/.disk_watch_state"
+
+# 6) Actions-liveness watchdog: state file is shared with live_tick.sh (one thing to
+# watch - GitHub Actions - same 30s offset avoids a write collision).
+actions_watch "data/.actions_watch_state"
 exit 0
