@@ -4,7 +4,7 @@
 #      трейл раннера по закрытию 4h за EMA20, лимиты −5%/−16%/−35% (профиль 1%/3поз), роллы UTC-дня;
 #   2) автовходы на свежезакрытом 4h-баре через scan_signals.ps1 (все ворота v2);
 #   3) персист portfolio.json / data\live_trades.json / data\live_equity.json / journal.md;
-#   4) отдельный контур челленджа (challenge\, замороженные правила S4).
+#   4) отдельный контур челленджа (challenge\, замороженные правила S4) — ОТКЛЮЧЁН 2026-08-07.
 # Fail-safe: любой сбой API => тик отменяется целиком, вотермарки не двигаются, позиции не трогаются.
 # Килл-свитч: файл data\HALT. Правила: docs\strategy\strategy.md (v2). Кодировка файла: UTF-8 c BOM (кириллица).
 param(
@@ -40,6 +40,10 @@ $SYMBOLS = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT',
 # ---- челлендж (challenge\strategy.md - ЗАМОРОЖЕНО, менять нельзя) ----
 $CH_FEE=0.0005; $CH_SLIP=0.0003; $CH_STOPSLIP=0.0005; $CH_RISK=0.10; $CH_LEV=15
 $CH_MMR=0.005; $CH_LIQSAFE=0.8; $CH_MARGINCAP=0.9; $CH_HOLD_MS=[long]48*$H1
+# Контур челленджа ОТКЛЮЧЁН 2026-08-07 (решение пользователя: вкладка снята с дашборда;
+# челлендж провален 2026-08-02, движок и так вхолостую читал portfolio.json каждый тик).
+# Вернуть = $true.
+$CHALLENGE_ENABLED = $false
 
 $haltPath = Join-Path $Root 'data\HALT'
 if (Test-Path $haltPath) { Write-TickLog $Root 'skip: HALT file present'; 'HALT активен - тик пропущен'; return }
@@ -516,7 +520,7 @@ try {
 }
 
 # ================= CHALLENGE (замороженные правила S4; сбой не влияет на основной контур) =================
-if (-not $SkipChallenge) {
+if ($CHALLENGE_ENABLED -and -not $SkipChallenge) {
   try {
     $cpPath = Join-Path $Root 'challenge\portfolio.json'
     $cp = Read-JsonFile $cpPath

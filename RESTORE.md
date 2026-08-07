@@ -75,7 +75,7 @@
 
 | Контур | Где исполняется | Точка входа | Движок | Универсум | Пишет в git (пути) |
 |---|---|---|---|---|---|
-| PAPER крипта (бенчмарк) | GitHub Actions `tick.yml` | — | `tools\auto_trade.ps1 -Cloud` | 19 пар (`auto_trade.ps1`, −DOGE) | `portfolio.json`, `journal.md`, `data`, `challenge\portfolio.json` |
+| PAPER крипта (бенчмарк) | GitHub Actions `tick.yml` | — | `tools\auto_trade.ps1 -Cloud` | 19 пар (`auto_trade.ps1`, −DOGE) | `portfolio.json`, `journal.md`, `data` |
 | PAPER РФ C2/C3b | внутри paper-тика | — | `tools\rf_engine.ps1` | 8 фьюч + 12 акций | `data\rf\*` |
 | **Bybit LIVE (реал)** | VPS таймер `live-tick` (:00) | `deploy\live_tick.sh` | `tools\live_engine.ps1` | 16 пар (−XRP/APT/OP/AAVE) | `data\live_real\*`, `journal_live.md` |
 | **RF LIVE (реал ₽)** | VPS таймер `live-rf-tick` (:30) | `deploy\live_rf_tick.sh` | `tools\live_rf_engine.ps1` | 8 фьюч + 12 акций | `data\live_rf\*`, `journal_live_rf.md` |
@@ -291,8 +291,8 @@ long-polling Telegram). Ключ — `OPENROUTER_API_KEY` в `/etc/trading-assis
 
 `.github\workflows\tick.yml` — cron `4,19,34,49 * * * *` (непопулярные минуты) + `workflow_dispatch`
 + push в main. `runs-on: windows-latest`. Шаги: probe эндпоинтов → `auto_trade.ps1 -Cloud -SkipViz`
-→ `build_vizdata.ps1 -NoDeploy` → commit (`paper-desk-bot`) `portfolio.json journal.md data
-challenge/portfolio.json` → Pages artifact = `report\`.
+→ `build_vizdata.ps1 -NoDeploy` → commit (`paper-desk-bot`) `portfolio.json journal.md data`
+→ Pages artifact = `report\`.
 `.github\workflows\manual-close.yml` — лёгкий обработчик ручных закрытий paper.
 
 **Секретов не требует**, но зависит от GitHub-настроек (раздел 3). Килл — `data\HALT`.

@@ -24,28 +24,6 @@ $trades = [object[]]@($tradesRaw | ForEach-Object { $_ })
 $eqRaw = Get-Content (Join-Path $dir 'data\bt_equity.json') -Raw | ConvertFrom-Json
 $equity = [object[]]@($eqRaw | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.equity) })
 
-# MOEX (optional, present after part 2)
-$moex = $null
-$moexDir = Join-Path $dir 'data\moex'
-if (Test-Path (Join-Path $moexDir 'bt_trades_moex.json')) {
-  $mp = [ordered]@{}
-  Get-ChildItem $moexDir -Filter '*_1d.json' | ForEach-Object {
-    $tk = $_.BaseName -replace '_1d$',''
-    $bars = Get-Content $_.FullName -Raw | ConvertFrom-Json
-    $mp[$tk] = [ordered]@{
-      t = [object[]]@($bars | ForEach-Object { [long]$_.t })
-      c = [object[]]@($bars | ForEach-Object { [double]$_.c })
-    }
-  }
-  $mtRaw = Get-Content (Join-Path $moexDir 'bt_trades_moex.json') -Raw | ConvertFrom-Json
-  $meRaw = Get-Content (Join-Path $moexDir 'bt_equity_moex.json') -Raw | ConvertFrom-Json
-  $moex = [ordered]@{
-    prices = $mp
-    trades = [object[]]@($mtRaw | ForEach-Object { $_ })
-    equity = [object[]]@($meRaw | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.equity) })
-  }
-}
-
 # MOEX FORTS futures (optional, present after the futures research of 2026-07)
 $moexFut = $null
 $futDir = Join-Path $dir 'data\moex_fut'
@@ -81,19 +59,6 @@ if (Test-Path (Join-Path $futDir 'bt_trades_fut.json')) {
         series = [object[]]@($c.series | ForEach-Object { ,[object[]]@([string]$_.m, [double]$_.r, [double]$_.eq) }) }
     })
     $moexFut.wf = [object[]]@($cRaw.wf | ForEach-Object { $_ })
-  }
-}
-
-# stock-market strategy (momentum sleeve) for the MOEX tab
-$momStocks = $null
-if (Test-Path (Join-Path $moexDir 'bt_equity_mom63_full.json')) {
-  $mmE = Get-Content (Join-Path $moexDir 'bt_equity_mom63_full.json') -Raw | ConvertFrom-Json
-  $mmM = Get-Content (Join-Path $moexDir 'bt_monthly_mom63_full.json') -Raw | ConvertFrom-Json
-  $mmT = Get-Content (Join-Path $moexDir 'bt_trades_mom63_full.json') -Raw | ConvertFrom-Json
-  $momStocks = [ordered]@{
-    equity = [object[]]@($mmE | ForEach-Object { ,[object[]]@([long]$_.ts, [double]$_.equity) })
-    monthly = [object[]]@($mmM | ForEach-Object { $_ })
-    actions = [object[]]@($mmT | ForEach-Object { $_ })
   }
 }
 
@@ -204,74 +169,9 @@ if (Test-Path $rlPf) {
   }
 }
 
-# ---- ЧЕЛЛЕНДЖ: бумажный контур $1000/30 дней (challenge\portfolio.json; S4-пробой/свип) ----
-# Форма = как $realLive (панель «Челлендж» рендерится тем же кодом, что «Реал»).
-# Отличия: closed_trades лежат inline в snake_case -> маппим в camelCase контракт фронта;
-# лога эквити нет -> кривую восстанавливаем из закрытых сделок (Σpnl сходится в equity_usd до цента).
-$challenge = $null
-$chPath = Join-Path $dir 'challenge\portfolio.json'
-if (Test-Path $chPath) {
-  $cp = Get-Content $chPath -Raw -Encoding UTF8 | ConvertFrom-Json
-
-  # закрытые сделки: snake_case -> camelCase, как ждёт журнал buildLiveInto
-  $chClosed = [object[]]@(@($cp.closed_trades) | Where-Object { $null -ne $_ } | ForEach-Object {
-    [ordered]@{
-      id = $_.id; sym = $_.symbol; side = $_.side
-      entryDay = $_.entry_utc; entry = [double]$_.entry
-      exitDay = $_.exit_utc; exitPx = [double]$_.exit
-      exitReason = $_.reason
-      fees = [math]::Round([double]$_.fees_usd, 2); funding = [math]::Round([double]$_.funding_usd, 2)
-      rMultiple = $_.r_multiple; pnlUsd = [double]$_.pnl_usd
-      legs = @()
-    }
-  })
-
-  # открытая позиция (одиночная, max_positions=1; сейчас обычно null)
-  $chOpen = [object[]]@()
-  if (-not $SkipLive -and $null -ne $cp.open_position -and $cp.open_position.symbol) {
-    $op = $cp.open_position
-    $k1 = [object[]]@()
-    try {
-      $nowK = UtcNowMs
-      $bars = Get-Klines $op.symbol '60' ($nowK - 170*3600000) $nowK $nowK
-      $k1 = [object[]]@($bars | ForEach-Object { ,[object[]]@([long]$_.t, [double]$_.o, [double]$_.h, [double]$_.l, [double]$_.c) })
-    } catch { Write-Warning "challenge candles failed for $($op.symbol): $_" }
-    $chOpen = [object[]]@([ordered]@{
-      id = $op.id; symbol = $op.symbol; side = $op.side; qty = [double]$op.qty
-      entry = [double]$op.entry_price; stop = [double]$op.stop; tp1 = [double]$op.tp
-      entryUtc = $op.entry_utc; riskUsd = [double]$op.risk_usd; notional = [double]$op.notional_usd
-      plan = $null; candles1h = $k1
-      fees = [math]::Round([double]$op.entry_fee_usd, 2); funding = [math]::Round([double]$op.funding_accrued_usd, 2)
-      tp1Done = $false; status = 'open'; thesis = $op.thesis
-    })
-  }
-
-  # кривая эквити: реконструкция из закрытых сделок (лога нет).
-  # Каждая точка — object[] пара [ts,eq]; .Add() кладёт её как один элемент,
-  # .ToArray() отдаёт результат без разворачивания пар пайплайном.
-  $chCurve = New-Object System.Collections.Generic.List[object]
-  $run = [double]$cp.meta.start_balance_usd
-  $chCurve.Add([object[]]@((UtcStrToMs (([string]$cp.challenge.start_date_utc) + ' 00:00')), [math]::Round($run, 2)))
-  foreach ($t in @($cp.closed_trades | Where-Object { $null -ne $_ } | Sort-Object { UtcStrToMs $_.exit_utc })) {
-    $run += [double]$t.pnl_usd
-    $chCurve.Add([object[]]@((UtcStrToMs $t.exit_utc), [math]::Round($run, 2)))
-  }
-  $chCurve.Add([object[]]@((UtcStrToMs ([string]$cp.last_check_utc)), [double]$cp.equity_usd))
-
-  $challenge = [ordered]@{
-    equityNow = [double]$cp.equity_usd; startEq = [double]$cp.meta.start_balance_usd
-    peak = [double]$cp.peak_equity_usd; dayStartEq = [double]$cp.day_start_equity_usd
-    dayStartDate = [string]$cp.day_start_date_utc
-    dayNumber = [int]$cp.challenge.day_number; termDays = [int]$cp.meta.term_days
-    failed = [bool]$cp.challenge.failed; completed = [bool]$cp.challenge.completed
-    strategy = [string]$cp.meta.strategy; lastTickUtc = [string]$cp.last_check_utc
-    trades = [int]$cp.stats.trades; wins = [int]$cp.stats.wins; losses = [int]$cp.stats.losses
-    realizedPnl = [double]$cp.stats.realized_pnl_usd
-    fees = [double]$cp.stats.total_fees_usd; funding = [double]$cp.stats.total_funding_usd
-    openTrades = $chOpen; closed = $chClosed
-    curve = $chCurve.ToArray()
-  }
-}
+# ЧЕЛЛЕНДЖ ($1000/30 дней) отключён 2026-08-07 — вкладка снята с дашборда, контур провален
+# 2026-08-02 (CHALLENGE FAILED). Payload VIZ.challenge больше не собирается; данные
+# challenge\portfolio.json на диске остаются нетронутыми.
 
 # ---- живой форвард-тест РФ: профили C2/C3b (data\rf\*, optional) ----
 $rfLive = $null
@@ -662,9 +562,7 @@ $viz = [ordered]@{
   prices = $prices
   trades = $trades
   equity = $equity
-  moex   = $moex
   moexFut = $moexFut
-  momStocks = $momStocks
   livePositions = $livePositions
   liveClosed = $liveClosed
   liveDaily = $liveDaily
@@ -676,7 +574,6 @@ $viz = [ordered]@{
   signals = $signals
   liveActual = $liveActual
   realLive = $realLive
-  challenge = $challenge
 }
 $json = $viz | ConvertTo-Json -Depth 8 -Compress
 $out = Join-Path $dir 'report\vizdata.js'
