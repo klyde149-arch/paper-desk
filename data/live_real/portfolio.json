@@ -2,53 +2,13 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 112.5,
+  "equity_usd": 112.6,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 112.8,
   "day_start_date_utc": "2026-08-08",
   "trading_halted": false,
   "entries_halt_reason": "",
   "open_trades": [
-    {
-      "id": "LT12",
-      "symbol": "DOGE-USDT",
-      "side": "short",
-      "status": "open",
-      "qty": 668.0,
-      "qty_initial": 668.0,
-      "entry_filled_qty": 668.0,
-      "entry_price": 0.06974,
-      "stop": 0.07144,
-      "stop0": 0.07144,
-      "tp1": 0.06722,
-      "tp1_qty": 334.0,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": false,
-      "entry_utc": "2026-08-03 04:00",
-      "entry_ts": 1785729603597,
-      "risk_usd": 1.13,
-      "notional_usd": 46.59,
-      "fees_usd": 0.04658632,
-      "funding_usd": -0.0335,
-      "legs": [],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h down; DOGE-USDT 4h down; F&G 28",
-        "riskPlan": "вход ~0.06975, стоп 0.07144 (2.39%), TP1 0.06722 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.13",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      },
-      "cur_upnl_usd": -0.88844
-    },
     {
       "id": "LT13",
       "symbol": "ADA-USDT",
@@ -95,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.5964
+      "cur_upnl_usd": 0.6888
     },
     {
       "id": "LT14",
@@ -135,14 +95,14 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 1.056
+      "cur_upnl_usd": 1.386
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1786176000000,
     "last_trail_4h_ts": 1786176000000,
-    "last_exec_ms": 1786176000000,
+    "last_exec_ms": 1786201007228,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -297,7 +257,22 @@
       "e77b8fb9-3126-4e02-87ab-7ba84a328fe5",
       "4b40cc6c-359d-464f-b75e-c93dcace62d5",
       "1c91b1d8-500c-4150-8e66-e978ea9c649a",
-      "b4c4c053-542f-4c41-bca3-40fc7a35ba1b"
+      "b4c4c053-542f-4c41-bca3-40fc7a35ba1b",
+      "6db073d6-da7a-54b2-a3b9-18b6659f352d",
+      "8720d49e-09ae-5183-bee2-3e2559b748b9",
+      "6b323188-a452-5295-8268-2844931f8210",
+      "4ab184a7-82ec-5f05-8597-04fdcb9314ac",
+      "783a72c3-a8dd-574f-8318-449ca8de6317",
+      "dd535f7c-fea0-58f4-87e8-56d7d1c3dcb3",
+      "12b5f9f8-24fa-56eb-a369-5e7e3f145526",
+      "68a4f2e6-a6a0-5029-a657-692e40d9ad90",
+      "039d66ff-fdbd-56bf-9f1b-e7f2cae7a7e4",
+      "cf85cdca-aef4-5cd9-bae4-9c0c2c18db7f",
+      "0a6d719c-88a3-5ca0-b1b0-b6809f8e1826",
+      "8d6def75-edf6-5711-8904-cd9f3e86d955",
+      "0c0afcb6-35bf-53ee-a84e-eae0f8fa6ca8",
+      "4fe70268-5025-5abc-b653-0fb31d6a463e",
+      "aa188e0f-3c99-5902-a00d-b229f6f11352"
     ],
     "next_trade_id": 15,
     "halt_day_utc": null,
@@ -315,7 +290,7 @@
       "DOGE-USDT",
       "BCH-USDT"
     ],
-    "last_tick_utc": "2026-08-08 14:45",
+    "last_tick_utc": "2026-08-08 14:57",
     "last_daily_summary_day": "2026-08-07",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
