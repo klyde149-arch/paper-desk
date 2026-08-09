@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9320.2,
-    "equity_usd":  9252.82,
+    "balance_usd":  9224.06,
+    "equity_usd":  9242.98,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9298.91,
     "day_start_date_utc":  "2026-08-09",
@@ -34,7 +34,7 @@
                                "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
                                "tp1_done":  false,
                                "fees_usd":  1.4172859542688,
-                               "funding_usd":  7.667128649728,
+                               "funding_usd":  7.615227141328,
                                "legs":  [
 
                                         ],
@@ -57,70 +57,27 @@
                                                              "fearGreed":  true
                                                          }
                                           }
-                           },
-                           {
-                               "id":  "T14",
-                               "symbol":  "SOL-USDT",
-                               "side":  "short",
-                               "qty":  28.5111,
-                               "qty_initial":  28.5111,
-                               "entry_price":  74.166743,
-                               "stop":  77.463,
-                               "stop0":  77.463,
-                               "tp1":  69.222358,
-                               "entry_utc":  "2026-07-28 00:02",
-                               "entry_ts":  1785196925809,
-                               "risk_usd":  93.98,
-                               "notional_usd":  2114.58,
-                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  false,
-                               "fees_usd":  1.1630164891953465,
-                               "funding_usd":  -5.148880078065301,
-                               "legs":  [
-
-                                        ],
-                               "mfe_px":  70.545,
-                               "mae_px":  77.297,
-                               "thesis":  {
-                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
-                                              "regime":  "BTC 4h down; SOL-USDT 4h down; F\u0026G 29",
-                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-07-27 20:00 UTC",
-                                              "indicators":  "RSI 40.3, ATR 1.38% (кэп 3%), фандинг -1.4E-05/8ч",
-                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
-                                              "riskPlan":  "вход ~74.166743, стоп 77.463 (4.44%), TP1 69.222358 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $93.98",
-                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
-                                              "checks":  {
-                                                             "setupA":  true,
-                                                             "btcFilter":  true,
-                                                             "flatMode":  true,
-                                                             "atrCap":  true,
-                                                             "funding":  true,
-                                                             "fearGreed":  true,
-                                                             "btcMom5d":  true,
-                                                             "atrCapLong":  true
-                                                         }
-                                          }
                            }
                        ],
     "stats":  {
-                  "closed_trades":  17,
+                  "closed_trades":  18,
                   "wins":  5,
-                  "losses":  12,
-                  "total_fees_usd":  95.17,
-                  "total_funding_usd":  6.37,
-                  "realized_pnl_usd":  -674.76
+                  "losses":  13,
+                  "total_fees_usd":  97.55,
+                  "total_funding_usd":  1.11,
+                  "realized_pnl_usd":  -766.96
               },
-    "last_check_utc":  "2026-08-09 15:46",
+    "last_check_utc":  "2026-08-09 16:04",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1786290300000,
-                 "last_4h_ts":  1786262400000,
+                 "last_1m_ts":  1786291380000,
+                 "last_4h_ts":  1786276800000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
                  "next_trade_id":  20,
                  "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-08-08",
-                 "last_tick_utc":  "2026-08-09 15:46"
+                 "last_tick_utc":  "2026-08-09 16:04"
              }
 }
