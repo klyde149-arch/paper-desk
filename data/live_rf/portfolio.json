@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 757329.7915561154,
       "month_start_eq": 701466.86,
-      "day_start_eq": 727294.4048591154,
+      "day_start_eq": 757329.7915561154,
       "halt_day": null,
       "positions": [
         {
@@ -48,7 +48,7 @@
           "d6_fails": 0,
           "d4_fails": 0,
           "quarantine": false,
-          "stop_deferred": null,
+          "stop_deferred": 2.881189,
           "last_stop_update": "2026-08-05 04:00",
           "lat_sp": 15032754,
           "lat_pf": 0,
@@ -63,7 +63,7 @@
     "setA": {
       "eq_rub": 694960.5591581829,
       "month_start_eq": 694981.0,
-      "day_start_eq": 694980.99657189,
+      "day_start_eq": 694960.5591581829,
       "halt_day": null,
       "positions": [
         {
@@ -127,14 +127,14 @@
   "profile_eq": 751844.58,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
-  "day_start_eq": 728478.11,
-  "day_start_date": "2026-08-06",
+  "day_start_eq": 873304.51,
+  "day_start_date": "2026-08-07",
   "peak_eq": 761138.55,
   "watermarks": {
-    "last_daily_day": "2026-08-06",
-    "last_hour_ts": 1786312800000,
-    "ops_since": "2026-08-09T20:15:32Z",
-    "last_eq_snap": 1786309352737,
+    "last_daily_day": "2026-08-09",
+    "last_hour_ts": 1786316400000,
+    "ops_since": "2026-08-09T20:30:32Z",
+    "last_eq_snap": 1786310312767,
     "last_report_day": "2026-08-09",
     "orders_day": "2026-08-07",
     "orders_day_n": 3
@@ -221,7 +221,7 @@
   "go": {
     "used_rub": 124374.69,
     "budget_rub": 650000.0,
-    "peak_day_rub": 468927.77,
+    "peak_day_rub": 124374.69,
     "capital_peak_rub": 878579.38,
     "account_liquid_rub": 1616650.77,
     "bot_capital_rub": 873304.51
@@ -234,8 +234,100 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 23,
+  "pending_intents": [
+    {
+      "id": "i00023",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "GOLD",
+      "ticker": "",
+      "uid": "",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "35158d06-0313-e7fc-804a-c7cb5fa7948a",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1786146600000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-08-07",
+      "state_ts": 1786310432871,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 173.757143,
+        "atr": 86.878571,
+        "risk_pct": 0.05,
+        "ref_px": 4350.8,
+        "note": "donchian close 4350.8 vs [3983 / 4300]"
+      }
+    },
+    {
+      "id": "i00024",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "SILV",
+      "ticker": "",
+      "uid": "",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "0488b130-8fec-dcf2-f125-aee692e3b923",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1786146600000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-08-07",
+      "state_ts": 1786310432871,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 4.624286,
+        "atr": 2.312143,
+        "risk_pct": 0.05,
+        "ref_px": 64.09,
+        "note": "donchian close 64.09 vs [55.42 / 63.33]"
+      }
+    },
+    {
+      "id": "i00025",
+      "kind": "entry",
+      "sleeve": "setA",
+      "asset": "RTS",
+      "ticker": "",
+      "uid": "",
+      "side": "sell",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "ddbc9fa0-4aef-f3ac-8683-966c98dbd74f",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1786146600000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-08-07",
+      "state_ts": 1786310432871,
+      "last_error": "",
+      "ctx": {
+        "swing": 90540.0,
+        "atr": 2852.857143,
+        "stop_dist": 0,
+        "risk_pct": 0.02,
+        "ref_px": 87070.0,
+        "note": "setup A pullback"
+      }
+    }
+  ],
+  "next_intent_id": 26,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 6,
