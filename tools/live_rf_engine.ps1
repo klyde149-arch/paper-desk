@@ -287,7 +287,20 @@ function Set-EntriesHalt([string]$Reason) {
   if (-not $st.entries_halt.active) {
     $st.entries_halt.active = $true; $st.entries_halt.reason = $Reason; $st.entries_halt.since = MsToUtcStr $NowMs
     Alert "новые входы приостановлены ($Reason). Открытые позиции продолжают вестись как обычно."
+  } elseif ([string]$st.entries_halt.reason -like 'ГО *' -and $Reason -like 'ГО *' -and [string]$st.entries_halt.reason -ne $Reason) {
+    # тот же ГО-халт, но процент уехал: освежаем текст, не трогая since и без повторного алерта.
+    # ВАЖНО: обновляем ТОЛЬКО внутри одной категории - иначе ГО-причина могла бы затереть,
+    # например, дрифт-халт D4, и Clear-EntriesHalt снял бы его, пока расхождение ещё живо.
+    $st.entries_halt.reason = $Reason
   }
+}
+# снятие халта: применять только к своей категории причин (см. Set-EntriesHalt). Дрифт-халты
+# снимаются в Invoke-Reconcile, дневные - в дневном хуке.
+function Clear-EntriesHalt([string]$Why) {
+  if (-not $st.entries_halt.active) { return }
+  Write-LiveLog "entries_halt снят: $Why (было: '$($st.entries_halt.reason)')"
+  $st.entries_halt.active = $false; $st.entries_halt.reason = ''; $st.entries_halt.since = ''
+  Alert "новые входы возобновлены ($Why)."
 }
 
 # цена филла ЗА ЕДИНИЦУ из ответа PostOrder/GetOrderState. Боевые факты:
@@ -1792,6 +1805,11 @@ function Invoke-Governors {
       }
     } elseif ($goPct -gt [double]$LIVE.go_cap_pct) {
       Set-EntriesHalt ("ГО {0:P0} > кэпа" -f $goPct)
+    } elseif ([string]$st.entries_halt.reason -like 'ГО *') {
+      # ГО вернулось под кэп - свой же халт снимаем сами. Инцидент 2026-08-07: ветки снятия не
+      # существовало, halt «ГО 72 % > кэпа» провисел 3 дня при фактических 19 %, боевой контур
+      # пропустил сигналы GOLD/SILV/RTS (бумажный двойник их взял).
+      Clear-EntriesHalt ("ГО {0:P0}, кэп {1:P0}" -f $goPct, [double]$LIVE.go_cap_pct)
     }
   }
 }
@@ -2167,6 +2185,7 @@ try {
     return
   }
   if (Test-Path (Join-Path $Root 'data\HALT_RF_ENTRIES')) { Set-EntriesHalt 'HALT_RF_ENTRIES file' }
+  elseif ([string]$st.entries_halt.reason -eq 'HALT_RF_ENTRIES file') { Clear-EntriesHalt 'kill-файл HALT_RF_ENTRIES удалён' }
 
   # 2. выходные: лёгкий тик (сверка раз в ~30 мин, никаких заявок)
   $weekendLight = ((Test-Weekend) -and -not $LIVE.trade_weekends)
