@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9115.66,
-    "equity_usd":  9055.23,
+    "balance_usd":  9018.96,
+    "equity_usd":  9001.84,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9229.01,
     "day_start_date_utc":  "2026-08-10",
@@ -57,70 +57,27 @@
                                                              "fearGreed":  true
                                                          }
                                           }
-                           },
-                           {
-                               "id":  "T21",
-                               "symbol":  "UNI-USDT",
-                               "side":  "long",
-                               "qty":  1055.8766,
-                               "qty_initial":  1055.8766,
-                               "entry_price":  4.019205,
-                               "stop":  3.931752,
-                               "stop0":  3.931752,
-                               "tp1":  4.150385,
-                               "entry_utc":  "2026-08-10 04:04",
-                               "entry_ts":  1786334665632,
-                               "risk_usd":  92.34,
-                               "notional_usd":  4243.78,
-                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  false,
-                               "fees_usd":  2.3340817128495024,
-                               "funding_usd":  0.42667973406000015,
-                               "legs":  [
-
-                                        ],
-                               "mfe_px":  4.089,
-                               "mae_px":  3.951,
-                               "thesis":  {
-                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
-                                              "regime":  "BTC 4h up; UNI-USDT 4h up; F\u0026G 30",
-                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-08-10 00:00 UTC",
-                                              "indicators":  "RSI 50.9, ATR 2.12% (кэп 3%), фандинг 4.3E-05/8ч",
-                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
-                                              "riskPlan":  "вход ~4.019205, стоп 3.931752 (2.12%), TP1 4.150385 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $92.34",
-                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
-                                              "checks":  {
-                                                             "setupA":  true,
-                                                             "btcFilter":  true,
-                                                             "flatMode":  true,
-                                                             "atrCap":  true,
-                                                             "funding":  true,
-                                                             "fearGreed":  true,
-                                                             "btcMom5d":  true,
-                                                             "atrCapLong":  true
-                                                         }
-                                          }
                            }
                        ],
     "stats":  {
-                  "closed_trades":  19,
+                  "closed_trades":  20,
                   "wins":  5,
-                  "losses":  14,
-                  "total_fees_usd":  106.09,
-                  "total_funding_usd":  1.89,
-                  "realized_pnl_usd":  -872.48
+                  "losses":  15,
+                  "total_fees_usd":  110.71,
+                  "total_funding_usd":  2.32,
+                  "realized_pnl_usd":  -971.94
               },
-    "last_check_utc":  "2026-08-10 15:17",
+    "last_check_utc":  "2026-08-10 15:26",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1786374960000,
+                 "last_1m_ts":  1786375500000,
                  "last_4h_ts":  1786348800000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
                  "next_trade_id":  22,
                  "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-08-09",
-                 "last_tick_utc":  "2026-08-10 15:17"
+                 "last_tick_utc":  "2026-08-10 15:26"
              }
 }
