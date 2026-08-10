@@ -803,5 +803,91 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT16",
+    "sym": "ADA-USDT",
+    "side": "long",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-08-10 08:00",
+    "entryDay": "2026-08-10",
+    "entryTs": 1786348802687,
+    "entry": 0.1981,
+    "qty": 233.0,
+    "exitUtc": "2026-08-10 18:23",
+    "exitDay": "2026-08-10",
+    "exitTs": 1786386182812,
+    "exitPx": 0.1931,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 19.0,
+        "price": 0.1931,
+        "utc": "2026-08-10 18:22",
+        "pnl": -0.1
+      },
+      {
+        "part": "stop",
+        "qty": 26.0,
+        "price": 0.1931,
+        "utc": "2026-08-10 18:22",
+        "pnl": -0.13
+      },
+      {
+        "part": "stop",
+        "qty": 27.0,
+        "price": 0.1931,
+        "utc": "2026-08-10 18:22",
+        "pnl": -0.14
+      },
+      {
+        "part": "stop",
+        "qty": 29.0,
+        "price": 0.1931,
+        "utc": "2026-08-10 18:22",
+        "pnl": -0.15
+      },
+      {
+        "part": "stop",
+        "qty": 1.0,
+        "price": 0.1931,
+        "utc": "2026-08-10 18:22",
+        "pnl": -0.01
+      },
+      {
+        "part": "stop",
+        "qty": 104.0,
+        "price": 0.1931,
+        "utc": "2026-08-10 18:22",
+        "pnl": -0.52
+      },
+      {
+        "part": "stop",
+        "qty": 27.0,
+        "price": 0.1931,
+        "utc": "2026-08-10 18:22",
+        "pnl": -0.14
+      }
+    ],
+    "pnlUsd": -1.29,
+    "rMultiple": -1.15,
+    "riskUsd": 1.12,
+    "fees": 0.09,
+    "funding": 0.0,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; ADA-USDT 4h up; F&G 30",
+      "riskPlan": "вход ~0.198, стоп 0.1932 (2.47%), TP1 0.2052 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.12",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
