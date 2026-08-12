@@ -68,9 +68,16 @@ function Fmt-Dur([int]$Min) {
 function Notify($C, [string]$Text) {
   $msg = '{0}: {1}' -f $C.prefix, $Text
   if ($DryRun) { Write-Host "[DRY] $msg"; return }
-  try { Send-TgAlert $msg | Out-Null } catch {}
+  $failed = @()
+  try { if (-not (Send-TgAlert $msg)) { $failed += 'основной' } } catch { $failed += 'основной' }
   if ($C.fanout -and $env:TG_CHAT_ID_FUT) {
-    try { Send-TgAlert $msg -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {}
+    try { if (-not (Send-TgAlert $msg -Chat $env:TG_CHAT_ID_FUT)) { $failed += 'фьючерсный' } } catch { $failed += 'фьючерсный' }
+  }
+  # Немой сторож неотличим от здоровой системы: Send-TgAlert при пустых кредах молча отдаёт $false.
+  # Инцидент 2026-08-11 - RF-контур лежал 27 ч, сторож исправно «слал» ~13 алертов в никуда.
+  # Аннотация подсвечивает это в логе рана, но кода возврата не меняет: тик ронять нельзя.
+  if ($failed.Count) {
+    Write-Host ("::error title=live_watch::алерт НЕ доставлен ({0}) - проверьте секреты TG_BOT_TOKEN/TG_CHAT_ID/TG_CHAT_ID_FUT в Settings -> Secrets. Текст: {1}" -f ($failed -join ', '), $msg)
   }
 }
 

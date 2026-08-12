@@ -13,9 +13,11 @@
 4. Установить юниты (НЕ раньше):
    ```
    sudo cp deploy/live-rf-tick.service deploy/live-rf-tick.timer /etc/systemd/system/
-   chmod +x deploy/live_rf_tick.sh
    sudo systemctl daemon-reload && sudo systemctl enable --now live-rf-tick.timer
    ```
+   `chmod +x` тут НЕ нужен и вреден: бит исполнения лежит в самом коммите (100755). Ручной chmod
+   создаёт вечную незакоммиченную mode-диффу, которую `git pull --rebase --autostash` в тике рано
+   или поздно роняет — так контур молча умер на 27 ч, инцидент 2026-08-11.
 5. DRYRUN ≥10 торговых дней: движок тикает, сигналы пишутся, заявки — только WOULD CALL
    (`data/live_rf/dryrun_calls.log`). Ежедневно сверять сигналы с paper (`journal.md` vs `journal_live_rf.md`).
 6. Закрыть реестр открытых вопросов дизайн-дока (13 пунктов), обновить `$CLEARING` в движке по TradingSchedules.
@@ -54,7 +56,7 @@
 ## Мониторинг
 - Дашборд, вкладка «Фьючерсы»: карточка «РЕАЛ · Т-Инвестиции · C3b» (данные `data/live_rf`, пишет VPS).
 - `journal_live_rf.md` — человекочитаемый журнал; `data/live_rf/tick_log.txt` — лог движка;
-  `latency_log.csv` — латентность API; дневной отчёт 19:30 MSK в Telegram (P&L, ГО-пик,
+  `latency_log.csv` — латентность API; вечерний отчёт 23:55 MSK в Telegram (P&L, ГО-пик,
   ratio заявки:сделки ≤10:1, дрифты, qty0-пропуски).
 - Раз в неделю: сравнить доходность леджеров с paper futC3b/C3b (`data/rf/c3b_portfolio.json`);
   |Δ| > 1.5%/мес сверх объяснимого (лоты/комиссии/слиппедж) — разбор.
