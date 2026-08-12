@@ -14,7 +14,7 @@
 # for_qual_investor_flag не роняет гейт сам по себе, но выносится в итог отдельной строкой:
 # без квал-статуса такой инструмент в реал не пойдёт (docs/strategy/live_tinvest_design.md, риск #269).
 param(
-  [string[]]$Assets = @('Eu','ED','PLT','PLD','UCNY','COCOA','COFFEE','COPPER'),
+  [string[]]$Assets = @('Eu','COCOA','VTBR','PLD','SBRF'),
   [string[]]$Control = @('BR'),          # контроль: заведомо торгуемый инструмент, ловит сетевые/токенные проблемы
   [string]$Root = '',
   [switch]$IncludeNext,                  # проверять и следующий контракт после фронта (нужно для роллов)
@@ -30,6 +30,18 @@ $mode = if ($Sandbox) { 'sandbox' } else { 'prod' }
 # Иначе запуск от root создал бы файлы с чужим владельцем, и следующий тик от trader
 # не смог бы в них писать - ровно тот класс поломок, что уронил бота на 27 часов в августе.
 Initialize-TInvest '' $mode
+# `pwsh -File` НЕ разбивает "A,B,C" в массив - передаёт одной строкой, и тогда скрипт ищет
+# на бирже актив с кодом "Eu,COCOA,VTBR,PLD,SBRF" целиком. Разбираем сами, чтобы работали
+# оба способа запуска (-File и -Command).
+function Split-AssetArg([string[]]$Raw) {
+  $out = New-Object System.Collections.Generic.List[string]
+  foreach ($x in @($Raw)) {
+    foreach ($p in ([string]$x -split '[,; ]+')) { if ($p) { $out.Add($p.Trim()) } }
+  }
+  return @($out)
+}
+$Assets  = Split-AssetArg $Assets
+$Control = Split-AssetArg $Control
 $all = @($Control) + @($Assets)
 Write-Host "== гейт торгуемости (mode=$mode, host=$($script:TI.base)) =="
 Write-Host ("активы: {0}   [контроль: {1}]" -f ($Assets -join ','), ($Control -join ','))
