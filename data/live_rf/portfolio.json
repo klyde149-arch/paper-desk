@@ -54,11 +54,11 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 2.79,
-          "upnl_rub": -8859.3
+          "cur_px": 2.756,
+          "upnl_rub": -5273.39
         }
       ],
-      "equity_mtm": 748470.49
+      "equity_mtm": 752056.4
     },
     "setA": {
       "eq_rub": 694960.5591581829,
@@ -86,7 +86,7 @@
           "tp1_order_id": "3fad7473-2370-45ca-ab36-f217b58cc9d5",
           "tp1_done": false,
           "be_moved": false,
-          "mfe_pts": 88.15,
+          "mfe_pts": 90.18,
           "atr_entry": 5.029305,
           "risk_rub": 13899.62,
           "rub_per_pt": 814.077,
@@ -103,11 +103,11 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 88.01,
-          "upnl_rub": 10509.73
+          "cur_px": 89.32,
+          "upnl_rub": 13709.06
         }
       ],
-      "equity_mtm": 705470.29
+      "equity_mtm": 708669.62
     },
     "mom": {
       "eq_rub": 350000.0,
@@ -124,17 +124,17 @@
       }
     }
   },
-  "profile_eq": 753626.61,
+  "profile_eq": 760392.94,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
-  "day_start_eq": 883846.37,
-  "day_start_date": "2026-08-10",
+  "day_start_eq": 890451.56,
+  "day_start_date": "2026-08-11",
   "peak_eq": 761138.55,
   "watermarks": {
-    "last_daily_day": "2026-08-10",
-    "last_hour_ts": 1786410000000,
-    "ops_since": "2026-08-10T23:00:33Z",
-    "last_eq_snap": 1786406433141,
+    "last_daily_day": "2026-08-11",
+    "last_hour_ts": 1786507200000,
+    "ops_since": "2026-08-12T02:15:33Z",
+    "last_eq_snap": 1786504138689,
     "last_report_day": "2026-08-10",
     "orders_day": "2026-08-07",
     "orders_day_n": 3
@@ -222,9 +222,9 @@
     "used_rub": 124374.69,
     "budget_rub": 650000.0,
     "peak_day_rub": 124374.69,
-    "capital_peak_rub": 884416.18,
-    "account_liquid_rub": 1617433.27,
-    "bot_capital_rub": 883846.37
+    "capital_peak_rub": 890451.56,
+    "account_liquid_rub": 1621188.16,
+    "bot_capital_rub": 890451.56
   },
   "drift": {
     "D2": 0,
@@ -234,68 +234,7 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [
-    {
-      "id": "i00027",
-      "kind": "entry",
-      "sleeve": "core",
-      "asset": "GOLD",
-      "ticker": "",
-      "uid": "",
-      "side": "buy",
-      "lots": 0,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "ac0edb75-b488-6fff-0cde-eb05a20b1a1f",
-      "broker_order_id": "",
-      "state": "INTENT",
-      "attempts": 0,
-      "t_signal": 1786405800000,
-      "t_post": 0,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-08-10",
-      "state_ts": 1786396832679,
-      "last_error": "",
-      "ctx": {
-        "stop_dist": 173.857143,
-        "atr": 86.928571,
-        "risk_pct": 0.05,
-        "ref_px": 4402.0,
-        "note": "donchian close 4402 vs [3983 / 4380.6]"
-      }
-    },
-    {
-      "id": "i00028",
-      "kind": "entry",
-      "sleeve": "core",
-      "asset": "SILV",
-      "ticker": "",
-      "uid": "",
-      "side": "buy",
-      "lots": 0,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "51643bdb-349b-a428-0b74-c79a04fa0c93",
-      "broker_order_id": "",
-      "state": "INTENT",
-      "attempts": 0,
-      "t_signal": 1786405800000,
-      "t_post": 0,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-08-10",
-      "state_ts": 1786396832679,
-      "last_error": "",
-      "ctx": {
-        "stop_dist": 4.578571,
-        "atr": 2.289286,
-        "risk_pct": 0.05,
-        "ref_px": 66.29,
-        "note": "donchian close 66.29 vs [55.42 / 65.77]"
-      }
-    }
-  ],
+  "pending_intents": [],
   "next_intent_id": 29,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
@@ -323,14 +262,14 @@
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {
-    "79d16f7f-3ca4-4ae2-aa5b-183ed22618e9": -9198.8,
-    "afba584a-b4bd-459e-a1a4-038b4b18e38f": 10834.02
+    "79d16f7f-3ca4-4ae2-aa5b-183ed22618e9": -5347.94,
+    "afba584a-b4bd-459e-a1a4-038b4b18e38f": 14038.35
   },
   "capital_breakdown": {
-    "currencies": 879393.89,
-    "futures": 4452.48,
+    "currencies": 888227.45,
+    "futures": 2224.11,
     "mom_shares": 0.0,
-    "user_assets": 733586.9,
-    "portfolio_total": 1617433.27
+    "user_assets": 730736.6,
+    "portfolio_total": 1621188.16
   }
 }
