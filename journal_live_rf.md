@@ -501,3 +501,7 @@ total_amount_currencies деньгами бота — подтверждено �
 
 Регрессия: сценарий sleeve-rebase (цель, множитель баз, неискажённая доходность,
 идемпотентность на втором тике) в tools/test_live_rf_scenarios.ps1. Тесты 187/187.
+
+## 2026-08-12 12:06 MSK — RF-LIVE [setA]: закрыта L00020 BR LONG — +13369.78 ₽ (manual-ext)
+
+## 2026-08-12 12:07 MSK — RF-LIVE [core]: закрыта L00019 NG SHORT — -9700.06 ₽ (manual-ext)
