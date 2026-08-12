@@ -1002,6 +1002,33 @@ function Scn-EntryPxRepair {
   }
 }
 
+# --- 34. sleeve-rebase: конфиг задаёт новую базу капитала рукава -> eq_rub встаёт на цель, базы
+# доходности едут тем же множителем (иначе отчёт показал бы фантомный скачок), применяется РОВНО
+# один раз на id. Решение пользователя 2026-08-12: леджеры отстали от реального капитала счёта.
+function Scn-SleeveRebase {
+  $r = New-Scenario 'sleeve-rebase'
+  $s = New-BaseState $r
+  $s.sleeves.core.month_start_eq = 600000.0   # доходность рукава +16.67% - должна пережить ребейз
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{
+    sleeve_rebase = [pscustomobject]@{ id = 'test-rebase-1'; core = 1050000.0; setA = 1050000.0 } })
+  $rC0 = 700000.0 / 600000.0 - 1
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'rebase: core eq_rub встал на цель' ([math]::Abs([double]$st.sleeves.core.eq_rub - 1050000.0) -lt 0.01)
+  Check 'rebase: setA eq_rub встал на цель' ([math]::Abs([double]$st.sleeves.setA.eq_rub - 1050000.0) -lt 0.01)
+  Check 'rebase: core month_start_eq x1.5 (600k -> 900k)' ([math]::Abs([double]$st.sleeves.core.month_start_eq - 900000.0) -lt 0.01)
+  Check 'rebase: core day_start_eq x1.5' ([math]::Abs([double]$st.sleeves.core.day_start_eq - 1050000.0) -lt 0.01)
+  $rC1 = [double]$st.sleeves.core.eq_rub / [double]$st.sleeves.core.month_start_eq - 1
+  Check 'rebase: доходность рукава НЕ исказилась' ([math]::Abs($rC1 - $rC0) -lt 1e-9)
+  Check 'rebase: вотермарка выставлена' ([string]$st.watermarks.sleeve_rebase_id -eq 'test-rebase-1')
+  # второй тик с тем же id - ребейз не должен примениться повторно
+  [void](Run-Tick $r '2026-07-15 11:15')
+  $st2 = Get-State $r
+  Check 'rebase: идемпотентность (второй тик не удвоил)' ([math]::Abs([double]$st2.sleeves.core.eq_rub - 1050000.0) -lt 0.01)
+  Check 'rebase: month_start_eq тоже не уехал повторно' ([math]::Abs([double]$st2.sleeves.core.month_start_eq - 900000.0) -lt 0.01)
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -1015,6 +1042,6 @@ $scenarios = @(
   ${function:Scn-FloodCap}, ${function:Scn-Tp1Sync}, ${function:Scn-RollFlow}, ${function:Scn-MomRebalance},
   ${function:Scn-CrashRecovery}, ${function:Scn-Funding}, ${function:Scn-DryrunE2e},
   ${function:Scn-FundingGated}, ${function:Scn-Post400}, ${function:Scn-AdoptOpsFail},
-  ${function:Scn-EmptySnapshot}
+  ${function:Scn-EmptySnapshot}, ${function:Scn-SleeveRebase}
 )
 foreach ($fn in $scenarios) { & $fn }

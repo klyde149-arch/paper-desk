@@ -706,8 +706,12 @@ function Update-GoBudget($Margin) {
   }
   $stockVal = 0.0
   foreach ($h in @($st.sleeves.mom.holdings)) { $stockVal += [double]$h.lots * [double]$h.lot_size * [double]$h.last_px }
-  # бот работает «свободными деньгами»: бюджет от СВОЕЙ базы, а не от всего счёта (счёт основной, есть чужие активы)
-  $st.go.budget_rub = [math]::Round([double]$LIVE.base_rub - $stockVal - [double]$LIVE.reserve_rub, 2)
+  # бот работает «свободными деньгами»: бюджет от РЕАЛЬНОГО капитала бота (bot_capital_rub, Set-BotCapital
+  # прошлого тика - на первом тике после деплоя ещё не посчитан, тогда фолбэк на base_rub), а не от
+  # статичной базы 2026-07-15 (решение пользователя 2026-08-12: потолок ГО должен расти вместе со счётом,
+  # иначе после ~2 месяцев роста капитала бот всё ещё торговал бы на стартовые 700k).
+  $realCapForGo = if ($st.go.PSObject.Properties['bot_capital_rub'] -and [double]$st.go.bot_capital_rub -gt 0) { [double]$st.go.bot_capital_rub } else { [double]$LIVE.base_rub }
+  $st.go.budget_rub = [math]::Round($realCapForGo - $stockVal - [double]$LIVE.reserve_rub, 2)
   if ([double]$st.go.used_rub -gt [double]$st.go.peak_day_rub) { $st.go.peak_day_rub = [double]$st.go.used_rub }
 }
 # Восстановить реальный исторический пик bot_capital из equity.json (вызывается один раз,
@@ -799,6 +803,39 @@ function Set-BotCapital($Pf) {
     currencies = [math]::Round($curRub, 2); futures = [math]::Round($futRub, 2)
     mom_shares = [math]::Round($momRub, 2); user_assets = $userRub; portfolio_total = [math]::Round($totRub, 2)
   }) -Force
+}
+# Разовый ребейз виртуальных леджеров рукавов на новую базу капитала.
+# ЗАЧЕМ: eq_rub рукава растёт только на СВОЁМ P&L, а реальный капитал счёта - ещё и на пополнениях,
+# поэтому со временем леджер отстаёт и заложенный риск размывается (к 2026-08-12 core рисковал 3.4%
+# реального капитала вместо положенных 5%). Правкой state через git это не чинится: VPS считает свой
+# portfolio.json авторитетным и перезапишет его ближайшим тиком, поэтому цель приходит конфигом.
+# month_start_eq/day_start_eq масштабируются тем же множителем, что и eq_rub: доходности рукава -
+# это отношения к ним, и без синхронного сдвига отчёт с profile_eq показали бы фантомный скачок.
+# Открытые позиции НЕ трогаем - они набирались по старому масштабу и должны дожить как есть.
+function Invoke-SleeveRebase {
+  $rb = $LIVE.sleeve_rebase
+  if ($null -eq $rb) { return }
+  $id = [string]$rb.id
+  if (-not $id -or [string]$st.watermarks.sleeve_rebase_id -eq $id) { return }
+  $done = @()
+  foreach ($sn in 'core','setA') {
+    if (-not $rb.PSObject.Properties[$sn]) { continue }
+    $target = [double]$rb.$sn
+    $sl = $st.sleeves.$sn
+    $old = [double]$sl.eq_rub
+    if ($target -le 0 -or $old -le 0) { continue }
+    $k = $target / $old
+    $sl.eq_rub = [math]::Round($target, 2)
+    $sl.month_start_eq = [math]::Round([double]$sl.month_start_eq * $k, 2)
+    $sl.day_start_eq = [math]::Round([double]$sl.day_start_eq * $k, 2)
+    Write-LiveLog ("sleeve rebase [{0}]: eq_rub {1} -> {2} (x{3}), базы доходности сдвинуты тем же множителем" -f $sn, [math]::Round($old, 2), $sl.eq_rub, [math]::Round($k, 4))
+    $done += ("{0} {1} -> {2}" -f $sn, (Fmt-Money $old '₽' 0), (Fmt-Money ([double]$sl.eq_rub) '₽' 0))
+  }
+  $st.watermarks | Add-Member -NotePropertyName sleeve_rebase_id -NotePropertyValue $id -Force
+  Save-State
+  if ($done.Count) {
+    Alert ("размер сделок пересчитан на новую базу капитала: {0}. Риск на сделку вырастет пропорционально; открытые позиции не тронуты." -f ($done -join '; '))
+  }
 }
 function Test-GoAllows([double]$AddGoRub) {
   return (([double]$st.go.used_rub + $AddGoRub) -le ([double]$LIVE.go_cap_pct * [double]$st.go.budget_rub))
@@ -2242,6 +2279,9 @@ try {
     Write-LiveLog 'ReportNow: вечерний отчёт отправлен (состояние не сохранялось)'
     return
   }
+
+  # 3b. разовый ребейз рукавов на новую базу капитала (конфиг + вотермарка = ровно один раз)
+  Invoke-SleeveRebase
 
   # 4. сверка (полная, каждый тик - нюансы #3/#4/#13): снимок стоп-заявок -> TP1-sync (ДО D5,
   # иначе усечение лотов опередит объяснение частичного филла) -> reconcile
