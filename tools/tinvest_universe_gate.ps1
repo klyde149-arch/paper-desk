@@ -26,7 +26,10 @@ if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 . (Join-Path $PSScriptRoot 'lib_tinvest.ps1')
 
 $mode = if ($Sandbox) { 'sandbox' } else { 'prod' }
-Initialize-TInvest (Join-Path $Root 'data/live_rf') $mode
+# DataDir пустой намеренно: гейт не пишет НИЧЕГО (ни лога задержек, ни dryrun-лога).
+# Иначе запуск от root создал бы файлы с чужим владельцем, и следующий тик от trader
+# не смог бы в них писать - ровно тот класс поломок, что уронил бота на 27 часов в августе.
+Initialize-TInvest '' $mode
 $all = @($Control) + @($Assets)
 Write-Host "== гейт торгуемости (mode=$mode, host=$($script:TI.base)) =="
 Write-Host ("активы: {0}   [контроль: {1}]" -f ($Assets -join ','), ($Control -join ','))
