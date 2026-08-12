@@ -83,9 +83,9 @@ function Notify($C, [string]$Text) {
   $msg = '{0}: {1}' -f $C.prefix, $Text
   if ($DryRun) { Write-Host "[DRY] $msg"; return }
   $failed = @()
-  try { if (-not (Send-TgAlert $msg)) { $failed += 'основной' } } catch { $failed += 'основной' }
+  try { if (-not (Send-TgAlert $msg)) { $failed += "основной [$script:TgLastError]" } } catch { $failed += 'основной [исключение]' }
   if ($C.fanout -and $env:TG_CHAT_ID_FUT) {
-    try { if (-not (Send-TgAlert $msg -Chat $env:TG_CHAT_ID_FUT)) { $failed += 'фьючерсный' } } catch { $failed += 'фьючерсный' }
+    try { if (-not (Send-TgAlert $msg -Chat $env:TG_CHAT_ID_FUT)) { $failed += "фьючерсный [$script:TgLastError]" } } catch { $failed += 'фьючерсный [исключение]' }
   }
   # Немой сторож неотличим от здоровой системы: Send-TgAlert при пустых кредах молча отдаёт $false.
   # Инцидент 2026-08-11 - RF-контур лежал 27 ч, сторож исправно «слал» ~13 алертов в никуда.
