@@ -1,6 +1,7 @@
 # Downloads daily candles from MOEX ISS (no key needed) into data\moex\<TICKER>_1d.json
 param(
-  [string[]]$Tickers = @('SBER','GAZP','LKOH','ROSN','NVTK','GMKN','TATN','MGNT','VTBR','CHMF','PLZL','YDEX'),
+  # VTBR выведен 2026-08: код совпадает с фьючерсом ВТБ, серии цен лежат в одном файле по имени.
+  [string[]]$Tickers = @('SBER','GAZP','LKOH','ROSN','NVTK','GMKN','TATN','MGNT','CHMF','PLZL','YDEX'),
   [string]$From = '2023-07-01',
   [string]$Till = '2026-07-08',
   [int]$Interval = 24   # 24=daily, 60=hourly

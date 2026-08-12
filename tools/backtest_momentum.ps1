@@ -5,7 +5,8 @@
 # understates RU equity returns by roughly the dividend yield; note this in reports).
 # Outputs into DataDir: bt_equity_{OutTag}.json, bt_monthly_{OutTag}.json, bt_trades_{OutTag}.json
 param(
-  [string[]]$Tickers = @('SBER','GAZP','LKOH','ROSN','NVTK','GMKN','TATN','MGNT','VTBR','CHMF','PLZL','YDEX'),
+  # VTBR выведен 2026-08: код совпадает с фьючерсом ВТБ, серии цен лежат в одном файле по имени.
+  [string[]]$Tickers = @('SBER','GAZP','LKOH','ROSN','NVTK','GMKN','TATN','MGNT','CHMF','PLZL','YDEX'),
   [string]$DataDir = 'C:\Users\klyde\trading-sim\data\moex',
   [double]$StartEquity = 10000,
   [int]$TopK = 3,

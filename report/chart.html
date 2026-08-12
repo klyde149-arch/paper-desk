@@ -313,10 +313,12 @@ const SYMS=[
  {id:'AAVE-USDT',mkt:'crypto',by:'AAVEUSDT'},
  {id:'SBER',mkt:'moex'},{id:'GAZP',mkt:'moex'},{id:'LKOH',mkt:'moex'},{id:'ROSN',mkt:'moex'},
  {id:'NVTK',mkt:'moex'},{id:'GMKN',mkt:'moex'},{id:'TATN',mkt:'moex'},{id:'MGNT',mkt:'moex'},
- {id:'VTBR',mkt:'moex'},{id:'CHMF',mkt:'moex'},{id:'PLZL',mkt:'moex'},{id:'YDEX',mkt:'moex'},
+ {id:'CHMF',mkt:'moex'},{id:'PLZL',mkt:'moex'},{id:'YDEX',mkt:'moex'},
  {id:'IMOEX',mkt:'moex',index:true},
  {id:'BR',mkt:'fut',nm:'нефть Brent'},{id:'NG',mkt:'fut',nm:'газ Henry Hub'},{id:'GOLD',mkt:'fut',nm:'золото'},{id:'SILV',mkt:'fut',nm:'серебро'},
- {id:'Si',mkt:'fut',nm:'USD/RUB'},{id:'RTS',mkt:'fut',nm:'индекс РТС'},{id:'CNY',mkt:'fut',nm:'CNY/RUB'},{id:'MIX',mkt:'fut',nm:'индекс MOEX'}
+ {id:'Si',mkt:'fut',nm:'USD/RUB'},{id:'RTS',mkt:'fut',nm:'индекс РТС'},{id:'CNY',mkt:'fut',nm:'CNY/RUB'},{id:'MIX',mkt:'fut',nm:'индекс MOEX'},
+ {id:'Eu',mkt:'fut',nm:'EUR/RUB'},{id:'COCOA',mkt:'fut',nm:'какао'},{id:'PLD',mkt:'fut',nm:'палладий'},
+ {id:'SBRF',mkt:'fut',nm:'Сбербанк'},{id:'VTBR',mkt:'fut',nm:'ВТБ'}
 ];
 const TFS=[
  {id:'5m',by:'5',ms:3e5},{id:'15m',by:'15',ms:9e5},{id:'30m',by:'30',ms:18e5},
@@ -385,7 +387,7 @@ async function futFront(){
 async function loadFut(fromDate){
  // испечённые свечи T-Invest (VPS), точнее MOEX ISS; только начальная загрузка 1h/1D
  if(!fromDate&&(tf.id==='1h'||tf.id==='1D')){
-  try{const j=await jget('rf_candles/'+sym.id+'_'+tf.id+'.json');
+  try{const j=await jget('rf_candles/'+(sym.cf||sym.id)+'_'+tf.id+'.json');
    if(Array.isArray(j)&&j.length)return j.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).sort((a,b)=>a.t-b.t);}catch(e){}
  }
  const secid=await futFront();
@@ -406,7 +408,7 @@ async function loadFut(fromDate){
 async function loadMoex(fromDate){
  // испечённые свечи T-Invest (VPS) для акций TQBR; индекс IMOEX остаётся на ISS
  if(!fromDate&&!sym.index&&(tf.id==='1h'||tf.id==='1D')){
-  try{const j=await jget('rf_candles/'+sym.id+'_'+tf.id+'.json');
+  try{const j=await jget('rf_candles/'+(sym.cf||sym.id)+'_'+tf.id+'.json');
    if(Array.isArray(j)&&j.length)return j.map(r=>({t:+r[0],o:+r[1],h:+r[2],l:+r[3],c:+r[4],v:+r[5]})).sort((a,b)=>a.t-b.t);}catch(e){}
  }
  const iv=tf.mo;const out=[];

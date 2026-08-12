@@ -41,12 +41,30 @@ param(
   [double]$AtrTrailMult = 0,
   [int]$ReArmN = 0,
   [int]$ReArmBars = 15,
+  # Символы, которым re-arm НЕ применяется, даже когда -ReArmN > 0. Пусто = как раньше, бит-в-бит.
+  # Зачем (2026-08): re-arm одним инструментам помогает, другим мешает - у золота и юаня вклад
+  # менял знак от одного его включения. Это позволяет проверить выборочное отключение.
+  # ВНИМАНИЕ: в боевом движке такого механизма НЕТ ($REARM_N в lib_rf_signals.ps1 глобальный),
+  # перенос в бой потребует правки торгового пути.
+  [string[]]$ReArmExclude = @(),
   [string]$DataDir = 'C:\Users\klyde\trading-sim\data\moex_fut',
   [string]$FileSuffix = '_1d',
   [int]$WarmupBars = 60,
   [ValidateSet('none', 'revalidate', 'direct')][string]$QueueMode = 'none',
   [int]$QueueExpiryBars = 3,
   [string]$OutTag = '',
+  # Кластерный лимит: из перечисленных символов держать НЕ БОЛЕЕ ОДНОЙ позиции одновременно.
+  # Пусто (по умолчанию) = выключено, поведение бит-в-бит как раньше.
+  # Мотив (2026-08): Eu = Si * ED и CNY = Si / UCNY, то есть валютные пары к рублю - это одна и та
+  # же ставка. Без лимита при MaxConcurrent=3 все слоты рукава может занять один фактор.
+  [string[]]$ClusterGroup = @(),
+  # Посимвольная комиссия: @{ SFIN=0.0031; T=0.0007 }. Символы, которых тут нет, платят $FeePct.
+  # Пусто (по умолчанию) = поведение бит-в-бит как раньше.
+  # Зачем (2026-08): $FeePct - это доля от нотионала, а сборы на FORTS берутся ЗА КОНТРАКТ.
+  # У фьючерсов на акции нотионал лота мелкий (ЭсЭфАй 638 руб против 73 494 у нефти), поэтому
+  # одна общая ставка занижает их издержки в разы - у ЭсЭфАй в 31 раз. Без этого поиск состава
+  # корзины систематически предпочитал бы мелконотиональные инструменты по причине артефакта модели.
+  [hashtable]$FeePctBySymbol = @{},
   # TELEMETRY ONLY. When set, dumps one row per open-position bar to this path (JSON).
   # Purely observational: it reads state that the management block already computed and
   # appends to a list. It must never influence an entry, an exit, a stop or a fill.
@@ -54,6 +72,21 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $dir = $DataDir
+
+# Ставка комиссии для символа: из -FeePctBySymbol, иначе общий -FeePct.
+function Get-SymFee([string]$Sym) {
+  if ($FeePctBySymbol -and $FeePctBySymbol.ContainsKey($Sym)) { return [double]$FeePctBySymbol[$Sym] }
+  return [double]$FeePct
+}
+
+# Кластерный лимит (см. параметр -ClusterGroup). Возвращает $true, если символ входит в группу
+# и в группе УЖЕ есть открытая позиция. Пустая группа = всегда $false, то есть выключено.
+function Test-ClusterBlocked([string]$Sym, $Open) {
+  if (-not $ClusterGroup -or $ClusterGroup.Count -eq 0) { return $false }
+  if ($ClusterGroup -notcontains $Sym) { return $false }
+  foreach ($os in @($Open.Keys)) { if ($ClusterGroup -contains $os) { return $true } }
+  return $false
+}
 
 function EMAseries([double[]]$v, [int]$p) {
   $n = $v.Count; $out = New-Object 'double[]' $n
@@ -178,7 +211,7 @@ function Get-Signal([string]$sym, [int]$i) {
     $cl = $S[$sym].c[$i]
     $chHi = ($S[$sym].h[($i - $BreakoutN)..($i - 1)] | Measure-Object -Maximum).Maximum
     $chLo = ($S[$sym].l[($i - $BreakoutN)..($i - 1)] | Measure-Object -Minimum).Minimum
-    if ($ReArmN -gt 0 -and $reArm.ContainsKey($sym) -and $i -ge ($ReArmN + 1)) {
+    if ($ReArmN -gt 0 -and ($ReArmExclude -notcontains $sym) -and $reArm.ContainsKey($sym) -and $i -ge ($ReArmN + 1)) {
       $ra = $reArm[$sym]; $dEx = $i - $ra.exitIdx
       if ($dEx -ge 1 -and $dEx -le $ReArmBars) {
         if ($ra.dir -eq 'long') { $chHi = ($S[$sym].h[($i - $ReArmN)..($i - 1)] | Measure-Object -Maximum).Maximum }
@@ -217,8 +250,10 @@ function Open-Position([string]$sym, [string]$side, [double]$stopDist, [int]$i, 
   $tp1 = if ($Breakout) { $null } elseif ($side -eq 'long') { $entry + $RewardR * $stopDist } else { $entry - $RewardR * $stopDist }
   $qty = ($script:equity * $RiskPct) / $stopDist
   if ($qty * $entry -gt $MaxLev * $script:equity) { $qty = $MaxLev * $script:equity / $entry }
-  $efee = $qty * $entry * $FeePct; $script:equity -= $efee
+  $symFee = Get-SymFee $sym
+  $efee = $qty * $entry * $symFee; $script:equity -= $efee
   $script:open[$sym] = @{
+    feePct = $symFee
     side = $side; bo = [bool]$Breakout; entry = $entry; entryRaw = $entryRaw; qty = $qty; stop = $stop; tp1 = $tp1
     tp1done = $false; entryIdx = $i; entryDay = $day; entryTs = $ts; realized = (-$efee)
     stop0 = $stop; stopDist0 = $stopDist; mfePx = $entry; maePx = $entry; bars = 0
@@ -245,9 +280,9 @@ foreach ($ts in $timeline) {
 
     if ($p.bo -and $AtrTrailMult -gt 0) {
       if ($p.side -eq 'long') {
-        if ($lo -le $p.stop) { $fill = ([math]::Min($p.stop, $opn)) * (1 - $StopSlipPct); $pnl = ($fill - $p.entry) * $p.qty - $fill * $p.qty * $FeePct; $equity += $pnl; $p.realized += $pnl; $exited = $true; $reason = if ($fill -gt $p.entry) { 'atr-trail' } else { 'stop' } }
+        if ($lo -le $p.stop) { $fill = ([math]::Min($p.stop, $opn)) * (1 - $StopSlipPct); $pnl = ($fill - $p.entry) * $p.qty - $fill * $p.qty * $p.feePct; $equity += $pnl; $p.realized += $pnl; $exited = $true; $reason = if ($fill -gt $p.entry) { 'atr-trail' } else { 'stop' } }
       } else {
-        if ($hi -ge $p.stop) { $fill = ([math]::Max($p.stop, $opn)) * (1 + $StopSlipPct); $pnl = ($p.entry - $fill) * $p.qty - $fill * $p.qty * $FeePct; $equity += $pnl; $p.realized += $pnl; $exited = $true; $reason = if ($fill -lt $p.entry) { 'atr-trail' } else { 'stop' } }
+        if ($hi -ge $p.stop) { $fill = ([math]::Max($p.stop, $opn)) * (1 + $StopSlipPct); $pnl = ($p.entry - $fill) * $p.qty - $fill * $p.qty * $p.feePct; $equity += $pnl; $p.realized += $pnl; $exited = $true; $reason = if ($fill -lt $p.entry) { 'atr-trail' } else { 'stop' } }
       }
       if (-not $exited) {
         $atrNow = $S[$sym].atr[$i]
@@ -261,17 +296,17 @@ foreach ($ts in $timeline) {
       $tpHit = (-not $p.tp1done) -and ($null -ne $p.tp1) -and ($hi -ge $p.tp1)
       if ($stopHit) {
         $fill = ([math]::Min($p.stop, $opn)) * (1 - $StopSlipPct)
-        $pnl = ($fill - $p.entry) * $p.qty - $fill * $p.qty * $FeePct
+        $pnl = ($fill - $p.entry) * $p.qty - $fill * $p.qty * $p.feePct
         $equity += $pnl; $p.realized += $pnl; $exited = $true; $reason = if ($p.tp1done) { 'trail-stop/BE' } else { 'stop' }
       } elseif ($tpHit) {
         $half = $p.qty * $Tp1ClosePct; $fill = $p.tp1
-        $pnl = ($fill - $p.entry) * $half - $fill * $half * $FeePct
+        $pnl = ($fill - $p.entry) * $half - $fill * $half * $p.feePct
         $equity += $pnl; $p.realized += $pnl
         $p.qty -= $half; $p.tp1done = $true; $p.stop = $p.entry
       }
       if (-not $exited -and $p.tp1done -and ($cl -lt $e20)) {
         $fill = $cl * (1 - $SlipPct)
-        $pnl = ($fill - $p.entry) * $p.qty - $fill * $p.qty * $FeePct
+        $pnl = ($fill - $p.entry) * $p.qty - $fill * $p.qty * $p.feePct
         $equity += $pnl; $p.realized += $pnl; $exited = $true; $reason = 'trail-EMA20'
       }
     } else {
@@ -279,17 +314,17 @@ foreach ($ts in $timeline) {
       $tpHit = (-not $p.tp1done) -and ($null -ne $p.tp1) -and ($lo -le $p.tp1)
       if ($stopHit) {
         $fill = ([math]::Max($p.stop, $opn)) * (1 + $StopSlipPct)
-        $pnl = ($p.entry - $fill) * $p.qty - $fill * $p.qty * $FeePct
+        $pnl = ($p.entry - $fill) * $p.qty - $fill * $p.qty * $p.feePct
         $equity += $pnl; $p.realized += $pnl; $exited = $true; $reason = if ($p.tp1done) { 'trail-stop/BE' } else { 'stop' }
       } elseif ($tpHit) {
         $half = $p.qty * $Tp1ClosePct; $fill = $p.tp1
-        $pnl = ($p.entry - $fill) * $half - $fill * $half * $FeePct
+        $pnl = ($p.entry - $fill) * $half - $fill * $half * $p.feePct
         $equity += $pnl; $p.realized += $pnl
         $p.qty -= $half; $p.tp1done = $true; $p.stop = $p.entry
       }
       if (-not $exited -and $p.tp1done -and ($cl -gt $e20)) {
         $fill = $cl * (1 + $SlipPct)
-        $pnl = ($p.entry - $fill) * $p.qty - $fill * $p.qty * $FeePct
+        $pnl = ($p.entry - $fill) * $p.qty - $fill * $p.qty * $p.feePct
         $equity += $pnl; $p.realized += $pnl; $exited = $true; $reason = 'trail-EMA20'
       }
     }
@@ -312,7 +347,7 @@ foreach ($ts in $timeline) {
     if ($exited) {
       $trades.Add((New-TradeRecord $sym $p $day $reason $fill $ts))
       $open.Remove($sym)
-      if ($p.bo -and $ReArmN -gt 0) { $reArm[$sym] = @{ exitIdx = $i; dir = $p.side } }
+      if ($p.bo -and $ReArmN -gt 0 -and ($ReArmExclude -notcontains $sym)) { $reArm[$sym] = @{ exitIdx = $i; dir = $p.side } }
     }
   }
 
@@ -331,7 +366,7 @@ foreach ($ts in $timeline) {
     foreach ($sym in @($open.Keys)) {
       $p = $open[$sym]; if (-not $S[$sym].idx.ContainsKey($ts)) { continue }
       $cl = $S[$sym].c[$S[$sym].idx[$ts]]
-      if ($p.side -eq 'long') { $pnl = ($cl * (1 - $SlipPct) - $p.entry) * $p.qty - $cl * $p.qty * $FeePct } else { $pnl = ($p.entry - $cl * (1 + $SlipPct)) * $p.qty - $cl * $p.qty * $FeePct }
+      if ($p.side -eq 'long') { $pnl = ($cl * (1 - $SlipPct) - $p.entry) * $p.qty - $cl * $p.qty * $p.feePct } else { $pnl = ($p.entry - $cl * (1 + $SlipPct)) * $p.qty - $cl * $p.qty * $p.feePct }
       $equity += $pnl; $p.realized += $pnl
       $trades.Add((New-TradeRecord $sym $p $day 'hard-halt' $cl $ts))
     }
@@ -347,7 +382,8 @@ foreach ($ts in $timeline) {
   # ---------- 3) reactivate a queued signal if a slot just freed up ----------
   if ($null -ne $queued -and $open.Count -lt $MaxConcurrent) {
     $qsym = $queued.sym
-    if ($S.ContainsKey($qsym) -and $S[$qsym].idx.ContainsKey($ts) -and -not $open.ContainsKey($qsym)) {
+    if ($S.ContainsKey($qsym) -and $S[$qsym].idx.ContainsKey($ts) -and -not $open.ContainsKey($qsym) `
+        -and -not (Test-ClusterBlocked $qsym $open)) {
       $qi = $S[$qsym].idx[$ts]
       if (($qi - $queued.barIdx) -gt $QueueExpiryBars) {
         $queued = $null; $queuedExpired++
@@ -370,6 +406,7 @@ foreach ($ts in $timeline) {
   foreach ($sym in $Symbols) {
     if (-not $S.ContainsKey($sym)) { continue }
     if ($open.ContainsKey($sym)) { continue }
+    if (Test-ClusterBlocked $sym $open) { continue }
     if ($open.Count -ge $MaxConcurrent -and ($QueueMode -eq 'none' -or $null -ne $queued)) { break }
     if (-not $S[$sym].idx.ContainsKey($ts)) { continue }
     $i = $S[$sym].idx[$ts]
@@ -394,7 +431,7 @@ if ($timeline.Count) {
     if ($S[$sym].idx.ContainsKey($lastTs)) { $li = $S[$sym].idx[$lastTs] }
     else { for ($q = $S[$sym].t.Count - 1; $q -ge 0; $q--) { if ($S[$sym].t[$q] -le $lastTs) { $li = $q; break } } }
     $last = $S[$sym].c[$li]
-    if ($p.side -eq 'long') { $pnl = ($last - $p.entry) * $p.qty - $last * $p.qty * $FeePct } else { $pnl = ($p.entry - $last) * $p.qty - $last * $p.qty * $FeePct }
+    if ($p.side -eq 'long') { $pnl = ($last - $p.entry) * $p.qty - $last * $p.qty * $p.feePct } else { $pnl = ($p.entry - $last) * $p.qty - $last * $p.qty * $p.feePct }
     $equity += $pnl; $p.realized += $pnl
     $trades.Add((New-TradeRecord $sym $p 'EOD' 'eod-close' $last $lastTs))
   }

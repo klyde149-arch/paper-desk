@@ -12,13 +12,25 @@ param(
   [double]$ReserveRub = 50000,   # неприкосновенный резерв
   [double]$GoCapPct = 0.60,      # собственный стоп по ГО
   [int]$MaxLev = 3,              # зеркало кэпа плеча paper (MAXLEV)
+  # Набор активов и число слотов на рукав. Дефолты = нынешний прод (8 инструментов, MAXCONC=3).
+  # Параметризовано 2026-08 под поиск состава корзины: худший случай по ГО зависит и от того,
+  # какие инструменты в корзине, и от того, сколько позиций рукав может держать одновременно.
+  [string[]]$Assets = @('BR','NG','GOLD','SILV','Si','RTS','CNY','MIX'),
+  [int]$CoreSlots = 3,
+  [int]$SetASlots = 2,
+  # Брать ATR строго из канонических склеек data\moex_fut, минуя data\rf\series.
+  # ОБЯЗАТЕЛЬНО для фьючерсов на акции: коды LKOH/ROSN/VTBR/YDEX совпадают с тикерами
+  # momentum-рукава, и в data\rf\series под этими именами лежат ряды АКЦИЙ, а не фьючерсов.
+  # Без этого ATR берётся от цены акции, а ₽/пункт - от фьючерса, и лоты уезжают в тысячи.
+  [switch]$UseCanonSeries,
   [string]$OutDoc = ''           # путь markdown-отчёта; '' = docs\backtests\rf_capital_calc_<yyyy-MM>.md
 )
 $ErrorActionPreference = 'Stop'
 if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')
 
-$ASSETS = @('BR','NG','GOLD','SILV','Si','RTS','CNY','MIX')
+# $ASSETS и $Assets - одна и та же переменная (PowerShell не различает регистр имён),
+# значение приходит параметром выше.
 
 # ---- параметры контрактов с ISS (одним вызовом) ----
 $secUrl = 'https://iss.moex.com/iss/engines/futures/markets/forts/securities.json?iss.only=securities&securities.columns=SECID,ASSETCODE,MINSTEP,STEPPRICE,INITIALMARGIN,LASTTRADEDATE,PREVSETTLEPRICE'
@@ -61,11 +73,15 @@ foreach ($a in $ASSETS) {
   # в зоне ролла (<=4 дней до LASTTRADEDATE) live входит сразу в следующий контракт
   if ($front.lasttrade -le $rollEdge -and $chain.Count -gt 1) { $front = $chain[1] }
 
-  $serPath = Join-Path $Root "data\rf\series\$a.json"
+  $serPath = if ($UseCanonSeries) { Join-Path $Root "data\moex_fut\$($a)_1d.json" }
+             else { Join-Path $Root "data\rf\series\$a.json" }
   if (-not (Test-Path $serPath)) { $serPath = Join-Path $Root "data\moex_fut\$($a)_1d.json" }
+  if (-not (Test-Path $serPath)) { Write-Warning "нет серии для $a - пропущен"; continue }
   $rawSer = Read-JsonFile $serPath   # присваивание разворачивает обёртку ConvertFrom-Json (PS 5.1)
   $bars = @($rawSer)
+  if ($bars.Count -lt 15) { Write-Warning "$a : баров $($bars.Count) (<15) - ATR не считается, пропущен"; continue }
   $atr = Calc-ATR14 $bars
+  if ([double]::IsNaN($atr) -or $atr -le 0) { Write-Warning "$a : ATR не определён - пропущен"; continue }
   $px = [double]$bars[$bars.Count-1].c
 
   $rubPt = $front.stepprice / $front.minstep         # руб за 1 пункт цены
@@ -91,8 +107,8 @@ foreach ($a in $ASSETS) {
 $stockRub = $MomWeight * $Capital
 $futBudget = $Capital - $stockRub - $ReserveRub
 $goCap = $GoCapPct * $futBudget
-$worstCore = @($rows | Sort-Object goCore -Descending | Select-Object -First 3)  # MAXCONC=3
-$worstSetA = @($rows | Sort-Object goSetA -Descending | Select-Object -First 2)
+$worstCore = @($rows | Sort-Object goCore -Descending | Select-Object -First $CoreSlots)
+$worstSetA = @($rows | Sort-Object goSetA -Descending | Select-Object -First $SetASlots)
 $goWorst = ($worstCore | Measure-Object goCore -Sum).Sum + ($worstSetA | Measure-Object goSetA -Sum).Sum
 
 # ---- вывод ----
@@ -115,15 +131,15 @@ $md.Add("")
 $md.Add("## Бюджет ГО")
 $md.Add(("- Акции momentum (~{0}×{1}): ~{2} ₽ · резерв {3} ₽ → фьючерсный бюджет {4} ₽" -f $MomWeight, (N0 $Capital), (N0 $stockRub), (N0 $ReserveRub), (N0 $futBudget)))
 $md.Add(("- Кэп ГО {0}%: **{1} ₽**" -f ($GoCapPct*100), (N0 $goCap)))
-$md.Add(("- Худший случай (3 самых дорогих core-позиции полным сайзом + 2 setA): **{0} ₽** → {1}" -f (N0 $goWorst), $(if ($goWorst -le $goCap) { 'проходит' } else { 'НЕ помещается — ГО-governor будет резать сайз (это штатно, но фиксируем)' })))
+$md.Add(("- Худший случай ({0} самых дорогих core-позиций полным сайзом + {1} setA): **{2} ₽** → {3}" -f $CoreSlots, $SetASlots, (N0 $goWorst), $(if ($goWorst -le $goCap) { 'проходит' } else { 'НЕ помещается — ГО-governor будет резать сайз (это штатно, но фиксируем)' })))
 $md.Add(("  - core top-3 по ГО: " + (($worstCore | ForEach-Object { "{0}={1}₽" -f $_.asset, (N0 $_.goCore) }) -join ', ')))
 $md.Add("")
 $md.Add("## Выводы")
 $failCore = @($rows | Where-Object { $_.lotsCore -lt 1 })
 $failSetA = @($rows | Where-Object { $_.lotsSetA -lt 1 })
-if (-not $failCore.Count) { $md.Add("- Ядро (core): все 8 инструментов проходят на >=1 лот. Универсум сохраняется полностью.") }
+if (-not $failCore.Count) { $md.Add(("- Ядро (core): все {0} инструментов проходят на >=1 лот." -f $rows.Count)) }
 else { $md.Add("- Ядро: НЕ проходят: " + (($failCore | ForEach-Object { $_.asset }) -join ', ') + " — требуется решение (мин. капитал в таблице).") }
-if (-not $failSetA.Count) { $md.Add("- SetA: все 8 инструментов проходят на >=1 лот (оценка по стопу 1×ATR — реальный стоп может быть шире за счёт свинга, лоты только меньше).") }
+if (-not $failSetA.Count) { $md.Add(("- SetA: все {0} инструментов проходят на >=1 лот (оценка по стопу 1×ATR — реальный стоп может быть шире за счёт свинга, лоты только меньше)." -f $rows.Count)) }
 else { $md.Add("- SetA: на >=1 лот НЕ проходят: " + (($failSetA | ForEach-Object { $_.asset }) -join ', ') + " — сигналы по ним будут пропускаться с логом SKIP qty0 (штатная целочисленная дивергенция).") }
 $md.Add("- Оценка setA — верхняя граница по лотам: фактический стоп = max(свинг-экстремум, 1×ATR) >= 1×ATR.")
 $md.Add("- ГО и ATR плавают: пересчитывать перед Phase 3 (боевой микро) и на квартальной валидации.")

@@ -51,3 +51,12 @@ data/.disk_watch_state
 # Actions-liveness watchdog (VPS): fault-timer state shared by live_tick.sh/live_rf_tick.sh,
 # local-only (mirrors data/.disk_watch_state above)
 data/.actions_watch_state
+
+# исследовательские артефакты поиска состава корзины и слотов (2026-08):
+# выходы backtest_rf_queue.ps1 и драйвера search_slots_universe.ps1. Репозиторий их
+# никогда не отслеживал, правило записано явно - они пересоздаются прогоном.
+data/moex_fut/btq_*
+data/fut_wf/
+data/fut_wf_sa/
+# локальные резервные копии перед раскаткой
+data/_backup_pre12_*

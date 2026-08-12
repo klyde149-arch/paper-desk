@@ -18,9 +18,11 @@ if (-not $script:TI.token) { Write-Host 'bake_rf_candles: нет токена T-
 $outDir = Join-Path $lrfDir 'candles'
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Force $outDir | Out-Null }
 
-# Универсум графиков = 8 фьючерсов (коды активов, как в chart.html SYMS) + 12 momentum-акций TQBR.
-$ASSETS = @('BR', 'NG', 'GOLD', 'SILV', 'Si', 'RTS', 'CNY', 'MIX')
-$TICKERS = @('SBER', 'GAZP', 'LKOH', 'ROSN', 'NVTK', 'GMKN', 'TATN', 'MGNT', 'VTBR', 'CHMF', 'PLZL', 'YDEX')
+# Универсум графиков = фьючерсы (коды активов, как в chart.html SYMS) + 12 momentum-акций TQBR.
+# ВНИМАНИЕ: это СОБСТВЕННАЯ копия списка, файл не дот-сорсит lib_rf_signals.ps1 -
+# при правке $ASSETS в каноне синхронизировать здесь вручную (2026-08: 8 -> 12).
+$ASSETS = @('BR', 'NG', 'GOLD', 'SILV', 'Si', 'CNY', 'MIX', 'Eu', 'COCOA', 'VTBR', 'PLD', 'SBRF')
+$TICKERS = @('SBER', 'GAZP', 'LKOH', 'ROSN', 'NVTK', 'GMKN', 'TATN', 'MGNT', 'CHMF', 'PLZL', 'YDEX')
 
 # фронт-контракты (секиды) из portfolio.json
 $fronts = @{}
@@ -89,6 +91,10 @@ function Save-CodeCandles([string]$Code, [string]$Uid) {
 foreach ($a in $ASSETS) {
   $secid = if ($fronts.ContainsKey($a)) { $fronts[$a] } else { '' }
   if (-not $secid) { Write-Host "  ${a}: нет фронта в portfolio.json - пропуск"; continue }
+  # Страховка от коллизии имён: если код фьючерса совпадёт с тикером momentum-акции, свечи
+  # разного масштаба (пункты против рублей) ушли бы в один файл. Сейчас пересечений нет -
+  # акция VTBR выведена из $TICKERS ровно поэтому, - но проверка оставлена на будущее.
+  if ($TICKERS -contains $a) { throw "bake_rf_candles: код фьючерса '$a' совпадает с momentum-тикером - свечи затрут друг друга" }
   Save-CodeCandles $a (Resolve-Uid $secid 'fut')
 }
 foreach ($t in $TICKERS) { Save-CodeCandles $t (Resolve-Uid $t 'share') }

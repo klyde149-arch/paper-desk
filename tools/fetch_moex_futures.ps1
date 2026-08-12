@@ -1,5 +1,7 @@
 # Fetch MOEX FORTS futures history and build continuous back-adjusted (ratio) series.
-# Assets: BR (Brent), NG (nat gas), GOLD, SILV (silver), Si (USD/RUB), RTS, CNY, MIX.
+# Assets: BR (Brent), NG (nat gas), GOLD, SILV (silver), Si (USD/RUB), RTS, CNY, MIX,
+# plus the 2026-08 expansion candidates: Eu (EUR/RUB), ED (EUR/USD), PLT (platinum), PLD (palladium),
+# UCNY (USD/CNY), COCOA, COFFEE, COPPER.
 # Contracts are dated (e.g. BRQ5); this script enumerates them via iss/securities/{SECID},
 # fetches candles per contract, rolls RollDaysBefore trading bars before each expiry and
 # splices a continuous series with MULTIPLICATIVE (ratio) back-adjustment - the backtest
@@ -11,7 +13,8 @@
 #   {ASSET}_rolls.json           - roll audit [{date,fromSecid,toSecid,commonDate,closeFrom,closeTo,ratio,adjAppliedToOlder,medValueRubFrom}]
 #   {ASSET}_meta.json            - bar counts, date range, median daily value (RUB) last 250 bars
 param(
-  [string[]]$Assets = @('BR','NG','GOLD','SILV','Si','RTS','CNY','MIX'),
+  [string[]]$Assets = @('BR','NG','GOLD','SILV','Si','RTS','CNY','MIX',
+                        'Eu','ED','PLT','PLD','UCNY','COCOA','COFFEE','COPPER'),
   [string]$FromDaily  = '2020-01-01',
   [string]$FromHourly = '2024-01-01',
   [string]$Till = '2026-07-09',
@@ -25,7 +28,14 @@ $dir = 'C:\Users\klyde\trading-sim\data\moex_fut'
 if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
 
 $prefixMap = @{ BR='BR'; NG='NG'; GOLD='GD'; SILV='SV'; Si='Si'; RTS='RI'; CNY='CR'; MIX='MX'
-                SBRF='SR'; GAZR='GZ'; LKOH='LK'; ROSN='RN' }   # single-stock futures
+                SBRF='SR'; GAZR='GZ'; LKOH='LK'; ROSN='RN'     # single-stock futures
+                # 2026-08: остальные фьючерсы на акции для поиска состава корзины.
+                # ВНИМАНИЕ: код актива и префикс SECID тут расходятся сильнее обычного -
+                # Новатэк это NOTKM/NV, Полюс PLZLM/PX, Т-Технологии T/TB, ЭсЭфАй SFIN/SH.
+                VTBR='VB'; YDEX='YD'; T='TB'; NOTKM='NV'; PLZLM='PX'; SFIN='SH'
+                # 2026-08 universe expansion. COCOA/COFFEE trade a non-quarterly month cycle
+                # (CCZ4,CCH5,CCK5,CCN5,CCU5,... ) - $monthLetters below already covers all 12.
+                Eu='Eu'; ED='ED'; PLT='PT'; PLD='PD'; UCNY='UC'; COCOA='CC'; COFFEE='KC'; COPPER='CE' }
 $monthLetters = @('F','G','H','J','K','M','N','Q','U','V','X','Z')
 
 function Invoke-Iss([string]$url) {
