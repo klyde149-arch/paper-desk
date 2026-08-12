@@ -109,6 +109,7 @@ function RfReasonRu([string]$Reason) {
     'hard-dd'    { return 'аварийная остановка -35%' }
     'emergency*' { return 'аварийное закрытие' }
     'stop-after-entry-fail' { return 'аварийное закрытие (не удалось выставить стоп)' }
+    'manual-ext' { return 'закрыто вне бота (стоп-заявка не срабатывала)' }
     'manual*'    { return 'закрыто вручную' }
     default      { return $Reason }
   }
@@ -435,6 +436,18 @@ function Complete-IntentIfFilled($It) {
 
 # ================= леджер / карточки позиций =================
 function Get-SleeveRef([string]$Name) { return $st.sleeves.$Name }
+# Стоп-маркет не исполняется ЛУЧШЕ своего триггера: лонг срабатывает при падении до уровня и
+# заливается по биду (на уровне или хуже), шорт - зеркально. Значит выход строго лучше стопа
+# карточки = закрытие пришло НЕ от стоп-заявки (руками в приложении, брокером, чем угодно).
+# Допуск 0.1% съедает округление стопа к min_price_increment и расхождение после уточнения
+# цены входа по операциям (живую стоп-заявку бот намеренно не двигает, см. Invoke-ConfirmEntryPx).
+function Test-StopCouldFire($Card, [double]$FillPx) {
+  $sp = [double]$Card.stop_px_pts
+  if ($sp -le 0) { return $true }              # стопа нет - судить не по чему, не выдумываем
+  $sm = if ([string]$Card.side -eq 'long') { 1.0 } else { -1.0 }
+  $tol = 0.001 * [math]::Abs($sp)
+  return (($sm * ($FillPx - $sp)) -le $tol)
+}
 function Close-CardLedger($Card, [double]$ExitPx, [string]$Reason, [double]$FeeRub) {
   $sl = Get-SleeveRef ([string]$Card.sleeve)
   $sm = if ($Card.side -eq 'long') { 1.0 } else { -1.0 }
@@ -451,7 +464,7 @@ function Close-CardLedger($Card, [double]$ExitPx, [string]$Reason, [double]$FeeR
     id = $Card.id; sleeve = $Card.sleeve; asset = $Card.asset; secid = $Card.secid; side = $Card.side
     entryDay = $Card.entry_day; entry = [double]$Card.entry_px_pts; lots = [int]$Card.lots_initial
     exitDay = $mskToday; exitUtc = (MsToUtcStr $NowMs); exitPx = [math]::Round($ExitPx, 6)
-    exitReason = $Reason; pnlRub = $net
+    exitReason = $Reason; stopPx = [math]::Round([double]$Card.stop_px_pts, 6); pnlRub = $net
     rMultiple = if ([double]$Card.risk_rub -gt 0) { [math]::Round($net / [double]$Card.risk_rub, 2) } else { $null }
     riskRub = [double]$Card.risk_rub; feesRub = [math]::Round($FeeRub + [double]$Card.fees_rub, 2)
     rolls = [int]$Card.rolls
@@ -881,7 +894,19 @@ function Invoke-Reconcile($stopIds) {
         if ($null -ne $op) {
           $px = [double](M2D $op.price).value
           $fee = [math]::Abs([double]$c.lots) * $px * [double]$c.rub_per_pt * [double]$LIVE.fee_est
-          Close-CardLedger $c $px 'stop' $fee
+          # два независимых признака: (1) наша стоп-заявка ЖИВА у брокера, а позиции нет - значит
+          # закрыл не стоп; (2) цена выхода лучше стопа - стоп физически не мог так исполниться.
+          $stopAlive = [bool]([string]$c.stop_order_id -and $stopIds.ContainsKey([string]$c.stop_order_id))
+          $extClose = $stopAlive -or -not (Test-StopCouldFire $c $px)
+          if ($extClose) {
+            # осиротевшая стоп-заявка без позиции откроет обратную -> D2 -> аварийное закрытие + halt
+            if ($stopAlive -and -not $LIVE.emulate_stops) {
+              try { Cancel-TiStopOrder ([string]$st.account_id) ([string]$c.stop_order_id) | Out-Null }
+              catch { Write-LiveLog "D4 $($c.id): не удалось снять осиротевшую стоп-заявку: $($_.Exception.Message)" }
+            }
+            Alert ("позиция {0} ({1}) закрыта не ботом — стоп-заявка не срабатывала. Учтено как внешнее закрытие; при сравнении с бэктестом такие сделки исключаются." -f $c.id, (RfName $c))
+          }
+          Close-CardLedger $c $px $(if ($extClose) { 'manual-ext' } else { 'stop' }) $fee
         } else {
           # ОДНОКРАТНОЕ real=0 подтверждаем ещё одним тиком (инцидент 2026-07-27: разовый битый
           # снимок GetPortfolio без строки фьючерса дал ложный D4 на живой позиции L00011 - карантин

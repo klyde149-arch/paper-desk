@@ -222,6 +222,7 @@ function CryptoReasonRu([string]$Reason) {
     'tp*'             { return 'достигнута цель' }
     'hard-halt*'      { return 'аварийная остановка -35%' }
     'no-sl-emergency' { return 'аварийное закрытие (не было стопа)' }
+    'manual-ext'      { return 'закрыто вне бота (стоп-заявка не срабатывала)' }
     'manual*'         { return 'закрыто вручную' }
     default           { return $Reason }
   }
@@ -479,7 +480,13 @@ try {
     if ($t) {
       $oppSide = if ([string]$t.side -eq 'long') { 'Sell' } else { 'Buy' }
       if ([string]$e.side -eq $oppSide) {
-        $part = if ($t.tp1_done) { 'runner-be' } else { 'stop' }
+        # стоп-заявка не исполняется ЛУЧШЕ своего триггера - выход строго лучше текущего $t.stop
+        # (переводится в БУ после TP1, см. :687) означает, что закрыл не стоп, а внешнее действие
+        $smC = if ([string]$t.side -eq 'long') { 1.0 } else { -1.0 }
+        $slPx = [double]$t.stop
+        $extC = ($slPx -gt 0) -and (($smC * ($fp - $slPx)) -gt (0.001 * [math]::Abs($slPx)))
+        $part = if ($extC) { 'manual-ext' } elseif ($t.tp1_done) { 'runner-be' } else { 'stop' }
+        if ($extC) { $t.close_reason = 'manual-ext' }   # лестницу на :513 это поле проходит первым
         Add-ExitLeg $t $part $fq $fp $eMs $fee
         $t.sl_exec = $true
       } else {

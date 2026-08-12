@@ -408,6 +408,48 @@ function Scn-D4Confirmed {
   Check 'D4-ok: убыток в леджере' ([double]$st.sleeves.core.eq_rub -lt 700000)
 }
 
+# --- 10b. D4-manual-ext: карточки нет у брокера, операция закрытия ЕСТЬ, но цена ЛУЧШЕ стопа
+# карточки (стоп-маркет не может исполниться лучше триггера) -> закрытие вне бота, не 'stop'
+function Scn-D4ManualExt {
+  $r = New-Scenario 'd4-manual-ext'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-CashOnlyPortfolio $r
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='op-ext'; date='2026-07-15T07:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='19'
+      price=[pscustomobject]@{units='3';nano=50000000} } ) })   # 3.05, выше стопа 2.676 - стоп так закрыться не мог
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'D4-manual-ext: карточка закрыта' (@($st.sleeves.core.positions).Count -eq 0)
+  $tr = Get-Trades $r
+  Check 'D4-manual-ext: причина manual-ext, цена 3.05' ($tr.Count -eq 1 -and [string]$tr[0].exitReason -eq 'manual-ext' -and [math]::Abs([double]$tr[0].exitPx - 3.05) -lt 1e-9)
+  Check 'D4-manual-ext: re-arm записан (как после обычного выхода)' ($null -ne $st.rearm.PSObject.Properties['c3b_NG'])
+  Check 'D4-manual-ext: без халта' (-not [bool]$st.entries_halt.active)
+}
+
+# --- 10c. D4-stop-alive: операция ровно по стопу, НО стоп-заявка карточки всё ещё живёт у брокера
+# (позицию закрыли, не тронув стоп) -> закрытие всё равно не 'stop' (иначе живая заявка) + заявка снята
+function Scn-D4StopAlive {
+  $r = New-Scenario 'd4-stop-alive'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-CashOnlyPortfolio $r
+  Write-Json (Join-Path $r 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @(
+    [pscustomobject]@{ stopOrderId = 'stop-live-1' } ) })
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='op-stop'; date='2026-07-15T07:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='19'
+      price=[pscustomobject]@{units='2';nano=676000000} } ) })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'D4-stop-alive: карточка закрыта' (@($st.sleeves.core.positions).Count -eq 0)
+  $tr = Get-Trades $r
+  Check 'D4-stop-alive: причина manual-ext (стоп ещё жив у брокера)' ($tr.Count -eq 1 -and [string]$tr[0].exitReason -eq 'manual-ext')
+  $cancels = Get-Calls $r 'CancelStopOrder'
+  Check 'D4-stop-alive: осиротевшая стоп-заявка снята ровно 1 раз' ($cancels.Count -eq 1 -and $cancels[0].body -like '*stop-live-1*')
+}
+
 # --- 11. D4-quarantine: позиции нет и операции нет ДВА тика подряд -> карантин + халт.
 # Подтверждение двумя тиками (d4_fails) - фикс инцидента 2026-07-27 (L00011): разовый битый
 # снимок GetPortfolio без строки фьючерса раньше карантинил живую позицию с первого тика.
@@ -966,7 +1008,7 @@ $scenarios = @(
   ${function:Scn-EntryFill}, ${function:Scn-EntryReject}, ${function:Scn-EntryLostAdopt}, ${function:Scn-EntryLostRepost},
   ${function:Scn-Qty0}, ${function:Scn-GoCap}, ${function:Scn-GoTrim}, ${function:Scn-HardDd},
   ${function:Scn-HardDdIgnoresBlendedPeak}, ${function:Scn-DayHaltReal},
-  ${function:Scn-D2}, ${function:Scn-D4Confirmed}, ${function:Scn-D4Quarantine},
+  ${function:Scn-D2}, ${function:Scn-D4Confirmed}, ${function:Scn-D4ManualExt}, ${function:Scn-D4StopAlive}, ${function:Scn-D4Quarantine},
   ${function:Scn-D4Transient}, ${function:Scn-D4EmptySnapshot}, ${function:Scn-D5},
   ${function:Scn-D6Repost}, ${function:Scn-D6Fail}, ${function:Scn-StocksDeficit}, ${function:Scn-StocksSurplus},
   ${function:Scn-ClearingGate}, ${function:Scn-Weekend}, ${function:Scn-HaltEntriesFile}, ${function:Scn-HaltCloseFile},
