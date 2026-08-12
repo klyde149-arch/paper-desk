@@ -40,6 +40,20 @@ if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 if (-not $NowMs) { $NowMs = UtcNowMs }
 $statePath = Join-Path $Root 'data\live_watch.json'
 
+# Проверка конфигурации при каждом запуске: печатаются только ИМЕНА отсутствующих переменных,
+# значения - никогда. Send-TgAlert не различает пустой токен и пустой чат (оба дают $false),
+# поэтому по одному факту «не доставлено» нельзя понять, что именно заводить - при разборе
+# инцидента 2026-08-11 это стоило нескольких итераций угадывания.
+if (-not $DryRun) {
+  $missingEnv = @('TG_BOT_TOKEN','TG_CHAT_ID','TG_CHAT_ID_FUT') |
+    Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) }
+  if ($missingEnv) {
+    Write-Host ("::warning title=live_watch::НЕ ЗАДАНЫ секреты: {0}. Сторож не сможет отправить алерт - заведите их в Settings -> Secrets and variables -> Actions." -f ($missingEnv -join ', '))
+  } else {
+    Write-Host 'live_watch: креды Telegram на месте (TG_BOT_TOKEN, TG_CHAT_ID, TG_CHAT_ID_FUT)'
+  }
+}
+
 # Контуры. fanout - второй получатель (у фьючерсов свой адресат, как в live_rf_engine.ps1).
 $CONTOURS = @(
   [ordered]@{
