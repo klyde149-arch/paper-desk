@@ -51,6 +51,7 @@ $LIVE = [ordered]@{
   mom_enabled = $true            # Phase 3: $false
   trade_weekends = $false        # выходные внебиржевые сессии НЕ торгуем (нюанс #8)
   emulate_stops = $false         # sandbox: StopOrders нет -> бот-сайд эмуляция по LastPrices
+  auto_rebase = $null            # { enabled, drift_pct, max_step_pct } - включается через config.json (решение 2026-08-13)
   # авто-финансирование (решение пользователя 2026-07-17): рублей на счёте почти нет, ликвидность
   # лежит в USD и серебре; перед сделкой бот продаёт funding-инструменты НА НУЖНУЮ СУММУ.
   # Список uid в порядке приоритета продажи. USD (CNGDOTC) через API НЕ торгуется - при нехватке
@@ -804,14 +805,27 @@ function Set-BotCapital($Pf) {
     mom_shares = [math]::Round($momRub, 2); user_assets = $userRub; portfolio_total = [math]::Round($totRub, 2)
   }) -Force
 }
-# Разовый ребейз виртуальных леджеров рукавов на новую базу капитала.
+# Общий хелпер ребейза виртуального леджера рукава на новую базу капитала (ручной и авто- пути).
 # ЗАЧЕМ: eq_rub рукава растёт только на СВОЁМ P&L, а реальный капитал счёта - ещё и на пополнениях,
 # поэтому со временем леджер отстаёт и заложенный риск размывается (к 2026-08-12 core рисковал 3.4%
-# реального капитала вместо положенных 5%). Правкой state через git это не чинится: VPS считает свой
-# portfolio.json авторитетным и перезапишет его ближайшим тиком, поэтому цель приходит конфигом.
+# реального капитала вместо положенных 5%).
 # month_start_eq/day_start_eq масштабируются тем же множителем, что и eq_rub: доходности рукава -
 # это отношения к ним, и без синхронного сдвига отчёт с profile_eq показали бы фантомный скачок.
 # Открытые позиции НЕ трогаем - они набирались по старому масштабу и должны дожить как есть.
+function Set-SleeveBase([string]$Sn, [double]$Target, [string]$Reason) {
+  $sl = $st.sleeves.$Sn
+  $old = [double]$sl.eq_rub
+  if ($Target -le 0 -or $old -le 0) { return $null }
+  $k = $Target / $old
+  $sl.eq_rub = [math]::Round($Target, 2)
+  $sl.month_start_eq = [math]::Round([double]$sl.month_start_eq * $k, 2)
+  $sl.day_start_eq = [math]::Round([double]$sl.day_start_eq * $k, 2)
+  Write-LiveLog ("sleeve rebase [{0}] ({1}): eq_rub {2} -> {3} (x{4}), базы доходности сдвинуты тем же множителем" -f $Sn, $Reason, [math]::Round($old, 2), $sl.eq_rub, [math]::Round($k, 4))
+  return ("{0} {1} -> {2}" -f $Sn, (Fmt-Money $old '₽' 0), (Fmt-Money ([double]$sl.eq_rub) '₽' 0))
+}
+
+# Разовый ручной ребейз (конфиг + вотермарка = ровно один раз). Аварийный рычаг, работает и при
+# выключенном авто-ребейзе - им же выставляли базу вручную 2026-08-12.
 function Invoke-SleeveRebase {
   $rb = $LIVE.sleeve_rebase
   if ($null -eq $rb) { return }
@@ -820,21 +834,46 @@ function Invoke-SleeveRebase {
   $done = @()
   foreach ($sn in 'core','setA') {
     if (-not $rb.PSObject.Properties[$sn]) { continue }
-    $target = [double]$rb.$sn
-    $sl = $st.sleeves.$sn
-    $old = [double]$sl.eq_rub
-    if ($target -le 0 -or $old -le 0) { continue }
-    $k = $target / $old
-    $sl.eq_rub = [math]::Round($target, 2)
-    $sl.month_start_eq = [math]::Round([double]$sl.month_start_eq * $k, 2)
-    $sl.day_start_eq = [math]::Round([double]$sl.day_start_eq * $k, 2)
-    Write-LiveLog ("sleeve rebase [{0}]: eq_rub {1} -> {2} (x{3}), базы доходности сдвинуты тем же множителем" -f $sn, [math]::Round($old, 2), $sl.eq_rub, [math]::Round($k, 4))
-    $done += ("{0} {1} -> {2}" -f $sn, (Fmt-Money $old '₽' 0), (Fmt-Money ([double]$sl.eq_rub) '₽' 0))
+    $d = Set-SleeveBase $sn ([double]$rb.$sn) 'вручную'
+    if ($d) { $done += $d }
   }
   $st.watermarks | Add-Member -NotePropertyName sleeve_rebase_id -NotePropertyValue $id -Force
   Save-State
   if ($done.Count) {
     Alert ("размер сделок пересчитан на новую базу капитала: {0}. Риск на сделку вырастет пропорционально; открытые позиции не тронуты." -f ($done -join '; '))
+  }
+}
+
+# Авто-ребейз (решение пользователя 2026-08-13): периодически подтягивает eq_rub рукава к реальному
+# капиталу счёта, чтобы риск на сделку не размывался при росте капитала и не завышался при просадке -
+# та же fixed-fractional модель, что в бэктесте. Выключен по умолчанию ($LIVE.auto_rebase = $null),
+# включается через data\live_rf\config.json. Срабатывает не чаще раза в календарный день и только
+# когда обе руки без открытых позиций - bot_capital_rub включает var_margin открытых фьючерсов
+# (плавающий P&L), при пустых руках futures-компонента = 0 и база чистая.
+function Invoke-AutoRebase {
+  $ar = $LIVE.auto_rebase
+  if ($null -eq $ar -or -not [bool]$ar.enabled) { return }
+  if ([string]$st.watermarks.auto_rebase_day -eq $mskToday) { return }
+  if (-not $st.go.PSObject.Properties['bot_capital_rub']) { return }
+  $cap = [double]$st.go.bot_capital_rub
+  if ($cap -le 0) { Write-LiveLog 'auto-rebase: капитал неизвестен (битый снимок) - пропуск'; return }
+  $open = @($st.sleeves.core.positions).Count + @($st.sleeves.setA.positions).Count
+  if ($open -gt 0) { Write-LiveLog "auto-rebase: отложен, открытых позиций $open"; return }
+  $drift = if ($ar.PSObject.Properties['drift_pct'] -and [double]$ar.drift_pct -gt 0) { [double]$ar.drift_pct } else { 0.05 }
+  $maxStep = if ($ar.PSObject.Properties['max_step_pct'] -and [double]$ar.max_step_pct -gt 0) { [double]$ar.max_step_pct } else { 0.30 }
+  $done = @()
+  foreach ($sn in 'core','setA') {
+    $old = [double]$st.sleeves.$sn.eq_rub
+    if ($old -le 0) { continue }
+    if ([math]::Abs($cap / $old - 1) -lt $drift) { continue }
+    $target = [math]::Min([math]::Max($cap, $old * (1 - $maxStep)), $old * (1 + $maxStep))
+    $d = Set-SleeveBase $sn $target 'авто'
+    if ($d) { $done += $d }
+  }
+  if ($done.Count) {
+    $st.watermarks | Add-Member -NotePropertyName auto_rebase_day -NotePropertyValue $mskToday -Force
+    Save-State
+    Alert ("авто-ребейз базы сделок на реальный капитал: {0}" -f ($done -join '; '))
   }
 }
 function Test-GoAllows([double]$AddGoRub) {
@@ -2428,8 +2467,10 @@ try {
     return
   }
 
-  # 3b. разовый ребейз рукавов на новую базу капитала (конфиг + вотермарка = ровно один раз)
+  # 3b. разовый ручной ребейз рукавов на новую базу капитала (конфиг + вотермарка = ровно один раз)
   Invoke-SleeveRebase
+  # 3c. авто-ребейз (выключен по умолчанию, см. Invoke-AutoRebase)
+  Invoke-AutoRebase
 
   # 4. сверка (полная, каждый тик - нюансы #3/#4/#13): снимок стоп-заявок -> TP1-sync (ДО D5,
   # иначе усечение лотов опередит объяснение частичного филла) -> reconcile

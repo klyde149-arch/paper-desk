@@ -1188,6 +1188,130 @@ function Scn-EveningHalt {
   Check 'evening-halt: карточек нет' (@($st.sleeves.core.positions).Count -eq 0)
 }
 
+# --- авто-ребейз базы сайзинга на реальный капитал (решение пользователя 2026-08-13).
+# eq_rub рукава растёт только на своём P&L, реальный капитал - ещё и на пополнениях, поэтому риск
+# размывался (12.08 ядро рисковало 3.4% вместо 5%). Ребейз двусторонний, порог дрейфа 5%, только
+# когда обе руки пусты (bot_capital включает var_margin открытых фьючерсов = плавающий P&L).
+# База сценариев: eq_rub = 700000, month_start_eq = 600000 - множитель наблюдаем на ОБЕИХ базах,
+# и MTD-доходность рукава обязана пережить ребейз без изменения (тот же приём, что в Scn-SleeveRebase).
+$AR_CFG = [pscustomobject]@{ auto_rebase = [pscustomobject]@{ enabled = $true; drift_pct = 0.05; max_step_pct = 0.30 } }
+
+function New-AutoRebaseScenario([string]$Name, [double]$CapRub, $Cfg = $AR_CFG, [switch]$WithPosition, [switch]$NoCapital) {
+  $r = New-Scenario $Name
+  if ($null -ne $Cfg) { Write-Json (Join-Path $r 'data\live_rf\config.json') $Cfg }
+  $s = New-BaseState $r
+  $s.sleeves.core.month_start_eq = 600000.0
+  $s.sleeves.setA.month_start_eq = 600000.0
+  if ($NoCapital) { $s.go | Add-Member -NotePropertyName bot_capital_rub -NotePropertyValue 0.0 -Force }
+  if ($WithPosition) {
+    $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  }
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  # -NoCapital: дефолтная фикстура портфеля (нет total_amount_portfolio) -> Set-BotCapital выходит
+  # по guard totRub<=0 и капитал не считается вовсе; иначе капитал = total_amount_currencies
+  # (позиций по фьючерсам нет -> var_margin 0, акций нет -> mom 0).
+  if (-not $NoCapital) {
+    $pos = @()
+    if ($WithPosition) {
+      $pos = @([pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='19';nano=0} })
+    }
+    Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{
+      positions = $pos
+      totalAmountCurrencies = [pscustomobject]@{ units=[string][long]$CapRub; nano=0; currency='rub' }
+      totalAmountPortfolio  = [pscustomobject]@{ units=[string][long]($CapRub + 400000); nano=0; currency='rub' } })
+  }
+  if ($WithPosition) {
+    Write-Json (Join-Path $r 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @(
+      [pscustomobject]@{ stopOrderId='stop-live-1' } ) })
+  }
+  return $r
+}
+
+function Get-TickLog([string]$Root) {
+  return [string](Get-Content (Join-Path $Root 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue)
+}
+
+# Рост капитала 700k -> 770k (+10% > порога 5%): база сайзинга подтягивается, доходность не врёт.
+function Scn-AutoRebaseGrow {
+  $r = New-AutoRebaseScenario 'auto-rebase-grow' 770000
+  $rC0 = 700000.0 / 600000.0 - 1
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'auto-rebase рост: core eq_rub подтянут к капиталу' ([math]::Abs([double]$st.sleeves.core.eq_rub - 770000.0) -lt 0.01)
+  Check 'auto-rebase рост: setA eq_rub подтянут к капиталу' ([math]::Abs([double]$st.sleeves.setA.eq_rub - 770000.0) -lt 0.01)
+  Check 'auto-rebase рост: month_start_eq сдвинут тем же множителем (x1.1)' ([math]::Abs([double]$st.sleeves.core.month_start_eq - 660000.0) -lt 0.01)
+  $rC1 = [double]$st.sleeves.core.eq_rub / [double]$st.sleeves.core.month_start_eq - 1
+  Check 'auto-rebase рост: MTD-доходность рукава не изменилась' ([math]::Abs($rC1 - $rC0) -lt 1e-9)
+  Check 'auto-rebase рост: day_start_eq сдвинут (ложного -6% халта не будет)' ([math]::Abs([double]$st.sleeves.core.day_start_eq - 770000.0) -lt 0.01)
+  Check 'auto-rebase рост: вотермарка дня проставлена' ([string]$st.watermarks.auto_rebase_day -eq '2026-07-15')
+}
+
+# Просадка капитала 700k -> 630k (-10%): двусторонность (fixed-fractional, как в бэктесте).
+function Scn-AutoRebaseShrink {
+  $r = New-AutoRebaseScenario 'auto-rebase-shrink' 630000
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'auto-rebase просадка: core eq_rub уменьшен до капитала' ([math]::Abs([double]$st.sleeves.core.eq_rub - 630000.0) -lt 0.01)
+  Check 'auto-rebase просадка: month_start_eq сдвинут (x0.9)' ([math]::Abs([double]$st.sleeves.core.month_start_eq - 540000.0) -lt 0.01)
+}
+
+# Дрейф 2.1% < порога 5%: леджер не дёргаем на шуме.
+function Scn-AutoRebaseBelowDrift {
+  $r = New-AutoRebaseScenario 'auto-rebase-below' 715000
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'auto-rebase порог: eq_rub НЕ тронут (дрейф 2.1% < 5%)' ([math]::Abs([double]$st.sleeves.core.eq_rub - 700000.0) -lt 0.01)
+  Check 'auto-rebase порог: month_start_eq НЕ тронут' ([math]::Abs([double]$st.sleeves.core.month_start_eq - 600000.0) -lt 0.01)
+  Check 'auto-rebase порог: вотермарки дня нет' (-not $st.watermarks.PSObject.Properties['auto_rebase_day'])
+}
+
+# Открытая позиция: bot_capital включает var_margin -> база загрязнена плавающим P&L, ребейз ждёт.
+function Scn-AutoRebaseOpenPosition {
+  $r = New-AutoRebaseScenario 'auto-rebase-open' 770000 -WithPosition
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'auto-rebase позиция: eq_rub НЕ тронут' ([math]::Abs([double]$st.sleeves.core.eq_rub - 700000.0) -lt 0.01)
+  Check 'auto-rebase позиция: причина в логе (отложен)' ((Get-TickLog $r) -match 'auto-rebase: отложен')
+  Check 'auto-rebase позиция: карточка жива' (@($st.sleeves.core.positions).Count -eq 1)
+}
+
+# Ключа auto_rebase в конфиге нет - выкатка кода обязана быть инертной.
+function Scn-AutoRebaseDisabled {
+  $r = New-AutoRebaseScenario 'auto-rebase-off' 770000 $null
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'auto-rebase выкл: eq_rub НЕ тронут (по умолчанию выключен)' ([math]::Abs([double]$st.sleeves.core.eq_rub - 700000.0) -lt 0.01)
+  Check 'auto-rebase выкл: вотермарки дня нет' (-not $st.watermarks.PSObject.Properties['auto_rebase_day'])
+}
+
+# Битый снимок счёта (капитал неизвестен): размер сделок не пересчитываем по мусору.
+function Scn-AutoRebaseBadSnapshot {
+  $r = New-AutoRebaseScenario 'auto-rebase-badsnap' 0 $AR_CFG -NoCapital
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'auto-rebase битый снимок: eq_rub НЕ тронут' ([math]::Abs([double]$st.sleeves.core.eq_rub - 700000.0) -lt 0.01)
+  Check 'auto-rebase битый снимок: причина в логе' ((Get-TickLog $r) -match 'auto-rebase: капитал неизвестен')
+}
+
+# Капитал x2 за один шаг - клампинг 30% защищает от снимка, проскочившего guard totRub<=0.
+function Scn-AutoRebaseClamp {
+  $r = New-AutoRebaseScenario 'auto-rebase-clamp' 1400000
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'auto-rebase кламп: шаг ограничен 30% (910k, не 1.4M)' ([math]::Abs([double]$st.sleeves.core.eq_rub - 910000.0) -lt 0.01)
+  Check 'auto-rebase кламп: month_start_eq сдвинут тем же множителем (x1.3)' ([math]::Abs([double]$st.sleeves.core.month_start_eq - 780000.0) -lt 0.01)
+}
+
+# Второй тик того же дня ничего не двигает (вотермарка + нулевой дрейф).
+function Scn-AutoRebaseIdempotent {
+  $r = New-AutoRebaseScenario 'auto-rebase-idem' 770000
+  [void](Run-Tick $r '2026-07-15 11:00')
+  [void](Run-Tick $r '2026-07-15 11:15')
+  $st = Get-State $r
+  Check 'auto-rebase идемпотентность: eq_rub не удвоился' ([math]::Abs([double]$st.sleeves.core.eq_rub - 770000.0) -lt 0.01)
+  Check 'auto-rebase идемпотентность: month_start_eq не уехал' ([math]::Abs([double]$st.sleeves.core.month_start_eq - 660000.0) -lt 0.01)
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -1205,6 +1329,9 @@ $scenarios = @(
   ${function:Scn-EveningEntry}, ${function:Scn-EveningNoSignal}, ${function:Scn-EveningIdempotent},
   ${function:Scn-EveningExistingPosition}, ${function:Scn-EveningHalt},
   ${function:Scn-GoNewBelowCap}, ${function:Scn-GoNewBetween}, ${function:Scn-GoNewAboveTrim},
-  ${function:Scn-GoNewCapAllowsEntry}
+  ${function:Scn-GoNewCapAllowsEntry},
+  ${function:Scn-AutoRebaseGrow}, ${function:Scn-AutoRebaseShrink}, ${function:Scn-AutoRebaseBelowDrift},
+  ${function:Scn-AutoRebaseOpenPosition}, ${function:Scn-AutoRebaseDisabled}, ${function:Scn-AutoRebaseBadSnapshot},
+  ${function:Scn-AutoRebaseClamp}, ${function:Scn-AutoRebaseIdempotent}
 )
 foreach ($fn in $scenarios) { & $fn }
