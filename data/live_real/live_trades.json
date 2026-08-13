@@ -889,5 +889,49 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT14",
+    "sym": "BCH-USDT",
+    "side": "long",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-08-06 16:00",
+    "entryDay": "2026-08-06",
+    "entryTs": 1786032003776,
+    "entry": 213.80000000000004,
+    "qty": 0.33,
+    "exitUtc": "2026-08-13 15:35",
+    "exitDay": "2026-08-13",
+    "exitTs": 1786635303724,
+    "exitPx": 209.3,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 0.33,
+        "price": 209.3,
+        "utc": "2026-08-13 15:34",
+        "pnl": -1.49
+      }
+    ],
+    "pnlUsd": -1.66,
+    "rMultiple": -1.48,
+    "riskUsd": 1.12,
+    "fees": 0.14,
+    "funding": 0.03,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; BCH-USDT 4h up; F&G 25",
+      "riskPlan": "вход ~213.7, стоп 210.3 (1.64%), TP1 218.8 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.12",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
