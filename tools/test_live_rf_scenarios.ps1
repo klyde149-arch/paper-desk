@@ -1076,7 +1076,7 @@ function Scn-EntryPxRepair {
     Check 'entry-px-repair: помечен подтверждённым (повторно не дёргаем API)' ([bool]$pos[0].entry_px_ok)
     # намеренно: живая стоп-заявка осталась там, где встала при входе (2.912-0.229)
     Check 'entry-px-repair: стоп у брокера НЕ сдвинут' ([math]::Abs([double]$pos[0].stop_px_pts - 2.683) -lt 1e-9)
-    Check 'entry-px-repair: комиссия пересчитана от реальной цены' ([math]::Abs([double]$pos[0].fees_rub - [math]::Round(19 * 2.905 * 7749.12 * 0.0001, 2)) -lt 0.01)
+    Check 'entry-px-repair: комиссия пересчитана от реальной цены' ([math]::Abs([double]$pos[0].fees_rub - [math]::Round(19 * 2.905 * 7749.12 * 0.00025, 2)) -lt 0.01)
   }
 }
 

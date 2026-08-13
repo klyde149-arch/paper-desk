@@ -17,14 +17,14 @@
 # Canonical baseline configs (tools\research_runs.ps1 -Set fut, frozen core = 'B20-trail3'):
 #   core (ядро):  -Breakout -BreakoutN 20 -AtrStopMult 2.0 -AtrTrailMult 3.0
 #   setA (сетап A): (no -Breakout), defaults already match ATR_STOP_A=1.0/TPR=1.5/PBLOOK=3
-# Both: -Symbols BR,NG,GOLD,SILV,Si,RTS,CNY,MIX -DataDir data\moex_fut -FileSuffix _1d -MaxLev 3 -FeePct 0.0001
+# Both: -Symbols BR,NG,GOLD,SILV,Si,RTS,CNY,MIX -DataDir data\moex_fut -FileSuffix _1d -MaxLev 3 -FeePct 0.00025
 param(
   [string[]]$Symbols = @('BR','NG','GOLD','SILV','Si','RTS','CNY','MIX'),
   [double]$StartEquity = 10000,
   [double]$RiskPct = 0.01,
   [double]$MaxLev = 3,
   [int]$MaxConcurrent = 3,
-  [double]$FeePct = 0.0001,
+  [double]$FeePct = 0.00025,
   [double]$SlipPct = 0.0003,
   [double]$StopSlipPct = 0.0005,
   [double]$RewardR = 1.5,
