@@ -1604,55 +1604,136 @@ function Invoke-EntryWindow {
   if ($st.entries_halt.active) { return }
   foreach ($it in @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.state -eq 'INTENT' })) {
     if ([string]$it.created_day -ge $mskToday) { continue }   # вход на открытии СЛЕДУЮЩЕЙ сессии (как paper)
-    $sl = Get-SleeveRef ([string]$it.sleeve)
-    if ([string]$sl.halt_day -eq $mskToday) { Set-IntentState $it 'CANCELLED' 'sleeve halt'; continue }
-    # сайзинг: пункты -> рубли (боевой нюанс #1) + кэп MAXLEV + предиктивный ГО-чек
-    $secid = [string]$st.active.$([string]$it.asset)
-    $inst = $null
-    try { $inst = Get-Inst $secid 'fut' } catch { Set-IntentState $it 'CANCELLED' "инструмент: $($_.Exception.Message)"; Alert ("вход по {0} отменён: {1}." -f (AssetName ([string]$it.asset) $secid), $_.Exception.Message); continue }
-    # не входить в контракт с <=4 дней до last_trade_date (нюанс #7)
-    if ($inst.last_trade_date -and ((([datetime]$inst.last_trade_date) - ([datetime]$mskToday)).TotalDays -le 4)) {
-      $nx = [string]$st.fronts.$([string]$it.asset).next
-      if ($nx) { $secid = $nx; $inst = Get-Inst $secid 'fut' } else { Set-IntentState $it 'CANCELLED' 'фронт в зоне экспирации'; continue }
-    }
-    $it.ticker = $secid; $it.uid = [string]$inst.uid
-    if (-not (Test-InstrumentTrading ([string]$inst.uid))) { continue }   # утро: торги ещё не открылись - интент ждёт
-    $s = Get-Ser ([string]$it.asset)
-    $refPx = [double]$s[$s.Count - 1].c
-    $stopDist = [double]$it.ctx.stop_dist
-    if ([string]$it.sleeve -eq 'setA') {
-      $sm = if ($it.side -eq 'buy') { 1.0 } else { -1.0 }
-      $stopDist = [math]::Max($sm * ($refPx - [double]$it.ctx.swing), [double]$ATR_STOP_A * [double]$it.ctx.atr)
-    }
-    if ($stopDist -le 0) { Set-IntentState $it 'CANCELLED' 'stopDist<=0'; continue }
-    $riskRub = [double]$sl.eq_rub * [double]$it.ctx.risk_pct
-    $stopRubPerLot = $stopDist * [double]$inst.rub_per_pt
-    $lots = [math]::Floor($riskRub / $stopRubPerLot)
-    $levCap = [math]::Floor(([double]$MAXLEV * [double]$sl.eq_rub) / ($refPx * [double]$inst.rub_per_pt))
-    if ($lots -gt $levCap) { $lots = $levCap }
-    if ([int]$LIVE.max_lots_override -gt 0 -and $lots -gt [int]$LIVE.max_lots_override) { $lots = [int]$LIVE.max_lots_override }
-    if ($lots -lt 1) {
-      $st.stats.skipped_qty0 = [int]$st.stats.skipped_qty0 + 1
-      Set-IntentState $it 'CANCELLED' 'qty0'
-      $script:ev.Add("SKIP qty0 [$($it.sleeve)] $($it.asset): riskRub=$([math]::Round($riskRub,0)) stopRub/lot=$([math]::Round($stopRubPerLot,0))")
-      continue
-    }
-    # предиктивный ГО-чек (нюанс #6)
-    $goPer = if ($it.side -eq 'buy') { [double]$inst.go_buy } else { [double]$inst.go_sell }
-    while ($lots -ge 1 -and -not (Test-GoAllows ($lots * $goPer))) { $lots-- }
-    if ($lots -lt 1) {
-      Set-IntentState $it 'CANCELLED' 'go-cap'
-      $script:ev.Add("SKIP go-cap [$($it.sleeve)] $($it.asset): used=$($st.go.used_rub) budget=$($st.go.budget_rub)")
-      continue
-    }
-    $it.lots = [int]$lots
-    $it.ctx | Add-Member -NotePropertyName risk_rub -NotePropertyValue ([math]::Round($riskRub, 2)) -Force
-    $it.ctx | Add-Member -NotePropertyName stop_dist -NotePropertyValue ([math]::Round($stopDist, 6)) -Force
-    $it.ctx.ref_px = $refPx
-    # рубли под ГО: при нехватке продаётся funding (серебро); не вышло - интент ждёт следующего тика
-    if (-not (Ensure-RubFunding ($lots * $goPer + 1500.0) "вход $($it.asset) $lots лот")) { continue }
-    Save-State
-    [void](Post-IntentMarket $it ([string]$it.side) ([int]$lots))
+    Invoke-EntryIntentPost $it
+  }
+}
+
+# сайзинг (пункты -> рубли, боевой нюанс #1) + кэп MAXLEV + предиктивный ГО-чек + постановка одного
+# entry-интента. Вынесено из Invoke-EntryWindow, чтобы тот же путь могла переиспользовать вечерняя
+# same-day проверка (Invoke-EveningConfirm) - единая точка сайзинга/ГО-чека/постановки, не дублирование.
+function Invoke-EntryIntentPost($it) {
+  $sl = Get-SleeveRef ([string]$it.sleeve)
+  if ([string]$sl.halt_day -eq $mskToday) { Set-IntentState $it 'CANCELLED' 'sleeve halt'; return }
+  $secid = [string]$st.active.$([string]$it.asset)
+  $inst = $null
+  try { $inst = Get-Inst $secid 'fut' } catch { Set-IntentState $it 'CANCELLED' "инструмент: $($_.Exception.Message)"; Alert ("вход по {0} отменён: {1}." -f (AssetName ([string]$it.asset) $secid), $_.Exception.Message); return }
+  # не входить в контракт с <=4 дней до last_trade_date (нюанс #7)
+  if ($inst.last_trade_date -and ((([datetime]$inst.last_trade_date) - ([datetime]$mskToday)).TotalDays -le 4)) {
+    $nx = [string]$st.fronts.$([string]$it.asset).next
+    if ($nx) { $secid = $nx; $inst = Get-Inst $secid 'fut' } else { Set-IntentState $it 'CANCELLED' 'фронт в зоне экспирации'; return }
+  }
+  $it.ticker = $secid; $it.uid = [string]$inst.uid
+  if (-not (Test-InstrumentTrading ([string]$inst.uid))) { return }   # утро: торги ещё не открылись - интент ждёт
+  $s = Get-Ser ([string]$it.asset)
+  # ctx.ref_px уже несёт цену, по которой сигнал был признан валидным (дневное закрытие для
+  # обычного пути, живая вечерняя цена для same-day пути) - предпочитаем её хвосту серии, который
+  # для same-day интента вечером ещё НЕ содержит сегодняшний бар (появится только в 00:20-хуке).
+  # Для обычного пути к моменту исполнения (следующая сессия) это то же самое значение.
+  $refPx = if ([double]$it.ctx.ref_px -gt 0) { [double]$it.ctx.ref_px } else { [double]$s[$s.Count - 1].c }
+  $stopDist = [double]$it.ctx.stop_dist
+  if ([string]$it.sleeve -eq 'setA') {
+    $sm = if ($it.side -eq 'buy') { 1.0 } else { -1.0 }
+    $stopDist = [math]::Max($sm * ($refPx - [double]$it.ctx.swing), [double]$ATR_STOP_A * [double]$it.ctx.atr)
+  }
+  if ($stopDist -le 0) { Set-IntentState $it 'CANCELLED' 'stopDist<=0'; return }
+  $riskRub = [double]$sl.eq_rub * [double]$it.ctx.risk_pct
+  $stopRubPerLot = $stopDist * [double]$inst.rub_per_pt
+  $lots = [math]::Floor($riskRub / $stopRubPerLot)
+  $levCap = [math]::Floor(([double]$MAXLEV * [double]$sl.eq_rub) / ($refPx * [double]$inst.rub_per_pt))
+  if ($lots -gt $levCap) { $lots = $levCap }
+  if ([int]$LIVE.max_lots_override -gt 0 -and $lots -gt [int]$LIVE.max_lots_override) { $lots = [int]$LIVE.max_lots_override }
+  if ($lots -lt 1) {
+    $st.stats.skipped_qty0 = [int]$st.stats.skipped_qty0 + 1
+    Set-IntentState $it 'CANCELLED' 'qty0'
+    $script:ev.Add("SKIP qty0 [$($it.sleeve)] $($it.asset): riskRub=$([math]::Round($riskRub,0)) stopRub/lot=$([math]::Round($stopRubPerLot,0))")
+    return
+  }
+  # предиктивный ГО-чек (нюанс #6)
+  $goPer = if ($it.side -eq 'buy') { [double]$inst.go_buy } else { [double]$inst.go_sell }
+  while ($lots -ge 1 -and -not (Test-GoAllows ($lots * $goPer))) { $lots-- }
+  if ($lots -lt 1) {
+    Set-IntentState $it 'CANCELLED' 'go-cap'
+    $script:ev.Add("SKIP go-cap [$($it.sleeve)] $($it.asset): used=$($st.go.used_rub) budget=$($st.go.budget_rub)")
+    return
+  }
+  $it.lots = [int]$lots
+  $it.ctx | Add-Member -NotePropertyName risk_rub -NotePropertyValue ([math]::Round($riskRub, 2)) -Force
+  $it.ctx | Add-Member -NotePropertyName stop_dist -NotePropertyValue ([math]::Round($stopDist, 6)) -Force
+  $it.ctx.ref_px = $refPx
+  # рубли под ГО: при нехватке продаётся funding (серебро); не вышло - интент ждёт следующего тика
+  if (-not (Ensure-RubFunding ($lots * $goPer + 1500.0) "вход $($it.asset) $lots лот")) { return }
+  Save-State
+  [void](Post-IntentMarket $it ([string]$it.side) ([int]$lots))
+}
+
+function Invoke-EveningConfirm {
+  # Путь A (2026-08). Бэктестер, на котором посчитан весь опубликованный эдж рукава B, всегда
+  # исполнял брейкаут-вход по цене ЗАКРЫТИЯ ТОГО ЖЕ дня (tools/backtest.ps1: $entry=$cl) - живой
+  # контур ждёт открытия СЛЕДУЮЩЕЙ сессии, задокументированный разрыв ("форвард измерит эту
+  # утечку", live_tinvest_design.md). Здесь разрыв частично закрывается: незадолго до ночного
+  # клиринга (23:48) цена уже практически финальна - пересчитываем Donchian-канал ЯДРА (setup A
+  # намеренно не входит: её триггер зависит от цены ОТКРЫТИЯ дня, которую этот тик не знает
+  # надёжно - отдельная задача) против неё, и если брейкаут подтверждён - входим сегодня, а не
+  # ждём до завтра. Канал по-прежнему считается ТОЛЬКО на завершённых дневных барах (без
+  # изменений) - меняется момент подтверждения, не сама стратегия (см. отдельный walk-forward
+  # Пути B, docs/backtests/intraday_confirm_2026-08.md - ВНУТРИЧАСОВОЕ подтверждение отклонено;
+  # этот путь другой: не раньше почти-закрытия, а не в любой момент дня).
+  #
+  # Анти-дублирование с 00:20-хуком - специально БЕЗ отдельного маркера: $has/$busy-гейты в
+  # Invoke-LiveDayHook уже проверяют и открытые позиции, и pending_intents в состояниях
+  # INTENT/POSTED/PARTIAL/LOST для той же пары актив+рукав - раз интент отсюда либо исполнился
+  # (появилась карточка), либо всё ещё висит в одном из этих состояний, хук сегодняшней ночью
+  # сам увидит "уже есть" и не создаст дубль. Если интент был CANCELLED (qty0/go-cap/ошибка
+  # инструмента) - он намеренно НЕ считается «занятым», и хук получает честный второй шанс на
+  # официально финализированной цене.
+  if ($st.entries_halt.active) { return }
+  if ([string]$st.watermarks.evening_confirm_day -eq $mskToday) { return }
+  $st.watermarks | Add-Member -NotePropertyName evening_confirm_day -NotePropertyValue $mskToday -Force
+  foreach ($a in $ASSETS) {
+    if (@($LIVE.whitelist).Count -and $LIVE.whitelist -notcontains $a) { continue }
+    try {
+      $slC = $st.sleeves.core
+      if ([string]$slC.halt_day -eq $mskToday) { continue }
+      $busy = @($slC.positions).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'core' -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
+      $has = @($slC.positions | Where-Object { $_.asset -eq $a }).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'core' -and $_.asset -eq $a -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
+      if ($busy -ge $MAXCONC -or $has) { continue }
+      $secid = [string]$st.active.$a
+      if (-not $secid) { continue }
+      $s = Get-Ser $a
+      if ($s.Count -lt ($BRK_N + 1)) { continue }
+      # серия обязана заканчиваться НЕ позже вчерашнего и не отставать больше чем на выходные/
+      # праздники (>4 дн - подозрение на застрявшую серию, инцидент 2026-08-12/13 "слепые пять";
+      # молча не считаем, обычный путь 00:20-хука разберётся сам)
+      $lastDay = SerDay $s[$s.Count - 1]
+      if ($lastDay -ge $mskToday) { continue }
+      if ((([datetime]$mskToday) - ([datetime]$lastDay)).TotalDays -gt 4) { continue }
+      $atr = Ser-ATR14 $s ($s.Count - 1)
+      if ([double]::IsNaN($atr) -or $atr -le 0) { continue }
+      $inst = $null
+      try { $inst = Get-Inst $secid 'fut' } catch { continue }
+      $px = $null
+      foreach ($lp in (Get-TiLastPrices @([string]$inst.uid))) { if ($null -ne $lp) { $px = [double](Q2D $lp.price) } }
+      if (-not $px -or $px -le 0) { continue }
+      # временная копия серии только для этого вызова - Get-Ser отдаёт ссылку на общий кэш,
+      # мутировать его синтетическим баром нельзя (настоящий бар допишет Update-DailySeries
+      # ночью). h/l синтетического бара не участвуют в сравнении (Get-DonchianSide берёт канал
+      # из баров ДО текущего индекса), только .c
+      $tmp = New-Object System.Collections.Generic.List[object]
+      $tmp.AddRange($s)
+      $tmp.Add([pscustomobject]@{ t = 0; o = $px; h = $px; l = $px; c = $px })
+      $key = "c3b_$a"
+      $ra = if ($st.rearm.PSObject.Properties[$key]) { $st.rearm.$key } else { $null }
+      $dsig = Get-DonchianSide $tmp ($tmp.Count - 1) $ra
+      if ([string]$dsig.side -eq '') { continue }
+      $dir = if ($dsig.side -eq 'long') { 'buy' } else { 'sell' }
+      $it = New-Intent 'entry' @{ sleeve = 'core'; asset = $a; side = $dir; created_day = $mskToday
+        t_signal = $NowMs
+        ctx = [pscustomobject]@{ stop_dist = [math]::Round([double]$ATR_STOP_CORE * $atr, 6); atr = [math]::Round($atr, 6)
+          risk_pct = [double]$LIVE.core_risk; ref_px = $px
+          note = "evening donchian $px vs [$([math]::Round([double]$dsig.lo,4)) / $([math]::Round([double]$dsig.hi,4))]" } }
+      $script:ev.Add("SIGNAL [core] $a $($dsig.side) @evening $px (same-day)")
+      Invoke-EntryIntentPost $it
+    } catch { Write-LiveLog "evening-confirm ${a}: $($_.Exception.Message)" }
   }
 }
 
@@ -2373,6 +2454,9 @@ try {
     if ((In-Window ([string]$LIVE.entry_from) ([string]$LIVE.entry_till)) -and (Can-PostOrders)) { Invoke-EntryWindow }
     if ((In-Window ([string]$LIVE.roll_from) ([string]$LIVE.roll_till)) -and (Can-PostOrders)) { Invoke-RollWindow }
     if ($mskHHmm -ge [string]$LIVE.mom_from -and $mskHHmm -le '18:00' -and (Can-PostOrders)) { Invoke-MomWindow }
+    # Путь A (2026-08): вечерняя проверка почти-финальной цены ядра, узкое окно ДО ночного
+    # клиринга ($CLEARING начинается в 23:48) - см. Invoke-EveningConfirm
+    if ((In-Window '23:35' '23:47') -and (Can-PostOrders)) { Invoke-EveningConfirm }
     Invoke-HourlyPass   # частоту гейтит вотермарка last_hour_ts (новых закрытых часовиков нет - выходит сразу)
     # отложенные обновления стопов (после 00:20-хука вне сессии)
     if ($mskHHmm -ge '09:45' -and (Can-PostOrders)) {

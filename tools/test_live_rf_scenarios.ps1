@@ -300,6 +300,84 @@ function Scn-GoTrim {
   Check 'go-trim: entries_halt активен' ([bool]$st.entries_halt.active)
 }
 
+# --- 7b. НОВЫЕ пороги ГО (решение пользователя 2026-08-13): кэп 0.60 -> 0.75, трим 0.75 -> 0.90.
+# Пороги приходят ОВЕРРАЙДОМ config.json (движок, строка ~70) - код не трогали. Тесты выше
+# (Scn-GoCap/Scn-GoTrim) намеренно оставлены на дефолтах 0.60/0.75: они защищают сам механизм
+# лестницы, эти - конкретную боевую настройку.
+#
+# Проверяются все три зоны, и главная из них - СРЕДНЯЯ. Между кэпом и тримом бот обязан остановить
+# НОВЫЕ входы, но продолжать вести уже открытую позицию. Ровно этот зазор исчез бы, если поднять
+# кэп до 0.75, оставив трим на 0.75: те же 77% из Scn-GoTrim тогда резали бы свежую позицию по
+# рынку не по стратегии, а из-за дёрнувшегося залога.
+$GO_CFG = [pscustomobject]@{ go_cap_pct = 0.75; go_trim_pct = 0.90 }   # бюджет песочницы = 650k
+
+function New-GoLadderScenario([string]$Name, [int]$StartingMargin, [switch]$WithPosition) {
+  $r = New-Scenario $Name
+  Write-Json (Join-Path $r 'data\live_rf\config.json') $GO_CFG
+  $s = New-BaseState $r
+  if ($WithPosition) {
+    $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  }
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  if ($WithPosition) {
+    Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = @(
+      [pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='19';nano=0} } ) })
+    Write-Json (Join-Path $r 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @(
+      [pscustomobject]@{ stopOrderId='stop-live-1' } ) })
+  }
+  Write-Json (Join-Path $r 'mock\UsersService.GetMarginAttributes.json') ([pscustomobject]@{
+    liquidPortfolio = [pscustomobject]@{ units='700000'; nano=0 }
+    startingMargin  = [pscustomobject]@{ units=[string]$StartingMargin; nano=0 } })
+  return $r
+}
+
+# Зона 1 - под кэпом (455k/650k = 70%): ни халта, ни трима, позиция ведётся как обычно.
+function Scn-GoNewBelowCap {
+  $r = New-GoLadderScenario 'go-new-below' 455000 -WithPosition
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'ГО-75/90 зона1 (70%): позиция цела' (@($st.sleeves.core.positions).Count -eq 1)
+  Check 'ГО-75/90 зона1 (70%): входы разрешены' (-not [bool]$st.entries_halt.active)
+  Check 'ГО-75/90 зона1 (70%): бюджет как ожидалось (650k)' ([math]::Abs([double]$st.go.budget_rub - 650000) -lt 1)
+}
+
+# Зона 2 - МЕЖДУ кэпом и тримом (500k/650k = 77%): входы стоп, но позиция ЖИВА.
+# При старом триме 0.75 этот же случай (Scn-GoTrim) закрывал позицию - в этом вся суть зазора.
+function Scn-GoNewBetween {
+  $r = New-GoLadderScenario 'go-new-between' 500000 -WithPosition
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'ГО-75/90 зона2 (77%): позиция НЕ закрыта (зазор работает)' (@($st.sleeves.core.positions).Count -eq 1)
+  Check 'ГО-75/90 зона2 (77%): сделок не записано' ((Get-Trades $r).Count -eq 0)
+  Check 'ГО-75/90 зона2 (77%): entries_halt активен' ([bool]$st.entries_halt.active)
+  Check 'ГО-75/90 зона2 (77%): причина халта - ГО' ([string]$st.entries_halt.reason -like 'ГО *')
+}
+
+# Зона 3 - выше трима (617.5k/650k = 95%): LIFO-закрытие последней позиции.
+function Scn-GoNewAboveTrim {
+  $r = New-GoLadderScenario 'go-new-above' 617500 -WithPosition
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'ГО-75/90 зона3 (95%): позиция закрыта LIFO' (@($st.sleeves.core.positions).Count -eq 0)
+  $tr = Get-Trades $r
+  Check 'ГО-75/90 зона3 (95%): причина emergency' ($tr.Count -eq 1 -and [string]$tr[0].exitReason -eq 'emergency')
+}
+
+# Практический смысл повышения кэпа: фикстура Scn-GoCap (занято 388k из бюджета 650k = 59.7%) при
+# старом кэпе 0.60 вход ОТКЛОНЯЛА (лимит 390k, лот ГО 6340 не влезал). При кэпе 0.75 лимит 487.5k,
+# запас 99.5k - вход обязан состояться. Это ровно то, ради чего кэп поднимали.
+function Scn-GoNewCapAllowsEntry {
+  $r = New-GoLadderScenario 'go-new-entry' 388000
+  $s = Get-State $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'ГО-75/90 вход: при кэпе 0.75 вход состоялся (при 0.60 отклонялся)' (@($st.sleeves.core.positions).Count -eq 1)
+  Check 'ГО-75/90 вход: PostOrder вызывался' ((Get-Calls $r 'PostOrder').Count -ge 1)
+  Check 'ГО-75/90 вход: интент не отменён по go-cap' (@($st.pending_intents | Where-Object { $_.state -eq 'CANCELLED' }).Count -eq 0)
+}
+
 # --- 8. hard-dd: -35% от пика РЕАЛЬНОГО капитала брокера -> закрыть всё + HALT_RF_LIVE
 # С 2026-08-07 governors считают dd от bot_capital_rub/capital_peak_rub (Set-BotCapital), а не
 # от блендовой profile_eq/peak_eq - тот же источник, что вечерний отчёт (a21d81456). Пик 700k
@@ -1029,6 +1107,87 @@ function Scn-SleeveRebase {
   Check 'rebase: month_start_eq тоже не уехал повторно' ([math]::Abs([double]$st2.sleeves.core.month_start_eq - 900000.0) -lt 0.01)
 }
 
+# --- 42. evening-entry: Путь A - вечерняя цена пробивает канал -> вход СЕГОДНЯ (не завтра)
+# CNY синтетика (New-BaseState): 40 плоских будних баров close=11.686, h-l=range=0.2614,
+# заканчиваются 2026-07-14 -> chHi(база-20, rearm нет) = 11.686+0.2614/2 = 11.8167.
+# Мок-цена 12.0 > chHi -> лонг.
+function Scn-EveningEntry {
+  $r = New-Scenario 'evening-entry'
+  $s = New-BaseState $r
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{
+    lastPrices = @([pscustomobject]@{ instrumentId='uid-NGQ6'; price=[pscustomobject]@{units='12';nano=0} }) })
+  [void](Run-Tick $r '2026-07-15 23:40')
+  $st = Get-State $r
+  $pos = @($st.sleeves.core.positions | Where-Object { $_.asset -eq 'CNY' })
+  Check 'evening: карточка CNY создана' ($pos.Count -eq 1)
+  if ($pos.Count) { Check 'evening: вход СЕГОДНЯ (15.07), не завтра' ([string]$pos[0].entry_day -eq '2026-07-15') }
+  Check 'evening: вотермарка выставлена' ([string]$st.watermarks.evening_confirm_day -eq '2026-07-15')
+}
+
+# --- 43. evening-no-signal: цена внутри канала -> сигнала нет, состояние не тронуто
+# whitelist=CNY: мок GetLastPrices не различает запрошенный uid (отдаёт одно и то же значение
+# любому вызывающему), поэтому без сужения до одного актива цена-полумера для CNY (11.686)
+# случайно пробила бы канал NG (масштаб на порядок меньше) и дала ложный FAIL не по вине кода.
+function Scn-EveningNoSignal {
+  $r = New-Scenario 'evening-no-signal'
+  $s = New-BaseState $r
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{ whitelist = @('CNY') })
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{
+    lastPrices = @([pscustomobject]@{ instrumentId='uid-NGQ6'; price=[pscustomobject]@{units='11';nano=686000000} }) })
+  [void](Run-Tick $r '2026-07-15 23:40')
+  $st = Get-State $r
+  Check 'evening-no-signal: карточек нет' (@($st.sleeves.core.positions).Count -eq 0)
+  Check 'evening-no-signal: интентов нет' (@($st.pending_intents).Count -eq 0)
+  Check 'evening-no-signal: вотермарка всё равно выставлена (не долбим каждую минуту окна)' ([string]$st.watermarks.evening_confirm_day -eq '2026-07-15')
+}
+
+# --- 44. evening-idempotent: тот же вечер дважды в окне -> не задваивает
+function Scn-EveningIdempotent {
+  $r = New-Scenario 'evening-idempotent'
+  $s = New-BaseState $r
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{
+    lastPrices = @([pscustomobject]@{ instrumentId='uid-NGQ6'; price=[pscustomobject]@{units='12';nano=0} }) })
+  [void](Run-Tick $r '2026-07-15 23:40')
+  [void](Run-Tick $r '2026-07-15 23:45')
+  $st = Get-State $r
+  Check 'evening-idempotent: ровно одна карточка CNY за вечер' (@($st.sleeves.core.positions | Where-Object { $_.asset -eq 'CNY' }).Count -eq 1)
+}
+
+# --- 45. evening-existing-position: у CNY уже есть карточка -> вечерняя проверка не лезет повторно
+# (тот же $has-гейт, что защищает от дубля и с ночным 00:20-хуком - тут проверяем сам механизм)
+function Scn-EveningExistingPosition {
+  $r = New-Scenario 'evening-existing-position'
+  $s = New-BaseState $r
+  $card = New-Card 'core' 'CNY' 'CRU6' 'uid-NGQ6' 'long' 5 11.7 11.5 1000
+  $s.sleeves.core.positions = @($card)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @(
+    [pscustomobject]@{ stopOrderId='stop-live-1' } ) })
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = @(
+    [pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='5';nano=0} } ) })
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{
+    lastPrices = @([pscustomobject]@{ instrumentId='uid-NGQ6'; price=[pscustomobject]@{units='12';nano=0} }) })
+  [void](Run-Tick $r '2026-07-15 23:40')
+  $st = Get-State $r
+  Check 'evening-existing: карточка осталась одна (не задвоилась)' (@($st.sleeves.core.positions | Where-Object { $_.asset -eq 'CNY' }).Count -eq 1)
+}
+
+# --- 46. evening-halt: entries_halt активен -> вечерняя проверка ничего не делает
+function Scn-EveningHalt {
+  $r = New-Scenario 'evening-halt'
+  $s = New-BaseState $r
+  $s.entries_halt = [pscustomobject]@{ active = $true; reason = 'test halt'; since = '2026-07-15 09:00' }
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{
+    lastPrices = @([pscustomobject]@{ instrumentId='uid-NGQ6'; price=[pscustomobject]@{units='12';nano=0} }) })
+  [void](Run-Tick $r '2026-07-15 23:40')
+  $st = Get-State $r
+  Check 'evening-halt: карточек нет' (@($st.sleeves.core.positions).Count -eq 0)
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -1042,6 +1201,10 @@ $scenarios = @(
   ${function:Scn-FloodCap}, ${function:Scn-Tp1Sync}, ${function:Scn-RollFlow}, ${function:Scn-MomRebalance},
   ${function:Scn-CrashRecovery}, ${function:Scn-Funding}, ${function:Scn-DryrunE2e},
   ${function:Scn-FundingGated}, ${function:Scn-Post400}, ${function:Scn-AdoptOpsFail},
-  ${function:Scn-EmptySnapshot}, ${function:Scn-SleeveRebase}
+  ${function:Scn-EmptySnapshot}, ${function:Scn-SleeveRebase},
+  ${function:Scn-EveningEntry}, ${function:Scn-EveningNoSignal}, ${function:Scn-EveningIdempotent},
+  ${function:Scn-EveningExistingPosition}, ${function:Scn-EveningHalt},
+  ${function:Scn-GoNewBelowCap}, ${function:Scn-GoNewBetween}, ${function:Scn-GoNewAboveTrim},
+  ${function:Scn-GoNewCapAllowsEntry}
 )
 foreach ($fn in $scenarios) { & $fn }
