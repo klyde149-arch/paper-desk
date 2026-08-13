@@ -250,6 +250,38 @@ switch ($Set) {
       }
     }
   }
+  'futint' {
+    # 2026-08 research: intraday-touch confirmation of the daily-computed Donchian channel
+    # (-IntradayConfirm in backtest.ps1) vs the accepted daily-close-confirm baseline
+    # (B20-rearm10x15). Canon-12 (current $ASSETS in lib_rf_signals.ps1, RTS out / 5 new in) -
+    # deliberately NOT the historical 8-asset 'fut'/'futre' basket, since this hypothesis is
+    # being evaluated for the universe actually live today.
+    $futDir = 'C:\Users\klyde\trading-sim\data\moex_fut'
+    $futOut = 'C:\Users\klyde\trading-sim\data\fut_runs'
+    if (-not (Test-Path $futOut)) { New-Item -ItemType Directory -Path $futOut | Out-Null }
+    $win = switch ($Period) {
+      'IS'   { @{ ToDate='2023-12-31' } }
+      'OOS1' { @{ FromDate='2024-01-01'; ToDate='2024-12-31' } }
+      'OOS2' { @{ FromDate='2025-01-01' } }
+      'full' { @{} }
+    }
+    $fcommon = @{ Symbols=@('BR','NG','GOLD','SILV','Si','CNY','MIX','Eu','COCOA','VTBR','PLD','SBRF')
+                  DataDir=$futDir; FileSuffix='_1d'; IndexSymbol='IMOEX'; NoFng=$true; FundingPerBar=0
+                  FeePct=0.0001; MaxLev=3; WarmupBars=60 } + $win
+    $bo = @{ Breakout=$true; BreakoutN=20; AtrTrailMult=3.0; AtrStopMult=2.0; ReArmN=10; ReArmBars=15 }
+    $cfgs = @(
+      @{n='base12-closeconfirm'; p=$bo.Clone()},                                    # published-edge baseline (same-day close fill)
+      @{n='base12-intraday';     p=$bo.Clone() + @{IntradayConfirm=$true}}          # Путь B hypothesis (rejected on IS)
+      @{n='base12-nextdayopen';  p=$bo.Clone() + @{NextDayOpenFill=$true}}          # Путь A baseline: what LIVE currently does (fill next session's open) before Путь A's evening check
+    )
+    foreach ($c in $cfgs) {
+      $rows += RunCfg "futint-$($c.n)-$Period" ($fcommon.Clone() + $c.p)
+      foreach ($f in 'bt_trades','bt_equity','bt_monthly') {
+        $src = Join-Path $futDir "$f.json"
+        if (Test-Path $src) { Copy-Item $src (Join-Path $futOut "$($c.n)_$Period`_$($f.Substring(3)).json") -Force }
+      }
+    }
+  }
   'solo-wf' {
     # walk-forward for per-coin winners (params passed via env-style args below)
     foreach ($sym in 'BNB-USDT','DOGE-USDT') {

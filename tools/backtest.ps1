@@ -44,6 +44,18 @@ param(
   [double]$AtrTrailMult = 0,  # breakout exit: chandelier ATR trail from MFE extreme (0 = default TP1+EMA20-trail path)
   [int]$ReArmN = 0,           # breakout re-entry: after a breakout exit, same-direction close beyond the ReArmN-bar channel re-enters (0 = off)
   [int]$ReArmBars = 15,       # re-entry window length (bars after the exit)
+  [switch]$IntradayConfirm,   # 2026-08 research: breakout confirms on an HOURLY touch of the (still daily-computed)
+                               # channel during the signal day, instead of waiting for the daily close - entry fills
+                               # at the channel level (+slip) at that hour, same day. Needs {sym}_1h.json in $IntradayDir.
+                               # Falls back to close-confirm for any symbol/day without hourly coverage. Off by default -
+                               # every existing invocation/test is unaffected.
+  [string]$IntradayDir = '',  # dir for {sym}_1h.json ('' = same as $DataDir)
+  [switch]$NextDayOpenFill,   # 2026-08 measurement: fill the breakout at the NEXT trading day's
+                               # OPEN instead of the signal bar's own close - replicates what the
+                               # LIVE engine currently does (decide on close, execute next session).
+                               # Skips the signal if there's no next bar in the data (can't fill
+                               # "tomorrow" at the series' last day). Mutually exclusive in intent
+                               # with -IntradayConfirm (opposite direction); not validated together.
   [string]$DataDir = 'C:\Users\klyde\trading-sim\data',
   [string]$FileSuffix = '_4h',       # candle file suffix: crypto '_4h', MOEX '_1d'
   [string]$IndexSymbol = 'BTC-USDT', # regime-filter instrument (loaded even if not traded)
@@ -118,6 +130,36 @@ foreach ($sym in $loadList) {
     idx=@{}  # timestamp -> index
   }
   for ($i=0;$i -lt $t.Count;$i++){ $S[$sym].idx[$t[$i]] = $i }
+}
+
+# ---- intraday touch data (optional, -IntradayConfirm): sym -> hashtable[day] = sorted hourly bars ----
+# Timestamps here follow the same project convention as everywhere else (MSK wall-clock stored as
+# unix ms, "MSK-as-UTC" per fetch_moex_futures.ps1) so day-bucketing with UtcDateTime is correct.
+$H = @{}
+if ($IntradayConfirm) {
+  $hDir = if ($IntradayDir) { $IntradayDir } else { $dir }
+  foreach ($sym in $Symbols) {
+    $hp = Join-Path $hDir "$($sym.Replace('-','_'))_1h.json"
+    if (-not (Test-Path $hp)) { Write-Warning "IntradayConfirm: no hourly data $sym - falls back to close-confirm every day"; continue }
+    $hbars = Get-Content $hp -Raw | ConvertFrom-Json
+    $byDay = @{}
+    foreach ($b in @($hbars)) {
+      $d = [DateTimeOffset]::FromUnixTimeMilliseconds([long]$b.t).UtcDateTime.ToString('yyyy-MM-dd')
+      if (-not $byDay.ContainsKey($d)) { $byDay[$d] = New-Object System.Collections.Generic.List[object] }
+      $byDay[$d].Add([pscustomobject]@{ t=[long]$b.t; h=[double]$b.h; l=[double]$b.l })
+    }
+    foreach ($d in @($byDay.Keys)) { $byDay[$d] = @($byDay[$d] | Sort-Object t) }
+    $H[$sym] = $byDay
+  }
+}
+# first hourly bar this day whose high/low breaches $Lvl in $Dir ('long'=high>=Lvl, 'short'=low<=Lvl); $null if none/no data
+function Get-IntradayTouch([string]$Sym, [string]$Day, [string]$Dir, [double]$Lvl) {
+  if (-not $H.ContainsKey($Sym) -or -not $H[$Sym].ContainsKey($Day)) { return $null }
+  foreach ($b in $H[$Sym][$Day]) {
+    if ($Dir -eq 'long' -and $b.h -ge $Lvl) { return $b }
+    if ($Dir -eq 'short' -and $b.l -le $Lvl) { return $b }
+  }
+  return $null
 }
 
 # ---- real funding history (optional): sym -> hashtable[fundingTs] = rate ----
@@ -468,15 +510,39 @@ foreach ($ts in $timeline) {
       $btcOkL = (-not $BtcFilter) -or ($btcTrend -ne 'down')
       $btcOkS = (-not $BtcFilter) -or ($btcTrend -ne 'up')
       $side = ''
-      if (($cl -gt $chHi) -and $fgOkL -and $btcOkL -and $slopeOk -and $gapOk -and $fundOkL) { $side = 'long' }
-      elseif (($cl -lt $chLo) -and (-not $LongOnly) -and $fgOkS -and $btcOkS -and $slopeOk -and $gapOk -and $fundOkS) { $side = 'short' }
+      $entryPx = $cl; $entryTsUsed = $ts   # default: unchanged close-confirm behavior
+      $longBreak = ($cl -gt $chHi); $shortBreak = ($cl -lt $chLo)
+      if ($IntradayConfirm) {
+        $touchL = Get-IntradayTouch $sym $day 'long' $chHi
+        $touchS = if (-not $LongOnly) { Get-IntradayTouch $sym $day 'short' $chLo } else { $null }
+        if ($touchL -and (-not $touchS -or $touchL.t -le $touchS.t)) { $longBreak=$true; $shortBreak=$false; $entryPx=$chHi; $entryTsUsed=$touchL.t }
+        elseif ($touchS) { $shortBreak=$true; $longBreak=$false; $entryPx=$chLo; $entryTsUsed=$touchS.t }
+        elseif ($H.ContainsKey($sym) -and $H[$sym].ContainsKey($day)) {
+          # hourly coverage exists for this symbol/day but neither level was touched intrahour -
+          # no signal today under this hypothesis, even if the close alone would qualify (don't
+          # silently fall back to close-confirm here - that would bias results toward whichever
+          # days happen to have thinner hourly coverage)
+          $longBreak = $false; $shortBreak = $false
+        }
+        # else: no hourly file at all for this symbol -> $longBreak/$shortBreak keep the close-based
+        # values computed above (graceful degradation, logged once per symbol at load time)
+      }
+      if ($longBreak -and $fgOkL -and $btcOkL -and $slopeOk -and $gapOk -and $fundOkL) { $side = 'long' }
+      elseif ($shortBreak -and (-not $LongOnly) -and $fgOkS -and $btcOkS -and $slopeOk -and $gapOk -and $fundOkS) { $side = 'short' }
       if ($side -eq '') { continue }
-      if ($side -eq 'long') { $entryRaw=$cl; $entry=$cl*(1+$SlipPct); $stop=$entry-$stopDist; $tp1=$entry+$RewardR*$stopDist }
-      else                  { $entryRaw=$cl; $entry=$cl*(1-$SlipPct); $stop=$entry+$stopDist; $tp1=$entry-$RewardR*$stopDist }
+      $entryIdxUsed = $i
+      if ($NextDayOpenFill) {
+        if ($i + 1 -ge $S[$sym].t.Count) { continue }   # no next bar in data - can't fill "tomorrow"
+        $entryIdxUsed = $i + 1
+        $entryPx = [double]$S[$sym].o[$i + 1]
+        $entryTsUsed = [long]$S[$sym].t[$i + 1]
+      }
+      if ($side -eq 'long') { $entryRaw=$entryPx; $entry=$entryPx*(1+$SlipPct); $stop=$entry-$stopDist; $tp1=$entry+$RewardR*$stopDist }
+      else                  { $entryRaw=$entryPx; $entry=$entryPx*(1-$SlipPct); $stop=$entry+$stopDist; $tp1=$entry-$RewardR*$stopDist }
       $qty = ($equity*$RiskPct*$riskMult)/$stopDist
       if ($qty*$entry -gt $MaxLev*$equity) { $qty = $MaxLev*$equity/$entry }
       $efee = $qty*$entry*$FeePct; $equity -= $efee
-      $open[$sym] = @{ side=$side; bo=$true; entry=$entry; entryRaw=$entryRaw; qty=$qty; stop=$stop; tp1=$tp1; tp1done=$false; entryIdx=$i; entryDay=$day; entryTs=$ts; equityAtEntry=$equity; realized=(-$efee)
+      $open[$sym] = @{ side=$side; bo=$true; entry=$entry; entryRaw=$entryRaw; qty=$qty; stop=$stop; tp1=$tp1; tp1done=$false; entryIdx=$entryIdxUsed; entryDay=$day; entryTs=$entryTsUsed; equityAtEntry=$equity; realized=(-$efee)
         stop0=$stop; stopDist0=$stopDist; mfePx=$entry; maePx=$entry; bars=0
         atrPct=[math]::Round(100*$atr/$cl,3); rsiEntry=[math]::Round($rsi,1)
         distE20=[math]::Round(100*($cl-$e20)/$e20,3); distE50=[math]::Round(100*($cl-$e50)/$e50,3)
