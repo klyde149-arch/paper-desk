@@ -2,7 +2,8 @@
 # Запуск:  powershell -File tools\tinvest_selftest.ps1            # боевой хост, readonly-токен из env
 #          powershell -File tools\tinvest_selftest.ps1 -Sandbox   # песочница (TINVEST_SANDBOX_TOKEN)
 # Проверяет: доступность хоста (в т.ч. с зарубежного VPS - главный probe), GetAccounts,
-# аудит 8 фьючерсов (фронты из ISS) + 12 акций: uid, class_code, api_trade_available_flag,
+# аудит канонического универсума (фронты из ISS; 2026-08: 12 фьючерсов + 11 акций, было 8+12):
+# uid, class_code, api_trade_available_flag,
 # лот, шаг, стоимость шага, ГО, last_trade_date vs ISS LASTTRADEDATE, TradingSchedules (клиринги ЕТС),
 # латентность unary-вызовов. Закрывает реестр открытых вопросов docs\strategy\live_tinvest_design.md.
 param(

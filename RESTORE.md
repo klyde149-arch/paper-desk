@@ -6,7 +6,7 @@
 
 Порядок разделов = порядок действий. Сначала прочти раздел 0 целиком, только потом восстанавливай.
 
-Актуально на 2026-07-24. Правь этот файл каждый раз, когда меняешь состав системы, ключи,
+Актуально на 2026-08-13. Правь этот файл каждый раз, когда меняешь состав системы, ключи,
 таймеры или капитал.
 
 Секретов в этом документе нет — только имена переменных и пути к их источникам.
@@ -76,9 +76,9 @@
 | Контур | Где исполняется | Точка входа | Движок | Универсум | Пишет в git (пути) |
 |---|---|---|---|---|---|
 | PAPER крипта (бенчмарк) | GitHub Actions `tick.yml` | — | `tools\auto_trade.ps1 -Cloud` | 19 пар (`auto_trade.ps1`, −DOGE) | `portfolio.json`, `journal.md`, `data` |
-| PAPER РФ C2/C3b | внутри paper-тика | — | `tools\rf_engine.ps1` | 8 фьюч + 12 акций | `data\rf\*` |
+| PAPER РФ C2/C3b | внутри paper-тика | — | `tools\rf_engine.ps1` | 12 фьюч + 11 акций | `data\rf\*` |
 | **Bybit LIVE (реал)** | VPS таймер `live-tick` (:00) | `deploy\live_tick.sh` | `tools\live_engine.ps1` | 16 пар (−XRP/APT/OP/AAVE) | `data\live_real\*`, `journal_live.md` |
-| **RF LIVE (реал ₽)** | VPS таймер `live-rf-tick` (:30) | `deploy\live_rf_tick.sh` | `tools\live_rf_engine.ps1` | 8 фьюч + 12 акций | `data\live_rf\*`, `journal_live_rf.md` |
+| **RF LIVE (реал ₽)** | VPS таймер `live-rf-tick` (:30) | `deploy\live_rf_tick.sh` | `tools\live_rf_engine.ps1` | 12 фьюч + 11 акций | `data\live_rf\*`, `journal_live_rf.md` |
 | AI-ассистент (read-only) | VPS `trading-assistant.service` | — | `python3 -m assistant.bot` | — | `data\rf\manual_close_req.json` (только закрытие paper) |
 
 **Потоки:**
@@ -164,8 +164,9 @@ git clone git@github.com:klyde149-arch/paper-desk.git /home/trader/paper-desk
 Расшифровка бандла: `vps\secrets\vps_secrets.enc` (AES-256-CBC) — процедура в `vps\README.md` (локальный).
 
 **Ловушка капитала.** `git clone` восстанавливает `data\live_rf\config.json` со значением
-`"base_rub": 700000` — то есть **полный рабочий капитал сразу**. После DR перед снятием HALT по
-РФ его нужно **понизить** (раздел 8).
+`"base_rub": 700000` и `sleeve_rebase` на полный капитал 1 106 481 ₽ (см. §8) — то есть **боевой
+масштаб сразу**, не стартовый. После DR перед снятием HALT по РФ `base_rub` нужно **понизить**
+(раздел 8); `sleeve_rebase` не трогать — движок применит его один раз по вотермарке и это ожидаемо.
 
 ---
 
@@ -240,20 +241,27 @@ git clone git@github.com:klyde149-arch/paper-desk.git /home/trader/paper-desk
 Ранбуки: `deploy\README_RF.md` (операционный, фазы) + `docs\strategy\live_tinvest_design.md` (дизайн-канон).
 
 - Счёт `2154036525`; режим из `TINVEST_MODE` (`dryrun` | `sandbox` | `prod`).
-- Универсум (общий с paper, `tools\lib_rf_signals.ps1`): 8 фьючерсов FORTS
-  (`BR, NG, GOLD, SILV, Si, RTS, CNY, MIX`) + 12 акций TQBR
-  (`SBER, GAZP, LKOH, ROSN, NVTK, GMKN, TATN, MGNT, VTBR, CHMF, PLZL, YDEX`).
+- Универсум (общий с paper, `tools\lib_rf_signals.ps1`): 12 фьючерсов FORTS
+  (`BR, NG, GOLD, SILV, Si, CNY, MIX, Eu, COCOA, VTBR, PLD, SBRF` — расширено с 8 2026-08-12,
+  RTS выведен) + 11 акций TQBR
+  (`SBER, GAZP, LKOH, ROSN, NVTK, GMKN, TATN, MGNT, CHMF, PLZL, YDEX` — VTBR выведен из momentum:
+  тикер коллизирует с одноимённым фьючерсом, серия акции затёрла бы серию фьючерса).
 - Стопы у брокера (`emulate_stops = false` в проде); `hard_dd = 0.35` (просадка −35% от пика сама
   пишет `data\HALT_RF_LIVE`).
 - Килл-файлы (4): `data\HALT` / `data\HALT_RF_LIVE` (движок не тикает, позиции на брокерских стопах),
   `data\HALT_RF_ENTRIES` (только блок входов), `data\HALT_RF_CLOSE` (закрыть всё рыночными).
 - Оверрайды без правки кода — `data\live_rf\config.json` (shallow-override `$LIVE`): ключи
-  `base_rub`, `hard_dd`, `whitelist`, `max_lots_override`, `mom_enabled`, `emulate_stops`, риски
-  плеч и окна времени MSK.
+  `base_rub`, `hard_dd`, `whitelist`, `max_lots_override`, `mom_enabled`, `emulate_stops`, `funding`
+  (uid финансирующих инструментов), `sleeve_rebase` (`{id, core, setA}` — разовая правка масштаба
+  core/setA-леджеров, см. ниже), риски плеч и окна времени MSK.
 
-**После DR (обязательно):** `config.json` из git = `base_rub 700000`. Перед снятием HALT по РФ
-**понизить на первые сутки** (например `{ "base_rub": 175000 }`), дождаться чистого тика и сверки,
-затем вернуть штатный рамп (175k → 350k → 700k по `deploy\README_RF.md`, Phase 4).
+**После DR (обязательно):** `config.json` из git на 2026-08-13 несёт `base_rub 700000`, `funding`
+и `sleeve_rebase {id: "2026-08-12-full-capital", core: 1106481, setA: 1106481}` — при восстановлении
+из чистого state ребейз применится заново по этому `id` (движок сверяет `watermarks.sleeve_rebase_id`
+в `portfolio.json`; если она отсутствует — это ожидаемо после DR, ребейз сработает один раз и снова
+не повторится). Перед снятием HALT по РФ **понизить `base_rub` на первые сутки** (например
+`{ "base_rub": 175000 }`), дождаться чистого тика и сверки, затем вернуть штатный рамп (175k → 350k
+→ 700k по `deploy\README_RF.md`, Phase 4) — `sleeve_rebase` не трогать до этого момента.
 
 **На чистой VPS обязательно (иначе контур не заработает вообще):** `invest-public-api.tinkoff.ru`
 с 2026-08-03 отдаёт цепочку УЦ Минцифры, корня которой в Ubuntu нет — без него КАЖДЫЙ тик падает на
@@ -272,7 +280,7 @@ update-ca-certificates
 возможность перехвата любого TLS на машине. Проверка: `openssl s_client -connect invest-public-api.tinkoff.ru:443` →
 `Verify return code: 0 (ok)`. Bybit/MOEX ISS/GitHub этот корень не требуют.
 
-Смоук: `tools\tinvest_selftest.ps1` (аудит счёта/8 фьюч/12 акций/клирингов/латентности),
+Смоук: `tools\tinvest_selftest.ps1` (аудит счёта/12 фьюч/11 акций/клирингов/латентности),
 `tools\sandbox_drill.ps1` (полный цикл + kill-drill в песочнице).
 
 ---
@@ -333,7 +341,7 @@ long-polling Telegram). Ключ — `OPENROUTER_API_KEY` в `/etc/trading-assis
 | `tick.yml` (workflow_dispatch) | зелёный прогон, Pages обновился |
 | `systemctl status live-tick.timer live-rf-tick.timer trading-assistant` | все `active` |
 | `tools\live_smoke_test.ps1` | read-only проверки OK |
-| `tinvest_selftest.ps1` (с токеном) | счета + 8 фьючерсов + 12 акций OK |
+| `tinvest_selftest.ps1` (с токеном) | счета + 12 фьючерсов + 11 акций OK |
 | Дашборд, вкладки «Реал» / «Фьючерсы→Реал» | показывают свежий капитал |
 | Тестовый TG-алерт | доходит на оба (`TG_CHAT_ID` и `TG_CHAT_ID_FUT`) |
 

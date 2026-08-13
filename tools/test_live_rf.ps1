@@ -101,6 +101,24 @@ function Test-Sizing {
     if ($lots -gt $levCap) { $lots = $levCap }
     Check $c.n ($lots -eq $c.exp)
   }
+
+  # Get-TopNSum (lib_engine.ps1): худший случай ГО в Invoke-DailyReadinessCheck - сумма топ-N
+  # самых дорогих по марже позиций, как если бы все слоты рукава заполнились одновременно.
+  $rows = @(
+    [pscustomobject]@{ asset='A'; v=10 }, [pscustomobject]@{ asset='B'; v=30 }
+    [pscustomobject]@{ asset='C'; v=20 }, [pscustomobject]@{ asset='D'; v=5 } )
+  Check 'TopNSum top2 из 4х (30+20)' ((Get-TopNSum $rows 'v' 2) -eq 50)
+  Check 'TopNSum N больше числа строк - суммирует все' ((Get-TopNSum $rows 'v' 10) -eq 65)
+  Check 'TopNSum N=0 -> 0' ((Get-TopNSum $rows 'v' 0) -eq 0)
+  Check 'TopNSum пустой список -> 0' ((Get-TopNSum @() 'v' 3) -eq 0)
+  $rowsTie = @([pscustomobject]@{ v=10 }, [pscustomobject]@{ v=10 }, [pscustomobject]@{ v=10 })
+  Check 'TopNSum одинаковые значения (топ-2 из трёх десяток)' ((Get-TopNSum $rowsTie 'v' 2) -eq 20)
+  # тот же MAXCONC (3), что реально использует Invoke-DailyReadinessCheck для рукавов core/setA
+  $goCore = @(
+    [pscustomobject]@{ asset='BR'; goCore=12000 }, [pscustomobject]@{ asset='NG'; goCore=45000 }
+    [pscustomobject]@{ asset='GOLD'; goCore=38000 }, [pscustomobject]@{ asset='Si'; goCore=9000 }
+    [pscustomobject]@{ asset='CNY'; goCore=41000 } )
+  Check 'TopNSum худший случай core (MAXCONC=3): 45000+41000+38000=124000' ((Get-TopNSum $goCore 'goCore' $MAXCONC) -eq 124000)
 }
 
 # ================= 3. сценарная матрица (движок на mock-транспорте) =================

@@ -1363,10 +1363,15 @@ function Invoke-LiveDaily {
     $frontsRec[$a] = [pscustomobject]@{ secid = $cur.secid; lasttrade = $cur.lasttrade
       next = if ($nxt) { $nxt.secid } else { $null }; next_lasttrade = if ($nxt) { $nxt.lasttrade } else { $null } }
   }
-  if ($null -eq $st.active) {
-    $act = [ordered]@{}
-    foreach ($a in $ASSETS) { $act[$a] = $frontsRec[$a].secid }
-    $st.active = [pscustomobject]$act
+  if ($null -eq $st.active) { $st.active = [pscustomobject]@{} }
+  # досев новых активов (не только первичная инициализация - канон вырос 8 -> 12 2026-08-12,
+  # а этот блок раньше срабатывал ровно один раз за всю жизнь state и новые активы никогда не
+  # получали secid: цикл роллов ниже видел $curActive='' и вечно падал в "roll deferred" по
+  # пустому секиду, вход в новый актив не мог состояться никогда - инцидент, см. журнал).
+  foreach ($a in $ASSETS) {
+    if (-not $st.active.PSObject.Properties[$a]) {
+      $st.active | Add-Member -NotePropertyName $a -NotePropertyValue $frontsRec[$a].secid
+    }
   }
   $st.fronts = [pscustomobject]$frontsRec
 
@@ -1389,7 +1394,60 @@ function Invoke-LiveDaily {
     }
   }
   foreach ($D in ($newDays | Sort-Object)) { Invoke-LiveDayHook $D }
+  Invoke-DailyReadinessCheck
   $st.watermarks.last_daily_day = $completedDay
+}
+
+function Invoke-DailyReadinessCheck {
+  # Проактивный суточный гейт по всему канону $ASSETS - раньше это был ручной прогон на VPS
+  # (tinvest_universe_gate.ps1 для торгуемости, rf_capital_calc.ps1 для худшего случая ГО),
+  # который для расширения 2026-08-12 так и не был доведён до конца и задокументирован. Get-Inst
+  # уже сам вызывает Assert-Tradeable и кэширует ГО на 24ч, но лениво - только когда актив реально
+  # трогает сигнал/ролл/вход; для "спящего" актива это никогда не происходит. Здесь - раз в сутки,
+  # для всех сразу, с алертом при проблеме. НЕ меняет сайзинг/governors на входе - Test-GoAllows и
+  # поштучный Assert-Tradeable при постановке заявки (см. ниже) остаются последним словом на
+  # реальных деньгах, это только ранняя видимость поверх них.
+  $failed = New-Object System.Collections.Generic.List[string]
+  $rows = New-Object System.Collections.Generic.List[object]
+  foreach ($a in $ASSETS) {
+    $secid = [string]$st.active.$a
+    $inst = $null
+    try { $inst = Get-Inst $secid 'fut' } catch { $failed.Add("$a ($secid): $($_.Exception.Message)"); continue }
+    $s = Get-Ser $a
+    if ($s.Count -lt 15) { continue }   # мало истории для ATR - не считаем в худшем случае, это не сбой гейта
+    $atr = Ser-ATR14 $s ($s.Count - 1)
+    if ([double]::IsNaN($atr) -or $atr -le 0) { continue }
+    $notional = [double]$s[$s.Count - 1].c * [double]$inst.rub_per_pt
+    if ($notional -le 0) { continue }
+    $goPerLot = [math]::Max([double]$inst.go_buy, [double]$inst.go_sell)
+    $riskCore = [double]$st.sleeves.core.eq_rub * [double]$LIVE.core_risk
+    $riskSetA = [double]$st.sleeves.setA.eq_rub * [double]$LIVE.seta_risk
+    $stopCoreRub = [double]$ATR_STOP_CORE * $atr * [double]$inst.rub_per_pt
+    $stopSetARub = [double]$ATR_STOP_A * $atr * [double]$inst.rub_per_pt
+    $levCapCore = [math]::Floor([double]$MAXLEV * [double]$st.sleeves.core.eq_rub / $notional)
+    $levCapSetA = [math]::Floor([double]$MAXLEV * [double]$st.sleeves.setA.eq_rub / $notional)
+    $lotsCore = [math]::Max(0, [math]::Min([math]::Floor($riskCore / $stopCoreRub), $levCapCore))
+    $lotsSetA = [math]::Max(0, [math]::Min([math]::Floor($riskSetA / $stopSetARub), $levCapSetA))
+    $rows.Add([pscustomobject]@{ asset = $a; goCore = $lotsCore * $goPerLot; goSetA = $lotsSetA * $goPerLot })
+  }
+  # худший случай: топ-MAXCONC самых дорогих по ГО позиций одновременно в core и в setA
+  # (та же логика, что rf_capital_calc.ps1 goWorst - здесь на живых данных счёта и брокера)
+  $worstCore = Get-TopNSum $rows.ToArray() 'goCore' $MAXCONC
+  $worstSetA = Get-TopNSum $rows.ToArray() 'goSetA' $MAXCONC
+  $goWorst = [math]::Round($worstCore + $worstSetA, 2)
+  $goCap = [math]::Round([double]$LIVE.go_cap_pct * [double]$st.go.budget_rub, 2)
+  $fits = $goWorst -le $goCap
+  $rd = [pscustomobject]@{
+    day = $completedDay; checked_n = $rows.Count; total_n = @($ASSETS).Count
+    failed = @($failed); go_worst_rub = $goWorst; go_cap_rub = $goCap; fits = $fits
+  }
+  $st | Add-Member -NotePropertyName readiness -NotePropertyValue $rd -Force
+  if ($failed.Count -gt 0) {
+    Alert ("суточная проверка готовности: {0} инструмент(ов) недоступны у брокера - {1}." -f $failed.Count, ($failed -join '; '))
+  }
+  if (-not $fits) {
+    Alert ("суточная проверка ГО: худший случай (все {0} слота ядра + {0} setA заполнены одновременно) - {1}, кэп {2}. Реальные заявки governor режет штатно, это заблаговременное предупреждение." -f $MAXCONC, (Fmt-Money $goWorst '₽' 0), (Fmt-Money $goCap '₽' 0))
+  }
 }
 
 function Invoke-LiveDayHook([string]$D) {
@@ -1870,7 +1928,8 @@ function Invoke-Governors {
     } elseif ([string]$st.entries_halt.reason -like 'ГО *') {
       # ГО вернулось под кэп - свой же халт снимаем сами. Инцидент 2026-08-07: ветки снятия не
       # существовало, halt «ГО 72 % > кэпа» провисел 3 дня при фактических 19 %, боевой контур
-      # пропустил сигналы GOLD/SILV/RTS (бумажный двойник их взял).
+      # пропустил сигналы GOLD/SILV/RTS (бумажный двойник их взял) - RTS с 2026-08-12 выведен из
+      # универсума, пример исторический.
       Clear-EntriesHalt ("ГО {0:P0}, кэп {1:P0}" -f $goPct, [double]$LIVE.go_cap_pct)
     }
   }
@@ -2054,6 +2113,14 @@ function Invoke-DailyReport([switch]$Preview) {
   $L.Add("По стратегиям: ядро $(Fmt-Money ([double]$st.sleeves.core.equity_mtm) '₽' 0) · сетап А $(Fmt-Money ([double]$st.sleeves.setA.equity_mtm) '₽' 0) · портфель акций $(Fmt-Money ([double]$st.sleeves.mom.equity_mtm) '₽' 0)")
   if ([double]$st.go.budget_rub -gt 0) {
     $L.Add("Гарантийное обеспечение (ГО): занято $(Fmt-Money ([double]$st.go.used_rub) '₽' 0) из $(Fmt-Money ([double]$st.go.budget_rub) '₽' 0)")
+  }
+  if ($st.PSObject.Properties['readiness']) {
+    $rdy = $st.readiness
+    if (@($rdy.failed).Count -eq 0 -and [bool]$rdy.fits) {
+      $L.Add("Готовность инструментов: $($rdy.checked_n)/$($rdy.total_n) торгуются, худший случай ГО $(Fmt-Money ([double]$rdy.go_worst_rub) '₽' 0) укладывается в кэп $(Fmt-Money ([double]$rdy.go_cap_rub) '₽' 0).")
+    } else {
+      $L.Add("ВНИМАНИЕ: суточная проверка готовности нашла проблему (см. алерт) — недоступно у брокера: $(@($rdy.failed).Count), худший случай ГО $(Fmt-Money ([double]$rdy.go_worst_rub) '₽' 0) / кэп $(Fmt-Money ([double]$rdy.go_cap_rub) '₽' 0).")
+    }
   }
   $dsum = [int]$st.drift.D2 + [int]$st.drift.D4 + [int]$st.drift.D5 + [int]$st.drift.D6
   if ($dsum -eq 0) { $L.Add("Расхождений с брокером нет (D2/D4/D5/D6 = $($st.drift.D2)/$($st.drift.D4)/$($st.drift.D5)/$($st.drift.D6))") }

@@ -3,6 +3,13 @@
 **Дата:** 2026-07-09. **Статус:** бэктест-исследование завершено, конфиг заморожен. Только виртуальные деньги.
 **Данные:** непрерывные ratio-склейки FORTS (`data\moex_fut\`, 2020-01→2026-07, аудит роллов пройден), акции TQBR с 2019 (`data\moex\`).
 
+> **Врезка 2026-08-13:** канон универсума изменён 2026-08-12 — фьючерсный набор расширен с
+> восьмёрки (`BR, NG, GOLD, SILV, Si, RTS, CNY, MIX`), к которой относятся все цифры и таблицы
+> ниже, до 12 инструментов (RTS выведен, добавлены Eu, COCOA, VTBR, PLD, SBRF). Действующий состав —
+> `$ASSETS` в `tools\lib_rf_signals.ps1`; разбор нового набора и честная оговорка о его результатах
+> (хуже прежней восьмёрки и на резерве, и на полном периоде) — `docs\backtests\slots_universe_search_2026-08.md`.
+> Таблицы и выводы этого документа не переписаны — они корректны как отчёт о корзине-8.
+
 ## Вердикт одной строкой
 
 Цель 5–10%/мес **достигнута в бэктесте целевым портфелем C3b: 5.15%/мес на полном цикле 6.5 лет** (IS 4.17 → OOS1 6.36 → OOS2 7.52%/мес, все 7 лет в плюсе) — но её цена: просадка до ~40–44% и худший месяц −23%. Пользователь не ставил лимита DD; для консервативного профиля остаются **C1 (2.64%/мес, DD ~16–25%)** и **C2 (3.36%/мес, DD ~25–33%)**. Те же модели, отличается только риск на сделку — эдж один и тот же.
@@ -41,7 +48,7 @@
 
 ### Конфиги рукавов (точные параметры backtest.ps1)
 
-- **B (ядро):** `-Breakout -BreakoutN 20 -AtrTrailMult 3.0 -AtrStopMult 2.0 -ReArmN 10 -ReArmBars 15 -RiskPct 0.02 -MaxConcurrent 3 -DailyLossHaltPct 0.06 -Symbols BR,NG,GOLD,SILV,Si,RTS,CNY,MIX -DataDir data\moex_fut -FileSuffix _1d -IndexSymbol IMOEX -NoFng -FundingPerBar 0 -FeePct 0.0001 -MaxLev 3 -WarmupBars 60` — перевход `-ReArmN 10 -ReArmBars 15` принят 2026-07-10 по walk-forward 3/3 (см. «Перевход после коррекции»); цифры портфелей C выше посчитаны ещё без него.
+- **B (ядро):** `-Breakout -BreakoutN 20 -AtrTrailMult 3.0 -AtrStopMult 2.0 -ReArmN 10 -ReArmBars 15 -RiskPct 0.02 -MaxConcurrent 3 -DailyLossHaltPct 0.06 -Symbols BR,NG,GOLD,SILV,Si,RTS,CNY,MIX -DataDir data\moex_fut -FileSuffix _1d -IndexSymbol IMOEX -NoFng -FundingPerBar 0 -FeePct 0.0001 -MaxLev 3 -WarmupBars 60` (`-Symbols` — историческая корзина-8, см. врезку в шапке) — перевход `-ReArmN 10 -ReArmBars 15` принят 2026-07-10 по walk-forward 3/3 (см. «Перевход после коррекции»); цифры портфелей C выше посчитаны ещё без него.
 - **A (сателлит):** те же данные, дефолтный setup A, `-RiskPct 0.01` (без IMOEX-фильтра — он ничего не даёт на сырье).
 - **M (сателлит):** `backtest_momentum.ps1 -LookbackDays 63 -SkipDays 21 -TopK 4` (гейт IMOEX>EMA200, защита от сплитов 40%/день), 30% капитала.
 
@@ -96,7 +103,7 @@
 
 ## Файлы
 
-- Данные/склейки: `data\moex_fut\{BR,NG,GOLD,SILV,Si,RTS,CNY,MIX}_{1d,1h}.json` + `_rolls.json` (аудит) + `_meta.json` (ликвидность).
+- Данные/склейки: `data\moex_fut\{BR,NG,GOLD,SILV,Si,RTS,CNY,MIX}_{1d,1h}.json` (историческая корзина-8) + `_rolls.json` (аудит) + `_meta.json` (ликвидность).
 - Канонический бэктест (ядро B@2%, полный период): `data\moex_fut\bt_{trades,equity,monthly}_fut.json`.
 - Все прогоны исследования: `data\fut_runs\*` (теги: A-base/Ar2/Ar3/B20-trail3/Br2/Bfull_r1-3/Afull_r1 × IS/OOS1/OOS2/full), momentum: `data\moex\bt_*_mom63_*.json`.
 - Инструменты: `tools\fetch_moex_futures.ps1`, `tools\backtest_momentum.ps1`, `tools\research_runs.ps1 -Set fut -Period IS|OOS1|OOS2|full`.

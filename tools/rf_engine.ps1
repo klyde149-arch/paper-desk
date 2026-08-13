@@ -152,9 +152,18 @@ function Invoke-RfDaily {
   }
   # активные контракты: если раньше не хранили - берём текущие фронты
   if (-not $shared.PSObject.Properties['active'] -or $null -eq $shared.active) {
-    $act = [ordered]@{}
-    foreach ($a in $ASSETS) { $act[$a] = $frontsRec[$a].secid }
-    $shared | Add-Member -NotePropertyName active -NotePropertyValue ([pscustomobject]$act) -Force
+    $shared | Add-Member -NotePropertyName active -NotePropertyValue ([pscustomobject]@{}) -Force
+  }
+  # досев новых активов (не только первичная инициализация - канон вырос 8 -> 12 2026-08-12, а этот
+  # блок раньше срабатывал ровно один раз за всю жизнь состояния, и новые активы никогда не получали
+  # secid). Тот же баг и тем же фиксом закрыт в live-контуре (live_rf_engine.ps1, Invoke-LiveDaily):
+  # Update-DailySeries получал пустой secid, ISS отдавал пусто, серия молча замерзала, Ser-IdxOfDay
+  # не находил текущий день - и дневной хук пропускал актив целиком, без единого сигнала и алерта.
+  # Инцидент 2026-08-13: Eu/COCOA/VTBR/PLD/SBRF стояли с 09.07 в обоих контурах.
+  foreach ($a in $ASSETS) {
+    if (-not $shared.active.PSObject.Properties[$a]) {
+      $shared.active | Add-Member -NotePropertyName $a -NotePropertyValue $frontsRec[$a].secid
+    }
   }
   $shared.fronts = [pscustomobject]$frontsRec
 

@@ -267,6 +267,13 @@ function EMAseries([double[]]$v, [int]$p) {
   ,$o
 }
 
+# сумма N наибольших значений $Key в $Items - для расчёта худшего случая ГО (топ-N самых дорогих
+# по марже позиций, если бы все слоты рукава заполнились одновременно). Общий код paper/live.
+function Get-TopNSum([object[]]$Items, [string]$Key, [int]$N) {
+  $top = @(@($Items) | Sort-Object -Property $Key -Descending | Select-Object -First $N)
+  return [double]((($top | Measure-Object -Property $Key -Sum).Sum))
+}
+
 # ---------- JSON io ----------
 function Read-JsonFile([string]$Path) {
   if (-not (Test-Path $Path)) { return $null }
