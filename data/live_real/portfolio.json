@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 108.71,
+  "equity_usd": 108.57,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 110.04,
   "day_start_date_utc": "2026-08-13",
@@ -32,7 +32,7 @@
       "risk_usd": 1.08,
       "notional_usd": 36.86,
       "fees_usd": 0.04317941,
-      "funding_usd": 0.0059,
+      "funding_usd": 0.0061,
       "legs": [
         {
           "part": "TP1",
@@ -55,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.88349314
+      "cur_upnl_usd": 0.86470914
     },
     {
       "id": "LT18",
@@ -80,7 +80,7 @@
       "risk_usd": 1.01,
       "notional_usd": 56.77,
       "fees_usd": 0.0567693,
-      "funding_usd": -0.0085,
+      "funding_usd": -0.0108,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
@@ -95,17 +95,17 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.3816
+      "cur_upnl_usd": 0.3558
     },
     {
       "id": "LT19",
       "symbol": "AVAX-USDT",
       "side": "short",
-      "status": "pending",
+      "status": "open",
       "qty": 7.6,
       "qty_initial": 7.6,
-      "entry_filled_qty": 0.0,
-      "entry_price": 6.406,
+      "entry_filled_qty": 7.6,
+      "entry_price": 6.408,
       "stop": 6.549,
       "stop0": 6.549,
       "tp1": 6.191,
@@ -119,7 +119,7 @@
       "entry_ts": 1786636803219,
       "risk_usd": 1.09,
       "notional_usd": 48.69,
-      "fees_usd": 0.0,
+      "fees_usd": 0.0487008,
       "funding_usd": 0.0,
       "legs": [],
       "thesis": {
@@ -134,14 +134,15 @@
           "funding": true,
           "fearGreed": true
         }
-      }
+      },
+      "cur_upnl_usd": -0.0456
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1786622400000,
     "last_trail_4h_ts": 1786622400000,
-    "last_exec_ms": 1786635255978,
+    "last_exec_ms": 1786636843575,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -359,7 +360,10 @@
       "7507844a-2bd2-4bcf-b247-9908656cc28e",
       "ceb53a9d-0cc8-4093-a94f-7c13ba53d8bc",
       "4c3735a6-4462-4980-ac97-86d0412c4c3e",
-      "f6a3372a-1897-5105-a48e-585fc1166e2b"
+      "f6a3372a-1897-5105-a48e-585fc1166e2b",
+      "b354c378-bc84-4a73-b859-96fd5294be49",
+      "df0395ee-0ce8-4b88-b702-44dc97978833",
+      "2ce1053e-6bd4-58a4-8008-fd22d4a6fb96"
     ],
     "next_trade_id": 20,
     "halt_day_utc": null,
@@ -379,7 +383,7 @@
       "ARB-USDT",
       "AVAX-USDT"
     ],
-    "last_tick_utc": "2026-08-13 16:00",
+    "last_tick_utc": "2026-08-13 16:01",
     "last_daily_summary_day": "2026-08-12",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
