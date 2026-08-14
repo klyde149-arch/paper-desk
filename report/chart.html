@@ -279,14 +279,16 @@ const BT_CRYPTO=arr(typeof VIZ!=='undefined'?VIZ.trades:[]);
 const LIVECLOSED=arr(typeof VIZ!=='undefined'?VIZ.liveClosed:[]);
 const BT_MOEX=arr(typeof VIZ!=='undefined'&&VIZ.moex?VIZ.moex.trades:[]);
 const BT_FUT=arr(typeof VIZ!=='undefined'&&VIZ.moexFut?VIZ.moexFut.trades:[]);
-// живые фьючерсные позиции (форвард-тест РФ, профили c2/c3b). asset === sym.id фьючерса (BR/NG/GOLD/…),
-// entry/stop/tp1 — в сыром масштабе front-контракта, совпадает со свечами loadFut(). Дедуп по активу:
-// c2 и c3b держат один контракт по одной цене входа, рисуем один набор уровней.
+// живые фьючерсные позиции (форвард-тест РФ, профиль c3b; C2 снят с терминала 2026-08-14).
+// asset === sym.id фьючерса (BR/NG/GOLD/…), entry/stop/tp1 — в сыром масштабе front-контракта,
+// совпадает со свечами loadFut(). Дедуп по активу оставлен на случай возврата второго профиля.
+const RF_SHOW=['c3b'];
 const RFLIVE=(function(){
  const rf=(typeof VIZ!=='undefined')?VIZ.rfLive:null;
  if(!rf||!rf.profiles)return [];
  const seen={},out=[];
- Object.keys(rf.profiles).forEach(pid=>{
+ RF_SHOW.forEach(pid=>{
+  if(!rf.profiles[pid])return;
   arr(rf.profiles[pid].positions).forEach(x=>{
    const key=x.asset+'|'+x.side+'|'+x.entry+'|'+x.stop;
    if(seen[key])return; seen[key]=1;
