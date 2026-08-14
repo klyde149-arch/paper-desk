@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9079.88,
-    "equity_usd":  9191,
+    "balance_usd":  9145.82,
+    "equity_usd":  9207.05,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9160.05,
     "day_start_date_utc":  "2026-08-14",
@@ -111,10 +111,10 @@
                                "id":  "T23",
                                "symbol":  "AAVE-USDT",
                                "side":  "short",
-                               "qty":  59.0141,
+                               "qty":  29.50705,
                                "qty_initial":  59.0141,
                                "entry_price":  89.043279,
-                               "stop":  90.564949,
+                               "stop":  89.043279,
                                "stop0":  90.564949,
                                "tp1":  86.760774,
                                "entry_utc":  "2026-08-12 08:04",
@@ -122,13 +122,19 @@
                                "risk_usd":  89.8,
                                "notional_usd":  5254.81,
                                "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  false,
-                               "fees_usd":  2.8901449341786449,
+                               "tp1_done":  true,
+                               "fees_usd":  4.29817490722983,
                                "funding_usd":  -1.1180463202809998,
                                "legs":  [
-
+                                            {
+                                                "part":  "TP1",
+                                                "qty":  29.50705,
+                                                "price":  86.760774,
+                                                "utc":  "2026-08-14 09:38",
+                                                "pnl":  67.35
+                                            }
                                         ],
-                               "mfe_px":  86.84,
+                               "mfe_px":  86.66,
                                "mae_px":  90.26,
                                "thesis":  {
                                               "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
@@ -159,17 +165,17 @@
                   "total_funding_usd":  2.32,
                   "realized_pnl_usd":  -971.94
               },
-    "last_check_utc":  "2026-08-14 09:30",
+    "last_check_utc":  "2026-08-14 09:47",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1786699740000,
+                 "last_1m_ts":  1786700760000,
                  "last_4h_ts":  1786680000000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
                  "next_trade_id":  24,
-                 "ticks_since_viz":  2,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-08-13",
-                 "last_tick_utc":  "2026-08-14 09:30"
+                 "last_tick_utc":  "2026-08-14 09:47"
              }
 }
