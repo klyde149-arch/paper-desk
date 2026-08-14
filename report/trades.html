@@ -358,7 +358,8 @@
     <h2>Рынок РФ — <span class="em">живой форвард-тест C3b</span></h2>
     <p class="sec-note">Виртуальный счёт $10 000 торгуется ботом 24/7 по замороженным правилам: ядро Donchian-20+re-arm (риск 5%), сателлит setup A (2%), momentum топ-4 акций (вес 50%). Решения по закрытым дневным барам MOEX, входы — по открытию следующей сессии, стопы — по касанию (часовые свечи ISS, задержка ~15 мин), роллы фронт-контрактов платные. Старт 2026-07-10 с чистого листа.</p>
     <div id="rfStatus" class="callout" style="border-left-color:var(--accent)"></div>
-    <div class="kpis" id="rfKpis" style="grid-template-columns:repeat(2,1fr);gap:14px"></div>
+    <!-- align-items:start — карточка «РЕАЛ» короче карточки профиля и не должна растягиваться под неё -->
+    <div class="kpis" id="rfKpis" style="grid-template-columns:repeat(2,1fr);gap:14px;align-items:start"></div>
     <h2>Открытые позиции — <span class="em">цена и плавающий P&L</span></h2>
     <p class="sec-note">Каждая открытая позиция: цена входа, стоп, <b>текущая цена и плавающий P&L</b> (с мини-графиком свечей ISS, когда они доступны). Пока сделки не закрыты, именно эти позиции двигают кривую эквити (переоценка MTM) — это то, что реально происходит на счёте прямо сейчас.</p>
     <div id="futLiveWrap"></div>
