@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 107.5,
+  "equity_usd": 107.6,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 108.15,
   "day_start_date_utc": "2026-08-15",
@@ -55,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.91401714
+      "cur_upnl_usd": 0.98210914
     },
     {
       "id": "LT18",
@@ -80,7 +80,7 @@
       "risk_usd": 1.01,
       "notional_usd": 56.77,
       "fees_usd": 0.0567693,
-      "funding_usd": -0.0164,
+      "funding_usd": -0.0185,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
@@ -95,14 +95,53 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.3558
+      "cur_upnl_usd": 0.3813
+    },
+    {
+      "id": "LT20",
+      "symbol": "DOGE-USDT",
+      "side": "short",
+      "status": "pending",
+      "qty": 1457.0,
+      "qty_initial": 1457.0,
+      "entry_filled_qty": 0.0,
+      "entry_price": 0.07002,
+      "stop": 0.07076,
+      "stop0": 0.07076,
+      "tp1": 0.06891,
+      "tp1_qty": 728.0,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-08-15 08:00",
+      "entry_ts": 1786780802787,
+      "risk_usd": 1.08,
+      "notional_usd": 102.02,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h down; DOGE-USDT 4h down; F&G 34",
+        "riskPlan": "вход ~0.07002, стоп 0.07076 (1.04%), TP1 0.06891 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.08",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
     }
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1786752000000,
-    "last_trail_4h_ts": 1786752000000,
-    "last_exec_ms": 1786759941287,
+    "last_4h_ts": 1786766400000,
+    "last_trail_4h_ts": 1786766400000,
+    "last_exec_ms": 1786780800000,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -336,9 +375,10 @@
       "de7697db-df95-48c6-95b5-566f06e814dd",
       "24a27af6-6e85-4e9e-ab42-0aef929fc147",
       "ac114f61-befa-4ec3-b328-487c3e8f2ee3",
-      "a1d30da9-6aa4-5716-8c02-3cf29a4418a5"
+      "a1d30da9-6aa4-5716-8c02-3cf29a4418a5",
+      "93a8153b-2b68-406f-8f95-3403ac0c19c0"
     ],
-    "next_trade_id": 20,
+    "next_trade_id": 21,
     "halt_day_utc": null,
     "soft_dd": false,
     "consec_api_fail": 0,
@@ -356,7 +396,7 @@
       "ARB-USDT",
       "AVAX-USDT"
     ],
-    "last_tick_utc": "2026-08-15 07:45",
+    "last_tick_utc": "2026-08-15 08:00",
     "last_daily_summary_day": "2026-08-14",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
