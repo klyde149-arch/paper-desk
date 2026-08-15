@@ -933,5 +933,49 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT19",
+    "sym": "AVAX-USDT",
+    "side": "short",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-08-13 16:00",
+    "entryDay": "2026-08-13",
+    "entryTs": 1786636803219,
+    "entry": 6.408,
+    "qty": 7.6,
+    "exitUtc": "2026-08-15 02:13",
+    "exitDay": "2026-08-15",
+    "exitTs": 1786759982710,
+    "exitPx": 6.556,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 7.6,
+        "price": 6.556,
+        "utc": "2026-08-15 02:12",
+        "pnl": -1.12
+      }
+    ],
+    "pnlUsd": -1.21,
+    "rMultiple": -1.11,
+    "riskUsd": 1.09,
+    "fees": 0.1,
+    "funding": -0.01,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h down; AVAX-USDT 4h down; F&G 29",
+      "riskPlan": "вход ~6.406, стоп 6.549 (2.18%), TP1 6.191 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.09",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
