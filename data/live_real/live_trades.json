@@ -977,5 +977,56 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT17",
+    "sym": "ARB-USDT",
+    "side": "short",
+    "live": true,
+    "result": "win",
+    "entryUtc": "2026-08-12 08:00",
+    "entryDay": "2026-08-12",
+    "entryTs": 1786521603099,
+    "entry": 0.07846274760383387,
+    "qty": 469.5,
+    "exitUtc": "2026-08-16 16:01",
+    "exitDay": "2026-08-16",
+    "exitTs": 1786896063210,
+    "exitPx": 0.075015,
+    "exitReason": "trail-ema20",
+    "legs": [
+      {
+        "part": "TP1",
+        "qty": 234.7,
+        "price": 0.07505,
+        "utc": "2026-08-12 21:58",
+        "pnl": 0.8
+      },
+      {
+        "part": "runner",
+        "qty": 234.8,
+        "price": 0.07498,
+        "utc": "2026-08-16 16:00",
+        "pnl": 0.82
+      }
+    ],
+    "pnlUsd": 1.55,
+    "rMultiple": 1.44,
+    "riskUsd": 1.08,
+    "fees": 0.06,
+    "funding": 0.0,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h down; ARB-USDT 4h down; F&G 27",
+      "riskPlan": "вход ~0.0785, стоп 0.0808 (2.8%), TP1 0.07505 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.08",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
