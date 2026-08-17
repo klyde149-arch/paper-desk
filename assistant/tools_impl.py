@@ -8,6 +8,7 @@
   * Никакого shell: subprocess только с фиксированным argv из закрытых enum.
   * Инструмента чтения переменных окружения не существует в принципе.
 """
+import calendar
 import json
 import os
 import re
@@ -53,16 +54,12 @@ def read_json(path):
     return None
 
 
-def _now_ms():
-    return int(time.time() * 1000)
-
-
 def _age_min_ms(ms):
     """Возраст в минутах по epoch-ms. None если пусто."""
     if not ms:
         return None
     try:
-        return round((_now_ms() - float(ms)) / 60000.0, 1)
+        return round((int(time.time() * 1000) - float(ms)) / 60000.0, 1)
     except Exception:
         return None
 
@@ -74,15 +71,10 @@ def _age_min_utc(s):
     for fmt in ('%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%d %H:%M:%SZ', '%Y-%m-%d %H:%M:%S'):
         try:
             t = time.strptime(str(s), fmt)
-            return round((time.time() - _timegm(t)) / 60.0, 1)
+            return round((time.time() - calendar.timegm(t)) / 60.0, 1)
         except ValueError:
             continue
     return None
-
-
-def _timegm(t):
-    import calendar
-    return calendar.timegm(t)
 
 
 def _pct(a, b):
@@ -349,7 +341,7 @@ def tail_log(source, lines=120, grep=None, since_minutes=None):
             m = _TS_RE.match(ln)
             if m:
                 try:
-                    t = _timegm(time.strptime(m.group(1) + ' ' + m.group(2), '%Y-%m-%d %H:%M:%S'))
+                    t = calendar.timegm(time.strptime(m.group(1) + ' ' + m.group(2), '%Y-%m-%d %H:%M:%S'))
                     if t >= cutoff:
                         keep.append(ln)
                     continue
@@ -648,7 +640,7 @@ def _t(name, desc, props, required=None):
     }}
 
 
-SCHEMAS = [
+_TOOL_SCHEMAS = [
     _t('get_state',
        'Состояние торговых контуров: капитал, P&L дня, просадка, позиции, дрифты, '
        'стоп входов, свежесть тика. Начинай с него почти на любой вопрос о том, что происходит.',
@@ -715,26 +707,30 @@ SCHEMAS = [
        ['asset']),
 ]
 
-REGISTRY = {
-    'get_state': get_state,
-    'get_signals': get_signals,
-    'get_open_positions': get_open_positions,
-    'tail_log': tail_log,
-    'journalctl_tail': journalctl_tail,
-    'systemctl_status': systemctl_status,
-    'host_health': host_health,
-    'list_halt_files': list_halt_files,
-    'git_status': git_status,
-    'git_log': git_log,
-    'read_repo_file': read_repo_file,
-    'search_journals': search_journals,
-    'list_rf_paper_positions': list_rf_paper_positions,
-    'propose_close_position': propose_close_position,
-}
+TOOL_SPECS = (
+    (_TOOL_SCHEMAS[0], get_state, False),
+    (_TOOL_SCHEMAS[1], get_signals, False),
+    (_TOOL_SCHEMAS[2], get_open_positions, False),
+    (_TOOL_SCHEMAS[3], tail_log, False),
+    (_TOOL_SCHEMAS[4], journalctl_tail, False),
+    (_TOOL_SCHEMAS[5], systemctl_status, False),
+    (_TOOL_SCHEMAS[6], host_health, False),
+    (_TOOL_SCHEMAS[7], list_halt_files, False),
+    (_TOOL_SCHEMAS[8], git_status, False),
+    (_TOOL_SCHEMAS[9], git_log, False),
+    (_TOOL_SCHEMAS[10], read_repo_file, False),
+    (_TOOL_SCHEMAS[11], search_journals, False),
+    (_TOOL_SCHEMAS[12], list_rf_paper_positions, False),
+    (_TOOL_SCHEMAS[13], propose_close_position, True),
+)
 
-# Инструменты, которым нужен контекст вызова (chat_id). Контекст подмешивает
-# диспетчер, а не модель — модель не может отправить кнопки в чужой чат.
-CTX_TOOLS = {'propose_close_position'}
+SCHEMAS = [schema for schema, _, _ in TOOL_SPECS]
+REGISTRY = {schema['function']['name']: handler for schema, handler, _ in TOOL_SPECS}
+# Контекст вызова (chat_id) добавляет диспетчер, а не модель.
+CTX_TOOLS = {schema['function']['name'] for schema, _, needs_ctx in TOOL_SPECS if needs_ctx}
+
+if len(REGISTRY) != len(TOOL_SPECS):
+    raise RuntimeError('duplicate assistant tool name')
 
 
 def dispatch(name, args, ctx=None):

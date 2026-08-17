@@ -178,6 +178,9 @@ class TestHistoryTrim(unittest.TestCase):
 class TestToolsSmoke(unittest.TestCase):
     def test_all_registered_tools_have_schema(self):
         names = {s['function']['name'] for s in T.SCHEMAS}
+        self.assertEqual(len(T.TOOL_SPECS), len(names))
+        self.assertEqual(T.CTX_TOOLS, {'propose_close_position'})
+        self.assertIs(T.REGISTRY['propose_close_position'], T.propose_close_position)
         self.assertEqual(names, set(T.REGISTRY), 'схемы и реестр разошлись')
 
     def test_dispatch_unknown_tool(self):
@@ -202,6 +205,15 @@ class TestToolsSmoke(unittest.TestCase):
         s = snapshot.build()
         self.assertIn('СНАПШОТ', s)
         self.assertLess(len(s), 3000)
+
+
+class TestToolCallPayload(unittest.TestCase):
+    def test_parser_does_not_require_private_payload_field(self):
+        from assistant import llm
+        self.assertEqual(llm.tool_call_args({'function': {'arguments': '{"limit": 5}'}}),
+                         {'limit': 5})
+        self.assertEqual(llm.tool_call_args({'function': {'arguments': '```json\n{"only_failed": true}\n```'}}),
+                         {'only_failed': True})
 
 
 class TestMarketContext(unittest.TestCase):
@@ -293,6 +305,10 @@ class TestAgentLoop(unittest.TestCase):
                        on_progress=lambda s: seen.append(s))
         self.assertTrue(any('only_failed' in s for s in seen),
                         'аргументы инструмента потерялись: %s' % seen)
+
+        history = memory.load('test:args')
+        self.assertFalse(any('_args' in call
+                             for msg in history for call in (msg.get('tool_calls') or [])))
 
     def test_history_persisted_and_valid(self):
         memory.reset('test:hist')
