@@ -1,0 +1,30 @@
+{
+  "_": [
+    "Реестр портфелей терминала. Скопируйте в portfolios.json и впишите реальные telegram id.",
+    "admins  — видят ВСЕ портфели и сводку по ним.",
+    "owners  — видят только свой портфель; сводки и чужих названий им не показывают.",
+    "dataDir — путь к состоянию контура относительно папки telegram-mini-app.",
+    "kind    — какой адаптер читает данные: 'rf' (фьючерсы Т-Инвест) или 'crypto' (Bybit).",
+    "Чужой счёт добавляется одной записью: свой dataDir и свой owners."
+  ],
+  "admins": ["000000000"],
+  "portfolios": [
+    {
+      "id": "rf",
+      "label": "Фьючерсы MOEX",
+      "kind": "rf",
+      "dataDir": "../data/live_rf",
+      "currency": "RUB",
+      "owners": []
+    },
+    {
+      "id": "crypto",
+      "label": "Крипта Bybit",
+      "kind": "crypto",
+      "dataDir": "../data/live_real",
+      "candlesDir": "../data",
+      "currency": "USD",
+      "owners": []
+    }
+  ]
+}
