@@ -127,7 +127,11 @@ def handle_message(upd):
 
     low = text.lower().lstrip('/')
     if low in ('помощь', 'help', 'start'):
-        tg.send(chat_id, HELP)
+        # Кнопка открывает Mini App (telegram-mini-app/). Без MINI_APP_URL — обычный текст.
+        kb = ([[{'text': 'Открыть приложение',
+                 'web_app': {'url': config.MINI_APP_URL}}]]
+              if config.MINI_APP_URL else None)
+        tg.send(chat_id, HELP, kb)
         return
     if low in ('сброс', 'new', 'reset'):
         memory.reset(chat_id)
