@@ -1,0 +1,12 @@
+[Unit]
+Description=Проверять адрес Mini App каждые 2 минуты
+
+[Timer]
+# Через минуту после загрузки: туннель после ребута публикует новый адрес почти сразу.
+OnBootSec=1min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Unit=mini-app-url-watch.service
+
+[Install]
+WantedBy=timers.target

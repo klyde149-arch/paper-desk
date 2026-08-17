@@ -1,0 +1,13 @@
+[Unit]
+Description=Сторож адреса Mini App (quick-туннель меняет URL при рестарте)
+Documentation=file:///home/trader/paper-desk/deploy/README_MINIAPP.md
+After=network-online.target mini-app-tunnel.service
+
+[Service]
+Type=oneshot
+# root: правит /etc/trading-assistant.env и перезапускает ассистента.
+ExecStart=/home/trader/paper-desk/deploy/mini_app_url_watch.sh
+# Сторож не имеет права быть причиной аварии: провал одной проверки - не повод шуметь юнитом,
+# следующий запуск таймера повторит. Философия та же, что у git_sync_watch.sh и live_watch.ps1.
+SuccessExitStatus=0 1
+TimeoutStartSec=120
