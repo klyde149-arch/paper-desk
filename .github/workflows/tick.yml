@@ -37,7 +37,7 @@ jobs:
       group: tick
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Внешний сторож живости боевых контуров. Стоит ПЕРВЫМ и с continue-on-error:
       # он должен отработать даже если paper-тик потом упадёт, и не имеет права уронить
@@ -80,10 +80,15 @@ jobs:
       # в обратную сторону: если гейт Pages не имеет права останавливать торговлю, то и гонка
       # git-пушей не имеет права отменять публикацию дашборда. Содержимое report/ от коммита
       # не зависит, так что порядок здесь чисто про изоляцию отказов.
+      # include-hidden-files ОБЯЗАТЕЛЕН и не является украшением: с v4 этот экшен перестал
+      # кладать в артефакт скрытые файлы, а в report/ лежит .nojekyll - без него Pages включает
+      # обработку Jekyll и сайт едет молча (он же перечислен в RESTORE.md как обязательный).
+      # Сам флаг появился только в v5, поэтому v4 нам не подходит в принципе.
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: report
+          include-hidden-files: true
 
       # Логика жила инлайном и краснела на штатной гонке пушей (инцидент 2026-08-17, 8 красных
       # ранов за 2 часа при успешном тике) - подробности и коды возврата в шапке скрипта.
@@ -106,4 +111,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
