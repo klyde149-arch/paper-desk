@@ -597,10 +597,11 @@ $ok2 = -not $txt.Contains('"value":[{"sym"')
 "written {0:N0} KB | trades-is-array={1} | no-wrapper={2}" -f ((Get-Item $out).Length/1KB), $ok1, $ok2
 if (-not ($ok1 -and $ok2)) { throw "vizdata.js still malformed!" }
 
-# cache-bust: stamp a version query on every <script src="vizdata.js"> so browsers
-# refetch the 3MB payload after each rebuild instead of serving a stale cached copy.
+# cache-bust static chart pages. trades.html reads build.json at runtime, then loads
+# vizdata.js with that exact version; this keeps it correct even if Pages refreshes
+# build.json before a browser has received a newer HTML artifact.
 $ver = [long]([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
-foreach ($html in @('report\trades.html', 'report\chart.html', 'report\charts.html')) {
+foreach ($html in @('report\chart.html', 'report\charts.html')) {
   $hp = Join-Path $dir $html
   if (-not (Test-Path $hp)) { continue }
   $h = [IO.File]::ReadAllText($hp)

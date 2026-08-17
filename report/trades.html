@@ -455,10 +455,41 @@
 </div>
 <div class="tt" id="tt"></div>
 
-<script src="vizdata.js?v=1786100041"></script>
 <script>
-(function(){
+  // Pages may publish a new build.json before the HTML artifact has refreshed in a browser.
+  // Load the data payload by the current build marker, not by a version baked into this page.
+  window.__vizReady = (async () => {
+    let version = Date.now();
+    try {
+      const response = await fetch("build.json?_=" + version, { cache: "no-store" });
+      if (response.ok) {
+        const build = await response.json();
+        if (Number.isSafeInteger(+build.v) && +build.v > 0) version = +build.v;
+      }
+    } catch (_) {
+      // A unique query parameter below still bypasses a stale cached vizdata.js response.
+    }
+
+    window.__vizVersion = version;
+    await new Promise((resolve, reject) => {
+      const source = document.createElement("script");
+      source.src = "vizdata.js?v=" + encodeURIComponent(version);
+      source.onload = resolve;
+      source.onerror = () => reject(new Error("Не удалось загрузить данные терминала"));
+      document.head.appendChild(source);
+    });
+  })();
+</script>
+<script>
+(async function(){
   "use strict";
+  try {
+    await window.__vizReady;
+  } catch (error) {
+    console.error(error);
+    document.body.insertAdjacentHTML("afterbegin", "<p style='margin:0;padding:14px;background:#fee2e2;color:#991b1b;font:600 14px system-ui'>Данные терминала не загрузились. Проверьте соединение и обновите страницу.</p>");
+    return;
+  }
   const $ = id => document.getElementById(id);
   const tt = $("tt");
   const css = () => getComputedStyle(document.documentElement);
@@ -1700,7 +1731,7 @@
   // ---------- авто-обновление: замечаем новый билд (build.json) → баннер / reload без кэша ----------
   let lastAct=Date.now(); const loadT=Date.now();
   ["mousemove","mousedown","wheel","keydown","touchstart"].forEach(ev=>addEventListener(ev,()=>lastAct=Date.now(),{passive:true}));
-  const MYBUILD=(()=>{ const s=document.querySelector('script[src*="vizdata.js?v=1786100041"]'); const m=s&&s.src.match(/[?&]v=(\d+)/); return m?+m[1]:0; })();
+  const MYBUILD=window.__vizVersion||0;
   function bustReload(v){ const u=new URL(location.href); u.searchParams.set("b", v||Date.now()); location.replace(u.toString()); }
   let updBannerShown=false;
   function showUpdBanner(v){
