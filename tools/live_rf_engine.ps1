@@ -959,9 +959,12 @@ function Invoke-Reconcile($stopIds) {
       $real = if ($brokerFut.ContainsKey([string]$c.uid)) { [double]$brokerFut[[string]$c.uid] } else { 0.0 }
       $want = $sm * [double]$c.lots
       if ($real -eq 0.0) {
-        # D4: вероятно сработала стоп-заявка - подтверждаем по operations (не раньше входа в позицию)
+        # D4: карточки нет в непустом снимке брокера. Для этого редкого случая нельзя
+        # ограничиваться часовым вотермарком: ручное закрытие могло произойти раньше,
+        # пока API/тик были недоступны. Ищем с момента входа именно здесь, а не на
+        # каждом обычном тике/TP1.
         $op = $null
-        try { $op = Find-FillOperation ([string]$c.uid) $(if ($c.side -eq 'long') { 'sell' } else { 'buy' }) ([int]$c.lots) ([long]$c.entry_ts) }
+        try { $op = Find-FillOperation ([string]$c.uid) $(if ($c.side -eq 'long') { 'sell' } else { 'buy' }) ([int]$c.lots) ([long]$c.entry_ts) 1 -FullHistory }
         catch {
           # operations недоступны: НЕ кварантинить по отсутствию данных - проверка на следующем тике
           Write-LiveLog "D4 $($c.id): operations недоступны ($($_.Exception.Message)) - проверка отложена"
@@ -988,13 +991,18 @@ function Invoke-Reconcile($stopIds) {
           # снимок GetPortfolio без строки фьючерса дал ложный D4 на живой позиции L00011 - карантин
           # провисел 3 дня без авто-снятия) - карантиним только на 2-й подряд тик без объяснения.
           $c.d4_fails = [int]$c.d4_fails + 1
+          $c | Add-Member -NotePropertyName reconcile_status -NotePropertyValue 'broker-absent' -Force
+          if (-not $c.PSObject.Properties['reconcile_since_ts'] -or [long]$c.reconcile_since_ts -le 0) {
+            $c | Add-Member -NotePropertyName reconcile_since_ts -NotePropertyValue $NowMs -Force
+          }
           if ([int]$c.d4_fails -lt 2) {
-            Write-LiveLog "D4 $($c.id): нет позиции и нет операции закрытия (попытка $($c.d4_fails) из 2) - проверка на следующем тике"
+            Write-LiveLog "D4 $($c.id): нет позиции и нет операции закрытия (попытка $($c.d4_fails) из 2) - отмечено как требующее сверки"
             continue
           }
           $st.drift.D4 = [int]$st.drift.D4 + 1; $st.drift.last = "D4 $($c.id)"
           Alert ("по позиции {0} ({1}) у брокера нет ни позиции, ни сделки о закрытии (расхождение D4) — позиция отправлена в карантин, новые входы приостановлены. Пожалуйста, проверьте счёт вручную." -f $c.id, (RfName $c))
           $c.quarantine = $true
+          $c.reconcile_status = 'broker-absent-unresolved'
           $driftHaltThisTick = $true
           Set-EntriesHalt "D4 $($c.id)"
         }
@@ -1007,6 +1015,8 @@ function Invoke-Reconcile($stopIds) {
         Alert ("расхождение по позиции {0} ({1}) больше не подтверждается - карантин снят, бот возобновляет обычный присмотр." -f $c.id, (RfName $c))
       }
       $c.d4_fails = 0
+      if ($c.PSObject.Properties['reconcile_status']) { $c.reconcile_status = '' }
+      if ($c.PSObject.Properties['reconcile_since_ts']) { $c.reconcile_since_ts = 0 }
       if ([math]::Abs($real - $want) -gt 0.0001) {
         $explain = @($st.pending_intents | Where-Object { $_.uid -eq $c.uid -and $_.state -in @('POSTED','PARTIAL','LOST') }).Count
         if (-not $explain) {
@@ -1043,24 +1053,33 @@ function Invoke-Reconcile($stopIds) {
 }
 
 # поиск исполнившейся операции по инструменту (подтверждение стоп-заявок и adopt LOST)
-$script:opsCache = $null
-function Get-OpsSince {
-  if ($null -ne $script:opsCache) { return $script:opsCache }
+# Кэш раздельный по началу окна: D4 может запросить историю с входа, не раздувая
+# обычный часовой запрос для TP1 и потерянных интентов.
+$script:opsCache = @{}
+function Get-OpsSince([long]$FromMs = 0) {
   $to = (MsToUtc $NowMs).ToString('yyyy-MM-ddTHH:mm:ssZ')
   # НЕ кастовать ops_since через [string]: pwsh 7 грузит полный ISO из JSON как [datetime],
   # и [string] даёт культурный формат -> API 400 code 3 (инцидент 2026-07-20). Нормализация в либе.
-  $script:opsCache = @(Get-TiOperations ([string]$st.account_id) (ConvertTo-TiIso $st.watermarks.ops_since) $to)
-  return $script:opsCache
+  $from = if ($FromMs -gt 0) {
+    (MsToUtc ([math]::Max([long]0, $FromMs - 60000))).ToString('yyyy-MM-ddTHH:mm:ssZ')
+  } else {
+    ConvertTo-TiIso $st.watermarks.ops_since
+  }
+  if ($script:opsCache.ContainsKey($from)) { return $script:opsCache[$from] }
+  $script:opsCache[$from] = @(Get-TiOperations ([string]$st.account_id) $from $to)
+  return $script:opsCache[$from]
 }
-function Find-FillOperation([string]$Uid, [string]$Dir, [int]$Lots, [long]$SinceMs = 0, [double]$LotSize = 1) {
+function Find-FillOperation([string]$Uid, [string]$Dir, [int]$Lots, [long]$SinceMs = 0, [double]$LotSize = 1, [switch]$FullHistory) {
   # СТРОГИЙ матчинг (боевой урок 2026-07-17: слабый uid+dir подхватывал СТАРЫЕ операции -> ложные филлы):
   # инструмент + направление + время (не раньше SinceMs-60с) + количество (лоты или штуки = лоты x лот)
-  $want = if ($Dir -eq 'buy') { 'OPERATION_TYPE_BUY' } else { 'OPERATION_TYPE_SELL' }
-  foreach ($op in (Get-OpsSince)) {
+  $want = if ($Dir -eq 'buy') { 'BUY' } else { 'SELL' }
+  $ops = if ($FullHistory) { Get-OpsSince $SinceMs } else { Get-OpsSince }
+  foreach ($op in $ops) {
     if ($null -eq $op) { continue }
     $ouid = [string](Get-TiField $op 'instrument_uid')
-    $otype = [string](Get-TiField $op 'operation_type')
-    if ($ouid -ne $Uid -or $otype -ne $want) { continue }
+    $otype = ([string](Get-TiField $op 'operation_type')).ToUpperInvariant()
+    $opDir = if ($otype -match '(?:^|_)BUY$') { 'BUY' } elseif ($otype -match '(?:^|_)SELL$') { 'SELL' } else { '' }
+    if ($ouid -ne $Uid -or $opDir -ne $want) { continue }
     if ($SinceMs -gt 0) {
       try {
         $od = [DateTimeOffset]::Parse([string](Get-TiField $op 'date')).ToUnixTimeMilliseconds()
@@ -1069,7 +1088,11 @@ function Find-FillOperation([string]$Uid, [string]$Dir, [int]$Lots, [long]$Since
     }
     if ($Lots -gt 0) {
       $q = 0.0
-      try { $q = [double][string](Get-TiField $op 'quantity') } catch {}
+      try {
+        $rawQ = Get-TiField $op 'quantity'
+        if ($rawQ -is [string] -or $rawQ -is [ValueType]) { $q = [double]$rawQ }
+        else { $q = [double](Q2D $rawQ) }
+      } catch {}
       if ($q -ne $Lots -and $q -ne ($Lots * $LotSize)) { continue }
     }
     return $op
@@ -2519,7 +2542,7 @@ try {
   if ($mskHHmm -ge [string]$LIVE.report_at) { Invoke-DailyReport }
 
   # 8. ops-вотермарка вперёд (операции старше часа уже учтены сверками)
-  $script:opsCache = $null
+  $script:opsCache = @{}
   $st.watermarks.ops_since = (MsToUtc ($NowMs - 3600000)).ToString('yyyy-MM-ddTHH:mm:ssZ')
 
   # 9. persist + снапшоты + журнал

@@ -319,7 +319,9 @@ if (Test-Path $lrPf) {
       [ordered]@{ id = $_.id; sleeve = $snName; asset = $_.asset; secid = $_.secid; side = $_.side
         lots = $_.lots; entry = $_.entry_px_pts; stop = $_.stop_px_pts; tp1 = $_.tp1_px_pts
         cur = $_.cur_px; upnl = $brokerUpnl; riskRub = $_.risk_rub; entryDay = $_.entry_day; entryTs = $_.entry_ts
-        rolls = $_.rolls; rubPerPt = $rpp; notional = $notional; pctChg = $pct; candles1h = $c1h } })
+        rolls = $_.rolls; rubPerPt = $rpp; notional = $notional; pctChg = $pct; candles1h = $c1h
+        reconcileStatus = $(if ($_.PSObject.Properties['reconcile_status']) { [string]$_.reconcile_status } else { '' })
+        reconcileSinceTs = $(if ($_.PSObject.Properties['reconcile_since_ts']) { [long]$_.reconcile_since_ts } else { 0 }) } })
   }
   $lrHold = [object[]]@(@($lp.sleeves.mom.holdings) | Where-Object { $null -ne $_ } | ForEach-Object {
     [ordered]@{ sym = $_.sym; lots = $_.lots; lotSize = $_.lot_size; avg = $_.avg_px; last = $_.last_px } })

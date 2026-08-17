@@ -506,6 +506,40 @@ function Scn-D4ManualExt {
   Check 'D4-manual-ext: без халта' (-not [bool]$st.entries_halt.active)
 }
 
+# --- 10bb. D4-short-history: ручное закрытие шорта PLD несколько дней назад всё равно
+# находится по расширенному окну операций; API может вернуть направление в коротком виде BUY.
+function Scn-D4ShortHistoricalClose {
+  $r = New-Scenario 'd4-short-history'
+  $s = New-BaseState $r
+  $c = New-Card 'setA' 'PLD' 'PDU6' 'uid-PDU6' 'short' 2 1312.975 1409.25 1.0
+  $c.entry_ts = (UtcStrToMs '2026-08-14 10:01')
+  $c.entry_day = '2026-08-14'
+  $s.sleeves.setA.positions = @($c)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-CashOnlyPortfolio $r
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='op-pld-ext'; date='2026-08-15T08:05:30Z'; instrumentUid='uid-PDU6'; operationType='BUY'; quantity='2'
+      price=[pscustomobject]@{units='1280';nano=0} } ) })
+  [void](Run-Tick $r '2026-08-17 11:00')
+  $st = Get-State $r
+  Check 'D4-short-history: PLD убран из открытых позиций' (@($st.sleeves.setA.positions).Count -eq 0)
+  $tr = Get-Trades $r
+  Check 'D4-short-history: ручное закрытие шорта найдено по истории' ($tr.Count -eq 1 -and [string]$tr[0].asset -eq 'PLD' -and [string]$tr[0].exitReason -eq 'manual-ext' -and [math]::Abs([double]$tr[0].exitPx - 1280) -lt 1e-9)
+}
+
+# --- 10bc. D4-pending: отсутствие позиции без операции не выдаётся за открытую.
+function Scn-D4PendingStatus {
+  $r = New-Scenario 'd4-pending-status'
+  $s = New-BaseState $r
+  $s.sleeves.setA.positions = @(New-Card 'setA' 'PLD' 'PDU6' 'uid-PDU6' 'short' 2 1312.975 1409.25 1.0)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-CashOnlyPortfolio $r
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r; $card = @($st.sleeves.setA.positions)[0]
+  Check 'D4-pending: статус сверки выставлен после первого отсутствия' ([string]$card.reconcile_status -eq 'broker-absent' -and [long]$card.reconcile_since_ts -gt 0)
+  Check 'D4-pending: позиция ещё не списана без подтверждения' (@($st.sleeves.setA.positions).Count -eq 1)
+}
+
 # --- 10c. D4-stop-alive: операция ровно по стопу, НО стоп-заявка карточки всё ещё живёт у брокера
 # (позицию закрыли, не тронув стоп) -> закрытие всё равно не 'stop' (иначе живая заявка) + заявка снята
 function Scn-D4StopAlive {
@@ -1318,7 +1352,7 @@ $scenarios = @(
   ${function:Scn-EntryFill}, ${function:Scn-EntryReject}, ${function:Scn-EntryLostAdopt}, ${function:Scn-EntryLostRepost},
   ${function:Scn-Qty0}, ${function:Scn-GoCap}, ${function:Scn-GoTrim}, ${function:Scn-HardDd},
   ${function:Scn-HardDdIgnoresBlendedPeak}, ${function:Scn-DayHaltReal},
-  ${function:Scn-D2}, ${function:Scn-D4Confirmed}, ${function:Scn-D4ManualExt}, ${function:Scn-D4StopAlive}, ${function:Scn-D4Quarantine},
+  ${function:Scn-D2}, ${function:Scn-D4Confirmed}, ${function:Scn-D4ManualExt}, ${function:Scn-D4ShortHistoricalClose}, ${function:Scn-D4PendingStatus}, ${function:Scn-D4StopAlive}, ${function:Scn-D4Quarantine},
   ${function:Scn-D4Transient}, ${function:Scn-D4EmptySnapshot}, ${function:Scn-D5},
   ${function:Scn-D6Repost}, ${function:Scn-D6Fail}, ${function:Scn-StocksDeficit}, ${function:Scn-StocksSurplus},
   ${function:Scn-ClearingGate}, ${function:Scn-Weekend}, ${function:Scn-HaltEntriesFile}, ${function:Scn-HaltCloseFile},

@@ -1619,7 +1619,7 @@
     const cc=arr(RFR.capitalCurve), de=$("frDay");
     if(cc.length){ const d0=mskDayStartUtcMs(), first=cc.find(p=>p[0]>=d0), base=first?first[1]:cc[0][1], dv=cap-base; de.textContent=sgnRub(dv); de.className="v num "+(dv>=0?"pos":"neg"); }
     else { de.textContent="—"; de.className="v num"; }
-    $("frPos").textContent=String(arr(RFR.positions).length);
+    $("frPos").textContent=String(arr(RFR.positions).filter(p=>!p.reconcileStatus).length);
     const dd=$("frDd"), peak=+RFR.capitalPeak||0;
     if(dd){
       if(peak>0){ const ddPct=100*(cap-peak)/peak; dd.textContent=(ddPct>=-0.05?"0,0%":ddPct.toFixed(1).replace(".",",")+"%"); dd.className="v num "+(ddPct>=-0.05?"":"neg"); $("frDdS").textContent="пик "+fmtRub(peak); }
@@ -1636,9 +1636,18 @@
   function buildFutRealPositions(){
     const wrap=$("futRealWrap"); if(!wrap) return;
     futRealCharts.length=0;
-    const POS=RFR?arr(RFR.positions):[];
-    if(!POS.length){ wrap.innerHTML='<div class="card" style="color:var(--muted);font-size:14px">Открытых фьючерсных позиций сейчас нет — бот ждёт сигналы по закрытым дневным барам MOEX.</div>'; return; }
+    const ALL=RFR?arr(RFR.positions):[];
+    const PENDING=ALL.filter(p=>p.reconcileStatus);
+    const POS=ALL.filter(p=>!p.reconcileStatus);
+    if(!POS.length&&!PENDING.length){ wrap.innerHTML='<div class="card" style="color:var(--muted);font-size:14px">Открытых фьючерсных позиций сейчас нет — бот ждёт сигналы по закрытым дневным барам MOEX.</div>'; return; }
     wrap.innerHTML="";
+    if(PENDING.length){
+      const names=PENDING.map(p=>`${p.asset} (${p.secid})`).join(", ");
+      const note=document.createElement("div"); note.setAttribute("role","status");
+      note.style.cssText="margin:0 0 14px;padding:13px 16px;border:1px solid var(--loss);border-radius:14px;background:var(--loss-soft);color:var(--ink);font-size:13.5px;line-height:1.45";
+      note.innerHTML=`<b style="color:var(--loss)">Сверка с брокером</b> · ${names}: позиции нет в последнем снимке счёта. Ждём подтверждённую операцию закрытия; P&amp;L и количество открытых позиций не включают эту строку.`;
+      wrap.appendChild(note);
+    }
     POS.forEach((p,pi)=>{
       const cur=(p.cur!=null)?+p.cur:null;
       const pct=(p.pctChg!=null)?+p.pctChg:((cur!=null&&p.entry)?(cur/p.entry-1)*100:null);
