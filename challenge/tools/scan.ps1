@@ -62,7 +62,7 @@ function Calc-ATR([double[]]$hi, [double[]]$lo, [double[]]$cl, [int]$n) {
 function Get-KlinesCh([string]$sym, [string]$interval, [long]$stepMs) {
     # via lib_engine (Bybit -> bytick -> BingX): closed bars only, same row shape as before
     $nowMs = [long]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
-    $bars = Get-KlinesRange $sym $interval ($nowMs - 1010 * $stepMs) $nowMs $nowMs
+    $bars = Get-Klines $sym $interval ($nowMs - 1010 * $stepMs) $nowMs $nowMs
     $rows = @()
     foreach ($b in $bars) { $rows += ,@([long]$b.t, [double]$b.o, [double]$b.h, [double]$b.l, [double]$b.c, [double]$b.v) }
     return ,$rows

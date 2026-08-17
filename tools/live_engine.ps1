@@ -71,10 +71,6 @@ function LLog([string]$Line) {
   } catch {}
 }
 function Bs([string]$Sym) { $Sym.Replace('-', '') }
-function Ensure-Prop($Obj, [string]$Name, $Default) {
-  if (-not $Obj.PSObject.Properties[$Name]) { $Obj | Add-Member -NotePropertyName $Name -NotePropertyValue $Default }
-}
-
 $script:events = New-Object System.Collections.Generic.List[string]
 $script:jblocks = New-Object System.Collections.Generic.List[string]
 $script:closedCards = New-Object System.Collections.Generic.List[object]
