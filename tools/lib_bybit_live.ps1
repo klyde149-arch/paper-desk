@@ -256,7 +256,7 @@ function Set-LeverageSafe([string]$Sym, [double]$Lev) {
 }
 
 # Market entry with attached Full-mode SL (covers the whole position even after partial closes).
-# Returns @{ok; dup; orderId; raw}. Duplicate orderLinkId is reported as dup (idempotent retry).
+# Returns @{ok; dup; orderId; retCode; retMsg}. Duplicate orderLinkId is reported as dup (idempotent retry).
 function Place-MarketEntry([string]$Sym, [string]$Side, [string]$QtyStr, [string]$SlPriceStr, [string]$LinkId) {
   $bs = $Sym.Replace('-', '')
   $bySide = if ($Side -eq 'long') { 'Buy' } else { 'Sell' }
@@ -268,9 +268,9 @@ function Place-MarketEntry([string]$Sym, [string]$Side, [string]$QtyStr, [string
   })
   $r = Invoke-BybitSigned POST '/v5/order/create' -BodyJson $body
   $code = [int]$r.retCode
-  if ($code -eq 0) { return @{ ok = $true; dup = $false; orderId = [string]$r.result.orderId; raw = $r } }
-  if ($code -eq 110072 -or "$($r.retMsg)" -match 'duplicat') { return @{ ok = $true; dup = $true; orderId = ''; raw = $r } }
-  return @{ ok = $false; dup = $false; orderId = ''; retCode = $code; retMsg = [string]$r.retMsg; raw = $r }
+  if ($code -eq 0) { return @{ ok = $true; dup = $false; orderId = [string]$r.result.orderId } }
+  if ($code -eq 110072 -or "$($r.retMsg)" -match 'duplicat') { return @{ ok = $true; dup = $true; orderId = '' } }
+  return @{ ok = $false; dup = $false; orderId = ''; retCode = $code; retMsg = [string]$r.retMsg }
 }
 
 # TP1: reduce-only GTC limit for half the position (maker fee; never opens exposure)
@@ -284,9 +284,9 @@ function Place-Tp1Limit([string]$Sym, [string]$PosSide, [string]$QtyStr, [string
   })
   $r = Invoke-BybitSigned POST '/v5/order/create' -BodyJson $body
   $code = [int]$r.retCode
-  if ($code -eq 0) { return @{ ok = $true; dup = $false; orderId = [string]$r.result.orderId; raw = $r } }
-  if ($code -eq 110072 -or "$($r.retMsg)" -match 'duplicat') { return @{ ok = $true; dup = $true; orderId = ''; raw = $r } }
-  return @{ ok = $false; dup = $false; orderId = ''; retCode = $code; retMsg = [string]$r.retMsg; raw = $r }
+  if ($code -eq 0) { return @{ ok = $true; dup = $false; orderId = [string]$r.result.orderId } }
+  if ($code -eq 110072 -or "$($r.retMsg)" -match 'duplicat') { return @{ ok = $true; dup = $true; orderId = '' } }
+  return @{ ok = $false; dup = $false; orderId = ''; retCode = $code; retMsg = [string]$r.retMsg }
 }
 
 # Amend the position's Full-mode SL (breakeven move, manual trail). 34040 = not modified -> ok.
