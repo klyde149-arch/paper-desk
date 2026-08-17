@@ -35,34 +35,87 @@ function Check([string]$Name, [bool]$Cond) {
 # Кому нужен код возврата - читает $LASTEXITCODE сразу после вызова.
 function gitq { & git @args 2>&1 | Out-Null }
 
+# ПРЕДОХРАНИТЕЛЬ. Тест пишет файлы и делает git add/commit/push, поэтому обязан доказать,
+# что находится внутри черновой сцены, а не в боевом дереве. Аудит 2026-08-17 показал, как
+# это стреляет: результат `git clone` не проверялся, а Push-Location при
+# $ErrorActionPreference='Continue' не прерывает выполнение - при неудачном клоне тест
+# продолжал работу В РАБОЧЕМ РЕПОЗИТОРИИ и доходил до `git push origin main` с боевыми
+# кредами. Проверяем факт, а не намерение: где реально лежит корень текущего репо.
+function Assert-InScene([string]$Expected) {
+  $top = (& git rev-parse --show-toplevel 2>$null)
+  $a = try { (Resolve-Path -LiteralPath $top -ErrorAction Stop).Path } catch { '' }
+  $b = try { (Resolve-Path -LiteralPath $Expected -ErrorAction Stop).Path } catch { '' }
+  if (-not $a -or -not $b -or $a.TrimEnd('\','/') -ne $b.TrimEnd('\','/')) {
+    throw "ПРЕДОХРАНИТЕЛЬ: ожидали работать в '$Expected', а находимся в '$top'. Тест остановлен до любой записи."
+  }
+}
+
 # Черновая сцена: bare-remote + наш клон + клон «второго писателя».
 function New-Scene {
   $dir = Join-Path ([IO.Path]::GetTempPath()) ("cs_" + [guid]::NewGuid().ToString('N').Substring(0, 8))
   $remote = Join-Path $dir 'remote.git'; $work = Join-Path $dir 'work'; $other = Join-Path $dir 'other'
   New-Item -ItemType Directory -Path $dir | Out-Null
   gitq init --bare -b main $remote
+  if ($LASTEXITCODE -ne 0) { throw "не удалось создать bare-remote '$remote' (код $LASTEXITCODE)" }
   gitq clone $remote $work
-  Push-Location $work
-  gitq config user.name 'seed'; gitq config user.email 'seed@example.com'
-  Set-Content -Path 'portfolio.json' -Value '{"seed":1}' -Encoding utf8
-  New-Item -ItemType Directory -Path 'data' | Out-Null
-  Set-Content -Path 'data/state.json' -Value '{"seed":1}' -Encoding utf8
-  Set-Content -Path 'journal.md' -Value "seed`n" -Encoding utf8
-  gitq add -A; gitq commit -q -m seed; gitq push -q origin main
-  Pop-Location
+  if ($LASTEXITCODE -ne 0) { throw "не удалось склонировать сцену в '$work' (код $LASTEXITCODE)" }
+  if (-not (Test-Path -LiteralPath (Join-Path $work '.git'))) { throw "клон '$work' не появился" }
+
+  Push-Location $work -ErrorAction Stop
+  try {
+    Assert-InScene $work        # только после этого - любая запись
+    gitq config user.name 'seed'; gitq config user.email 'seed@example.com'
+    Set-Content -Path 'portfolio.json' -Value '{"seed":1}' -Encoding utf8
+    New-Item -ItemType Directory -Path 'data' | Out-Null
+    Set-Content -Path 'data/state.json' -Value '{"seed":1}' -Encoding utf8
+    Set-Content -Path 'journal.md' -Value "seed`n" -Encoding utf8
+    gitq add -A; gitq commit -q -m seed; gitq push -q origin main
+  } finally { Pop-Location }
+
   gitq clone $remote $other
+  if ($LASTEXITCODE -ne 0) { throw "не удалось склонировать второго писателя в '$other' (код $LASTEXITCODE)" }
   return [pscustomobject]@{ Dir = $dir; Remote = $remote; Work = $work; Other = $other }
 }
 
-# Вызов ровно как в Actions: дочерний powershell.exe -File, наружу отдаём его код.
-function Invoke-CommitState([string]$WorkDir, [string[]]$Paths, [string]$Label) {
-  Push-Location $WorkDir
+# Записать файл внутри сцены, предварительно доказав, что мы в ней.
+function Set-SceneFile([string]$SceneWork, [string]$RelPath, [string]$Content) {
+  Push-Location $SceneWork -ErrorAction Stop
   try {
+    Assert-InScene $SceneWork
+    Set-Content -Path $RelPath -Value $Content -Encoding utf8
+  } finally { Pop-Location }
+}
+
+# Действия «второго писателя» - тоже под предохранителем.
+function Invoke-OtherWriter([string]$OtherDir, [string]$RelPath, [string]$Content, [string]$Message) {
+  Push-Location $OtherDir -ErrorAction Stop
+  try {
+    Assert-InScene $OtherDir
+    gitq config user.name 'other'; gitq config user.email 'other@example.com'
+    Set-Content -Path $RelPath -Value $Content -Encoding utf8
+    gitq add -A; gitq commit -q -m $Message; gitq push -q origin main
+  } finally { Pop-Location }
+}
+
+# Вызов ровно как в Actions: дочерний powershell.exe -File, наружу отдаём его код.
+function Invoke-CommitState([string]$WorkDir, [string[]]$Paths, [string]$Label, [switch]$SkipSceneCheck) {
+  Push-Location $WorkDir -ErrorAction Stop
+  try {
+    # SkipSceneCheck нужен единственному сценарию «каталог вообще не git-репо»: там
+    # rev-parse обязан провалиться, и это как раз проверяемое поведение.
+    if (-not $SkipSceneCheck) { Assert-InScene $WorkDir }
     $joined = $Paths -join ','
     $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Script `
       -Path $joined -Label $Label -NoDelay 2>&1
     return [pscustomobject]@{ Code = $LASTEXITCODE; Text = ($out -join "`n") }
   } finally { Pop-Location }
+}
+
+# Заголовок последнего локального коммита в сцене. Отдельной функцией, потому что
+# try/finally - это инструкция, её нельзя вписать выражением в аргумент Check.
+function Get-SceneLastCommit([string]$SceneWork) {
+  Push-Location $SceneWork -ErrorAction Stop
+  try { return (& git log --oneline -1 2>&1 | Out-String) } finally { Pop-Location }
 }
 
 function Remote-Log([string]$Remote) {
@@ -77,7 +130,7 @@ try {
   # ---- 1. чистый пуш: конкурентов нет ----
   Write-Host '== 1. чистый пуш =='
   $s = New-Scene; $scenes += $s
-  Set-Content -Path (Join-Path $s.Work 'portfolio.json') -Value '{"tick":1}' -Encoding utf8
+  Set-SceneFile $s.Work 'portfolio.json' '{"tick":1}'
   $r = Invoke-CommitState $s.Work @('portfolio.json', 'journal.md', 'data') 'tick'
   Check 'чистый пуш: exit 0' ($r.Code -eq 0)
   Check 'чистый пуш: коммит на remote' ((Remote-Log $s.Remote) -match 'tick \d{4}-\d{2}-\d{2}')
@@ -85,12 +138,8 @@ try {
   # ---- 2. гонка выиграна: чужой коммит в ДРУГОЙ файл, rebase сходится ----
   Write-Host '== 2. гонка выиграна (rebase сходится) =='
   $s = New-Scene; $scenes += $s
-  Push-Location $s.Other
-  gitq config user.name 'other'; gitq config user.email 'other@example.com'
-  Set-Content -Path 'journal.md' -Value "other wins`n" -Encoding utf8
-  gitq add -A; gitq commit -q -m 'other tick'; gitq push -q origin main
-  Pop-Location
-  Set-Content -Path (Join-Path $s.Work 'portfolio.json') -Value '{"tick":2}' -Encoding utf8
+  Invoke-OtherWriter $s.Other 'journal.md' "other wins`n" 'other tick'
+  Set-SceneFile $s.Work 'portfolio.json' '{"tick":2}'
   $r = Invoke-CommitState $s.Work @('portfolio.json', 'journal.md', 'data') 'tick'
   Check 'гонка выиграна: exit 0' ($r.Code -eq 0)
   Check 'гонка выиграна: был отбой пуша' ($r.Text -match 'fetch \+ rebase')
@@ -100,18 +149,16 @@ try {
   # ---- 3. гонка проиграна: конфликт в ТОТ ЖЕ файл. Это регрессия на сам баг ----
   Write-Host '== 3. гонка проиграна (конфликт, rebase не сходится) =='
   $s = New-Scene; $scenes += $s
-  Push-Location $s.Other
-  gitq config user.name 'other'; gitq config user.email 'other@example.com'
-  Set-Content -Path 'portfolio.json' -Value '{"other":99}' -Encoding utf8
-  gitq add -A; gitq commit -q -m 'other conflicting'; gitq push -q origin main
-  Pop-Location
-  Set-Content -Path (Join-Path $s.Work 'portfolio.json') -Value '{"tick":3}' -Encoding utf8
+  Invoke-OtherWriter $s.Other 'portfolio.json' '{"other":99}' 'other conflicting'
+  Set-SceneFile $s.Work 'portfolio.json' '{"tick":3}'
   $r = Invoke-CommitState $s.Work @('portfolio.json', 'journal.md', 'data') 'tick'
   Check 'гонка проиграна: exit 0 (ран НЕ краснеет)' ($r.Code -eq 0)
-  Check 'гонка проиграна: rebase прерван' ($r.Text -match 'abort')
+  # Ищем СВОЙ маркер, а не слово 'abort': git сам подсказывает «run git rebase --abort»,
+  # и прежняя проверка проходила даже на старой логике, где abort вообще не звался (аудит).
+  Check 'гонка проиграна: rebase прерван (свой маркер)' ($r.Text -match '\[rebase-aborted\]')
   Check 'гонка проиграна: обещан повтор' ($r.Text -match 'state will retry next tick')
   Check 'гонка проиграна: чужой коммит на remote цел' ((Remote-Log $s.Remote) -match 'other conflicting')
-  Push-Location $s.Work
+  Push-Location $s.Work -ErrorAction Stop
   $mid = (& git status --porcelain 2>&1 | Out-String)
   Pop-Location
   Check 'гонка проиграна: дерево не осталось в середине rebase' ($mid -notmatch '^(UU|AA|both)')
@@ -129,16 +176,49 @@ try {
   $bare = Join-Path ([IO.Path]::GetTempPath()) ("cs_none_" + [guid]::NewGuid().ToString('N').Substring(0, 8))
   New-Item -ItemType Directory -Path $bare | Out-Null
   $scenes += [pscustomobject]@{ Dir = $bare }
-  $r = Invoke-CommitState $bare @('portfolio.json') 'tick'
+  $r = Invoke-CommitState $bare @('portfolio.json') 'tick' -SkipSceneCheck
   Check 'не репо: exit НЕ 0' ($r.Code -ne 0)
 
   # ---- 6. manual-close пишет свой префикс ----
   Write-Host '== 6. префикс manual-close =='
   $s = New-Scene; $scenes += $s
-  Set-Content -Path (Join-Path $s.Work 'data/state.json') -Value '{"closed":1}' -Encoding utf8
+  Set-SceneFile $s.Work 'data/state.json' '{"closed":1}'
   $r = Invoke-CommitState $s.Work @('data', 'journal.md') 'manual-close'
   Check 'manual-close: exit 0' ($r.Code -eq 0)
   Check 'manual-close: формат сообщения сохранён' ((Remote-Log $s.Remote) -match 'manual-close \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC')
+
+  # ---- 7-9. ОТКАЗ ПУБЛИКАЦИИ - не гонка, ран обязан краснеть ----
+  # Этих сценариев не было, и поэтому проскочила дыра, найденная аудитом 2026-08-17:
+  # старая версия считала гонкой любой ненулевой код пуша и отдавала 0, то есть тик был
+  # зелёным, пока состояние молча не публиковалось.
+  $broken = @(
+    @{ n = '7. remote удалён';            act = { param($w) Push-Location $w -ErrorAction Stop; try { Assert-InScene $w; gitq remote remove origin } finally { Pop-Location } } },
+    @{ n = '8. remote в никуда';          act = { param($w) Push-Location $w -ErrorAction Stop; try { Assert-InScene $w; gitq remote set-url origin (Join-Path ([IO.Path]::GetTempPath()) ('нет_такого_' + [guid]::NewGuid().ToString('N'))) } finally { Pop-Location } } },
+    @{ n = '9. remote не репозиторий';    act = { param($w)
+        $notRepo = Join-Path ([IO.Path]::GetTempPath()) ('cs_notrepo_' + [guid]::NewGuid().ToString('N').Substring(0,8))
+        New-Item -ItemType Directory -Path $notRepo | Out-Null
+        Push-Location $w -ErrorAction Stop; try { Assert-InScene $w; gitq remote set-url origin $notRepo } finally { Pop-Location } } }
+  )
+  foreach ($case in $broken) {
+    Write-Host ("== {0} (ожидаем exit 1) ==" -f $case.n)
+    $s = New-Scene; $scenes += $s
+    & $case.act $s.Work
+    Set-SceneFile $s.Work 'portfolio.json' ('{"tick":"' + $case.n + '"}')
+    $r = Invoke-CommitState $s.Work @('portfolio.json', 'journal.md', 'data') 'tick'
+    Check ("{0}: exit НЕ 0 (отказ публикации слышен)" -f $case.n) ($r.Code -ne 0)
+    Check ("{0}: НЕ выдан за гонку" -f $case.n) ($r.Text -notmatch 'state will retry next tick')
+    Check ("{0}: коммит всё же создан локально" -f $case.n) ((Get-SceneLastCommit $s.Work) -match 'tick \d{4}')
+  }
+}
+catch {
+  # Сорванный харнесс - это НЕ успех. Без этого блока падение на подготовке сцены давало
+  # "pass=0 fail=0" и exit 0, то есть тест, не выполнивший ни одной проверки, выдавал себя
+  # за зелёный. Ровно та же тихая слепота, против которой написан сам commit_state.ps1.
+  Write-Host ("СБОЙ ХАРНЕССА: " + $_.Exception.Message) -ForegroundColor Red
+  foreach ($s in $scenes) {
+    if ($s.Dir -and (Test-Path $s.Dir)) { Remove-Item $s.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+  }
+  exit 1
 }
 finally {
   foreach ($s in $scenes) {
@@ -147,6 +227,12 @@ finally {
 }
 
 Write-Host ''
+# Второй рубеж: даже без исключения ноль выполненных проверок означает, что тест ничего
+# не проверил, и молчать об этом нельзя.
+if (($script:pass + $script:fail) -eq 0) {
+  Write-Host 'СБОЙ ХАРНЕССА: не выполнено НИ ОДНОЙ проверки' -ForegroundColor Red
+  exit 1
+}
 if ($script:fail) { Write-Host ("итого: pass=$($script:pass) fail=$($script:fail)") -ForegroundColor Red; $script:failed | ForEach-Object { Write-Host "  - $_" } ; exit 1 }
 Write-Host ("итого: pass=$($script:pass) fail=$($script:fail)")
 exit 0
