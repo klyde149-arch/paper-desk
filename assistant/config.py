@@ -52,6 +52,11 @@ TG_TOKEN = os.environ.get('TG_BOT_TOKEN', '')
 _allowed = os.environ.get('ASSISTANT_TG_ALLOWED_CHATS') or os.environ.get('TG_CHAT_ID', '')
 ALLOWED_CHATS = {c.strip() for c in _allowed.split(',') if c.strip()}
 
+# Публичный HTTPS-адрес Mini App (телеграм-кабинет, telegram-mini-app/). Пусто —
+# кнопки в /start просто нет, поведение бота прежнее. Сам Mini App НЕ поллит этот
+# токен: getUpdates остаётся только здесь (см. tg.py).
+MINI_APP_URL = os.environ.get('MINI_APP_URL', '').strip()
+
 TG_POLL_TIMEOUT = 50         # long-polling: Telegram держит соединение
 TG_MSG_LIMIT = 4000          # лимит Telegram ~4096, режем с запасом
 MAX_INCOMING_CHARS = 2000    # длинные простыни не пускаем в модель

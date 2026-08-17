@@ -1,0 +1,243 @@
+/* RF C3b — терминал. Чёрный фон, янтарь, моноширинные числа, нулевой радиус. */
+
+:root {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #0b0b0c;
+  --panel-hi: #161611;
+  --amber: #ffb000;
+  --amber-dim: #b57d00;
+  --amber-line: rgba(255, 176, 0, .22);
+  --amber-wash: rgba(255, 176, 0, .07);
+  --val: #e8e8e6;
+  --up: #25d366;
+  --down: #ff453a;
+  --up-wash: rgba(37, 211, 102, .13);
+  --down-wash: rgba(255, 69, 58, .13);
+  --cmd-bg: #0d2137;
+  --cmd-fg: #4a9eff;
+
+  --mono: "JetBrains Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  font-family: var(--mono);
+  color: var(--val);
+  background: var(--bg);
+  font-synthesis: none;
+  -webkit-text-size-adjust: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: var(--bg); }
+button { font: inherit; color: inherit; font-family: var(--mono); border-radius: 0; }
+button:focus-visible { outline: 1px solid var(--amber); outline-offset: -1px; }
+
+.term { width: min(100%, 620px); margin: auto; min-height: 100vh; background: var(--bg); padding-bottom: 26px; }
+
+/* подпись поля: янтарь, прописные, разрядка */
+.lbl { color: var(--amber); font-size: 9.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.dim { color: var(--amber-dim); }
+.up { color: var(--up); }
+.down { color: var(--down); }
+.flat { color: var(--amber-dim); }
+
+/* ---------- командная строка ---------- */
+
+.cmd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--cmd-bg);
+  border-bottom: 1px solid var(--amber-line);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--cmd-fg);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.cmd .go { color: var(--amber); }
+.cmd .state { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.cmd .state .led { width: 7px; height: 7px; background: var(--up); }
+.cmd .state.bad { color: var(--down); }
+.cmd .state.bad .led { background: var(--down); }
+
+/* ---------- тикерная лента ---------- */
+
+.tape {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-bottom: 1px solid var(--amber-line);
+  background: var(--panel);
+  scrollbar-width: none;
+}
+.tape::-webkit-scrollbar { display: none; }
+.tape button {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 0;
+  border-right: 1px solid var(--amber-line);
+  background: none;
+  cursor: pointer;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.tape button[aria-pressed="true"] { background: var(--panel-hi); box-shadow: inset 0 -2px 0 var(--amber); }
+.tape .sym { color: var(--amber); font-weight: 700; letter-spacing: .06em; }
+.tape .px { color: var(--val); }
+.tape .ch { font-weight: 700; }
+
+/* ---------- секции ---------- */
+
+.sec { border-bottom: 1px solid var(--amber-line); }
+.sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--amber-wash);
+  border-bottom: 1px solid var(--amber-line);
+}
+.sec-head .r { color: var(--amber-dim); font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+
+/* ---------- итог ---------- */
+
+.tot { padding: 14px 12px 12px; }
+.keys { display: flex; gap: 0; margin-bottom: 13px; border: 1px solid var(--amber-line); }
+.keys button {
+  flex: 1;
+  min-height: 34px;
+  padding: 7px 4px;
+  border: 0;
+  border-right: 1px solid var(--amber-line);
+  background: none;
+  color: var(--amber-dim);
+  cursor: pointer;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.keys button:last-child { border-right: 0; }
+.keys button[aria-selected="true"] { background: var(--amber); color: #000; }
+
+.tot .row1 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; }
+.tot .big { font-size: clamp(2.1rem, 10.5vw, 3rem); font-weight: 700; line-height: 1; letter-spacing: -.03em; }
+.tot .pc { font-size: 15px; font-weight: 700; }
+.tot .cap { margin-top: 4px; font-size: 10.5px; color: var(--amber-dim); }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 13px; border-top: 1px solid var(--amber-line); }
+.stats > div { padding: 9px 12px 9px 0; }
+.stats > div + div { padding-left: 12px; border-left: 1px solid var(--amber-line); }
+.stats .v { margin-top: 4px; font-size: 13px; font-weight: 700; color: var(--val); }
+
+/* ---------- график ---------- */
+
+.chart { padding: 0; background: var(--bg); }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart svg.flat { height: 96px; }
+.chart-note { display: flex; justify-content: space-between; gap: 10px; padding: 7px 12px 10px; font-size: 9.5px; color: var(--amber-dim); }
+
+/* ---------- плотные таблицы ---------- */
+
+.grid { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.grid th {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--amber-line);
+  color: var(--amber);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
+}
+.grid th:first-child, .grid td:first-child { text-align: left; padding-left: 12px; }
+.grid th:last-child, .grid td:last-child { padding-right: 12px; }
+.grid td { padding: 8px 10px; border-bottom: 1px solid rgba(255, 176, 0, .09); text-align: right; white-space: nowrap; color: var(--val); }
+.grid tbody tr:last-child td { border-bottom: 0; }
+.grid .sym { color: var(--amber); font-weight: 700; letter-spacing: .04em; }
+.grid .sub { display: block; margin-top: 2px; color: var(--amber-dim); font-size: 9.5px; letter-spacing: .04em; }
+
+/* строка позиции: выбранная подсвечена и помечена янтарным маркером слева */
+tr.pick { cursor: pointer; }
+tr.pick.on td { background: var(--panel-hi); }
+tr.pick.on td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+
+.scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.scroll .grid { min-width: 660px; }
+
+.side { font-weight: 700; font-size: 9.5px; letter-spacing: .08em; }
+
+/* ---------- предупреждение ---------- */
+
+.warn {
+  display: flex;
+  gap: 9px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--amber-line);
+  background: var(--down-wash);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--val);
+}
+.warn .bang { flex: none; color: var(--down); font-family: var(--mono); font-weight: 700; }
+.warn b { color: var(--down); font-weight: 600; }
+
+/* ---------- проза и пустое ---------- */
+
+.prose { padding: 10px 12px; font-family: var(--sans); font-size: 12px; line-height: 1.5; color: var(--amber-dim); }
+.prose b { color: var(--val); font-weight: 600; }
+
+.none { padding: 22px 12px 24px; font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--amber-dim); }
+.none b { display: block; margin-bottom: 4px; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--amber); }
+
+.bottom { display: flex; align-items: center; gap: 10px; padding: 11px 12px; }
+.key {
+  min-height: 32px;
+  padding: 7px 13px;
+  border: 1px solid var(--amber-line);
+  background: none;
+  color: var(--amber);
+  cursor: pointer;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.key:hover { background: var(--amber-wash); }
+.key[disabled] { opacity: .5; cursor: default; }
+.bottom .ts { font-size: 9.5px; color: var(--amber-dim); letter-spacing: .08em; text-transform: uppercase; }
+
+.boot { min-height: 100vh; display: grid; align-content: center; gap: 11px; padding: 26px 16px; max-width: 460px; margin: auto; }
+.boot h1 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+.boot p { margin: 0; font-family: var(--sans); font-size: 13px; line-height: 1.55; color: var(--amber-dim); }
+.boot .key { justify-self: start; }
+
+/* курсор командной строки — единственная анимация; ничего не скрывает */
+@media (prefers-reduced-motion: no-preference) {
+  .caret { animation: blink 1.15s steps(1, end) infinite; }
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
+
+@media (max-width: 380px) {
+  .cmd { font-size: 9.5px; letter-spacing: .06em; }
+  .grid { font-size: 11px; }
+  .stats .v { font-size: 12px; }
+}
