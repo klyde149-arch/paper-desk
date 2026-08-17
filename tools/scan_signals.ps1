@@ -23,8 +23,6 @@ $ErrorActionPreference = 'Stop'
 $dir = Split-Path $PSScriptRoot -Parent   # корень проекта (портируемо: локально и в GitHub Actions)
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')  # слой данных с фолбэками (Bybit заблокирован с раннеров Actions)
 
-function EMAseries([double[]]$v,[int]$p){ $n=$v.Count;$o=New-Object 'double[]' $n;$k=2.0/($p+1);$s=0.0
-  for($i=0;$i -lt $n;$i++){ if($i -lt $p){$s+=$v[$i];$o[$i]=[double]::NaN;if($i -eq $p-1){$o[$i]=$s/$p}}else{$o[$i]=$v[$i]*$k+$o[$i-1]*(1-$k)} } ,$o }
 function RSIseries([double[]]$v,[int]$p){ $n=$v.Count;$o=New-Object 'double[]' $n;for($i=0;$i -lt $n;$i++){$o[$i]=[double]::NaN}
   if($n -le $p+1){return ,$o};$g=0.0;$l=0.0
   for($i=1;$i -le $p;$i++){$d=$v[$i]-$v[$i-1];if($d -gt 0){$g+=$d}else{$l-=$d}};$ag=$g/$p;$al=$l/$p
@@ -39,10 +37,9 @@ function LoadKlines($sym){
   # через lib_engine: Bybit -> bytick -> BingX; отдаёт ЗАКРЫТЫЕ бары + текущий формирующийся
   # (решение принимается по bars.Count-2 = последний закрытый — семантика сканера не меняется)
   $nowMs = UtcNowMs
-  $bars = Get-KlinesRange $sym '240' ($nowMs - [long]410*14400000) $nowMs ($nowMs + 14400000)
+  $bars = Get-Klines $sym '240' ($nowMs - [long]410*14400000) $nowMs ($nowMs + 14400000)
   return ,@($bars | ForEach-Object { $_ })
 }
-function LoadFunding($sym){ Get-FundingLast8h $sym }
 # current Fear&Greed
 $fng=$null; try{ $fj=Invoke-RestMethod -Uri "https://api.alternative.me/fng/?limit=1" -TimeoutSec 20; $fng=[int]$fj.data[0].value }catch{}
 
@@ -54,7 +51,7 @@ foreach($sym in $Symbols){
   $c=[double[]]($bars|ForEach-Object{$_.c}); $h=[double[]]($bars|ForEach-Object{$_.h}); $l=[double[]]($bars|ForEach-Object{$_.l}); $o=[double[]]($bars|ForEach-Object{$_.o}); $t=[long[]]($bars|ForEach-Object{$_.t})
   $S[$sym]=@{ bars=$bars;o=$o;h=$h;l=$l;c=$c;t=$t
     ema20=(EMAseries $c 20);ema50=(EMAseries $c 50);ema200=(EMAseries $c 200);rsi=(RSIseries $c 14);atr=(ATRseries $h $l $c 14)
-    funding=(LoadFunding $sym) }
+    funding=(Get-FundingLast8h $sym) }
   Start-Sleep -Milliseconds 80
 }
 

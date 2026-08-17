@@ -90,7 +90,7 @@ def chat(messages, tools=None, model=None, max_tokens=None):
                 msg.setdefault('role', 'assistant')
                 usage = resp.get('usage') or {}
                 usage['model'] = mdl
-                return _normalize(msg), usage
+                return msg, usage
             except urllib.error.HTTPError as e:
                 body = ''
                 try:
@@ -111,18 +111,9 @@ def chat(messages, tools=None, model=None, max_tokens=None):
     raise last_err or LLMError('модель недоступна')
 
 
-def _normalize(msg):
-    """Привести tool_calls к предсказуемому виду и распарсить arguments.
-
-    В arguments кладём уже словарь (ключ `_args`), сохраняя оригинальную строку —
-    она нужна, чтобы вернуть сообщение обратно в историю без изменений.
-    """
-    calls = msg.get('tool_calls') or []
-    for c in calls:
-        fn = c.get('function') or {}
-        raw = fn.get('arguments')
-        c['_args'] = _parse_args(raw)
-    return msg
+def tool_call_args(call):
+    """Разобрать аргументы tool-call, не меняя provider-сообщение."""
+    return _parse_args((call.get('function') or {}).get('arguments'))
 
 
 def _parse_args(raw):

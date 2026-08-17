@@ -88,9 +88,7 @@ def run_turn(chat_id, user_text, on_progress=None):
         usage_total['model'] = usage.get('model') or usage_total['model']
 
         calls = msg.get('tool_calls') or []
-        # В историю кладём сообщение без служебного поля _args. Копии обязательно
-        # новые: поверхностная копия разделяет те же dict'ы вызовов, и pop('_args')
-        # стёр бы аргументы, которые нам ещё предстоит прочитать ниже.
+        # Защитно убираем legacy-служебные поля из истории, не меняя provider-ответ.
         clean = {k: v for k, v in msg.items() if k != '_args'}
         if calls:
             clean['tool_calls'] = [{k: v for k, v in c.items() if k != '_args'} for c in calls]
@@ -103,7 +101,7 @@ def run_turn(chat_id, user_text, on_progress=None):
 
         for call in calls:
             fname = (call.get('function') or {}).get('name') or '?'
-            args = call.get('_args') or {}
+            args = llm.tool_call_args(call)
             if on_progress:
                 on_progress('  → %s(%s)' % (fname, json.dumps(args, ensure_ascii=False)))
 

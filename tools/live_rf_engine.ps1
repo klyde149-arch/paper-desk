@@ -78,6 +78,7 @@ $completedDay = Get-RfCompletedDay $mskNowMs
 
 $script:ev = New-Object System.Collections.Generic.List[string]     # события тика (лог)
 $script:jr = New-Object System.Collections.Generic.List[string]     # журнал (journal_live_rf.md)
+$script:DirectSleeveAccess = ([string]$env:LIVE_RF_DIRECT_SLEEVE_ACCESS -eq '1')
 $mode = if ($DryRun) { 'dryrun' } else { if ($env:TINVEST_MODE) { ([string]$env:TINVEST_MODE).ToLower() } else { 'dryrun' } }
 Initialize-TInvest $lrfDir $mode
 
@@ -436,7 +437,13 @@ function Complete-IntentIfFilled($It) {
 }
 
 # ================= леджер / карточки позиций =================
-function Get-SleeveRef([string]$Name) { return $st.sleeves.$Name }
+function Get-SleeveRef([string]$Name) {
+  if (-not $script:DirectSleeveAccess) { return $st.sleeves.$Name }
+  # Canary path for the staged refactor: preserve the legacy null result for an unknown sleeve.
+  $prop = $st.sleeves.PSObject.Properties[$Name]
+  if ($null -eq $prop) { return $null }
+  return $prop.Value
+}
 # Стоп-маркет не исполняется ЛУЧШЕ своего триггера: лонг срабатывает при падении до уровня и
 # заливается по биду (на уровне или хуже), шорт - зеркально. Значит выход строго лучше стопа
 # карточки = закрытие пришло НЕ от стоп-заявки (руками в приложении, брокером, чем угодно).

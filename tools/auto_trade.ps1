@@ -65,10 +65,6 @@ $script:pf = $null
 
 # ================= helpers (main contour) =================
 
-function Ensure-Prop($obj, [string]$name, $default) {
-  if (-not $obj.PSObject.Properties[$name]) { $obj | Add-Member -NotePropertyName $name -NotePropertyValue $default }
-}
-
 function New-AutoState([long]$initTs1m, [long]$init4h, [int]$nextId) {
   [pscustomobject]@{
     schema = 1; engine = 'v2-combo'

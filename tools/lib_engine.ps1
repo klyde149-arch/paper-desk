@@ -19,6 +19,10 @@ function UtcStrToMs([string]$s) {
   [long]([DateTimeOffset]$dt).ToUnixTimeMilliseconds()
 }
 
+function Ensure-Prop($Obj, [string]$Name, $Default) {
+  if (-not $Obj.PSObject.Properties[$Name]) { $Obj | Add-Member -NotePropertyName $Name -NotePropertyValue $Default }
+}
+
 # ---------- HTTP with retry ----------
 function Invoke-Http([string]$Url, [int]$Retries = 2, [int]$TimeoutSec = 25) {
   $last = $null
@@ -154,11 +158,6 @@ function Get-FundingRateAt([hashtable]$Map, [long]$SlotTs, [double]$Default = 0.
   foreach ($k in $Map.Keys) { if ([long]$k -le $SlotTs -and [long]$k -gt $best) { $best = [long]$k } }
   if ($best -ge 0) { return [double]$Map[$best] }
   return $Default
-}
-
-# alias for scanners whose local Get-Klines has a different signature
-function Get-KlinesRange([string]$Sym, [string]$Interval, [long]$StartMs, [long]$EndMs, [long]$NowMs) {
-  return ,(Get-Klines $Sym $Interval $StartMs $EndMs $NowMs)
 }
 
 # last known funding rate per 8h (fraction): Bybit tickers -> BingX premiumIndex fallback

@@ -11,7 +11,6 @@ def _call(idx, name, args):
         'id': 'mock_call_%d' % idx,
         'type': 'function',
         'function': {'name': name, 'arguments': json.dumps(args, ensure_ascii=False)},
-        '_args': args,
     }
 
 

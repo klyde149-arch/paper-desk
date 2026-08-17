@@ -146,13 +146,19 @@ function New-Scenario([string]$Name) {
 function Set-Queue([string]$Root, $Entries) {
   Write-Json (Join-Path $Root 'mock\scenario.json') ([pscustomobject]@{ queue = @($Entries) })
 }
-function Run-Tick([string]$Root, [string]$MskTime, [string]$Mode = 'prod') {
+function Run-Tick([string]$Root, [string]$MskTime, [string]$Mode = 'prod', [switch]$DirectSleeveAccess) {
   $nowMs = MskToNowMs $MskTime
-  $env:TINVEST_MODE = $Mode; $env:TINVEST_MOCK_DIR = Join-Path $Root 'mock'
-  $env:TINVEST_ACCOUNT_ID = 'acc1'; $env:TINVEST_TOKEN = 'test-token'
-  $out = & powershell -NoProfile -ExecutionPolicy Bypass -Command ". '$ENGINE' -Root '$Root' -NowMs $nowMs" 2>&1
-  $env:TINVEST_MOCK_DIR = $null
-  return ($out | Out-String)
+  $oldDirectSleeveAccess = $env:LIVE_RF_DIRECT_SLEEVE_ACCESS
+  try {
+    $env:TINVEST_MODE = $Mode; $env:TINVEST_MOCK_DIR = Join-Path $Root 'mock'
+    $env:TINVEST_ACCOUNT_ID = 'acc1'; $env:TINVEST_TOKEN = 'test-token'
+    $env:LIVE_RF_DIRECT_SLEEVE_ACCESS = if ($DirectSleeveAccess) { '1' } else { $null }
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -Command ". '$ENGINE' -Root '$Root' -NowMs $nowMs" 2>&1
+    return ($out | Out-String)
+  } finally {
+    $env:TINVEST_MOCK_DIR = $null
+    $env:LIVE_RF_DIRECT_SLEEVE_ACCESS = $oldDirectSleeveAccess
+  }
 }
 function Get-State([string]$Root) { Read-JsonFile (Join-Path $Root 'data\live_rf\portfolio.json') }
 function Get-Calls([string]$Root, [string]$Method = '') {
@@ -188,6 +194,25 @@ function Scn-EntryFill {
   Check 'entry-fill: интент удалён' (@($st.pending_intents).Count -eq 0)
   Check 'entry-fill: комиссия списана' ([double]$st.sleeves.core.eq_rub -lt 700000)
   Check 'entry-fill: PostStopOrder вызван 1 раз' ((Get-Calls $r 'PostStopOrder').Count -eq 1)
+}
+
+# Canary: the direct sleeve accessor must preserve the write-ahead entry/stop invariant.
+function Scn-DirectSleeveAccess {
+  $r = New-Scenario 'direct-sleeve-access'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  [void](Run-Tick $r '2026-07-15 10:05' 'prod' -DirectSleeveAccess)
+  $st = Get-State $r
+  $pos = @($st.sleeves.core.positions)
+  Check 'direct-sleeve: core card created' ($pos.Count -eq 1)
+  if ($pos.Count) {
+    Check 'direct-sleeve: entry price preserved' ([math]::Abs([double]$pos[0].entry_px_pts - 2.905) -lt 1e-9)
+    Check 'direct-sleeve: stop was armed in the same tick' ([string]$pos[0].stop_order_id -eq 'stop-new-1')
+  }
+  Check 'direct-sleeve: intent removed after fill' (@($st.pending_intents).Count -eq 0)
+  Check 'direct-sleeve: exactly one market order' ((Get-Calls $r 'PostOrder').Count -eq 1)
+  Check 'direct-sleeve: exactly one stop order' ((Get-Calls $r 'PostStopOrder').Count -eq 1)
 }
 
 # --- 2. entry-reject: заявка отклонена -> интента нет, карточек нет
@@ -1349,7 +1374,7 @@ function Scn-AutoRebaseIdempotent {
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
-  ${function:Scn-EntryFill}, ${function:Scn-EntryReject}, ${function:Scn-EntryLostAdopt}, ${function:Scn-EntryLostRepost},
+  ${function:Scn-EntryFill}, ${function:Scn-DirectSleeveAccess}, ${function:Scn-EntryReject}, ${function:Scn-EntryLostAdopt}, ${function:Scn-EntryLostRepost},
   ${function:Scn-Qty0}, ${function:Scn-GoCap}, ${function:Scn-GoTrim}, ${function:Scn-HardDd},
   ${function:Scn-HardDdIgnoresBlendedPeak}, ${function:Scn-DayHaltReal},
   ${function:Scn-D2}, ${function:Scn-D4Confirmed}, ${function:Scn-D4ManualExt}, ${function:Scn-D4ShortHistoricalClose}, ${function:Scn-D4PendingStatus}, ${function:Scn-D4StopAlive}, ${function:Scn-D4Quarantine},
