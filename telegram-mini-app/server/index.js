@@ -20,6 +20,10 @@ import { validateInitData } from './telegram-auth.js';
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(dirname, '..');
 const port = Number(process.env.PORT ?? 3000);
+// Слушаем ТОЛЬКО петлю: наружу кабинет отдаёт туннель (cloudflared), а не сам процесс.
+// Раньше здесь было app.listen(port) = 0.0.0.0, то есть на боевом хосте кабинет с реальными
+// деньгами висел бы в интернете по открытому HTTP, если бы в firewall открыли порт.
+const host = process.env.HOST ?? '127.0.0.1';
 const allowUnsafeDev = process.env.DEV_ALLOW_UNSAFE_AUTH === 'true';
 const botToken = process.env.BOT_TOKEN;
 const maxAge = Number(process.env.INIT_DATA_MAX_AGE_SECONDS ?? 86400);
@@ -196,8 +200,8 @@ app.get('{*splat}', (_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.listen(port, () => {
-  console.log(`Mini App API: http://localhost:${port}`);
+app.listen(port, host, () => {
+  console.log(`Mini App API: http://${host}:${port}`);
   console.log(`Портфелей в реестре: ${registry.portfolios.length}, админов: ${registry.admins.size}`);
   if (allowUnsafeDev) {
     console.warn('ВНИМАНИЕ: DEV_ALLOW_UNSAFE_AUTH=true — запросы без initData принимаются. Только локально.');

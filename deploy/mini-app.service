@@ -1,0 +1,35 @@
+[Unit]
+Description=paper-desk Telegram Mini App (трейдинг-кабинет, только чтение состояния)
+Documentation=file:///home/trader/paper-desk/deploy/README_MINIAPP.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=trader
+WorkingDirectory=/home/trader/paper-desk/telegram-mini-app
+# EnvironmentFile не нужен: сервер сам грузит .env через dotenv/config (server/index.js).
+# Файл лежит рядом с кодом, в git-игноре, права 600 - в нём токен бота.
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=10
+
+# Ресурсы: у торговых тиков бюджет 110 с на 2 vCPU, кабинет не имеет права с ними
+# конкурировать. Он лишь читает JSON и отдаёт статику - этого с запасом хватает.
+MemoryMax=250M
+CPUQuota=30%
+
+# Ужесточение по образцу trading-assistant.service. Кабинет ЧИТАЕТ боевое состояние и пишет
+# только свою sqlite (пользователи и журнал доступа); единственный писатель состояния - движок.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/trader/paper-desk/telegram-mini-app/data
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target
