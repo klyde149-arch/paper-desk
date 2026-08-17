@@ -743,3 +743,5 @@ risk_pct остаются 5%/2%. VPS конфиг только читает, с�
 ## 2026-08-17 07:00 MSK — RF-LIVE [setA]: закрыта L00031 MIX SHORT — +9121.11 ₽ (manual-ext)
 
 ## 2026-08-17 07:02 MSK — RF-LIVE [setA]: закрыта L00033 PLD SHORT — -4560.72 ₽ (manual-ext)
+
+## 2026-08-17 11:18 MSK — RF-LIVE [core]: закрыта L00032 Eu LONG — +27658.51 ₽ (manual-ext)
