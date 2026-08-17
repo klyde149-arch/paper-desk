@@ -2,10 +2,10 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 108.17,
+  "equity_usd": 108.16,
   "peak_equity_usd": 120.81,
-  "day_start_equity_usd": 108.48,
-  "day_start_date_utc": "2026-08-16",
+  "day_start_equity_usd": 108.16,
+  "day_start_date_utc": "2026-08-17",
   "trading_halted": false,
   "entries_halt_reason": "",
   "open_trades": [
@@ -32,7 +32,7 @@
       "risk_usd": 1.01,
       "notional_usd": 56.77,
       "fees_usd": 0.0567693,
-      "funding_usd": -0.033,
+      "funding_usd": -0.0347,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
@@ -47,7 +47,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.5115
+      "cur_upnl_usd": 0.51
     },
     {
       "id": "LT20",
@@ -72,7 +72,7 @@
       "risk_usd": 1.08,
       "notional_usd": 102.02,
       "fees_usd": 0.10203371,
-      "funding_usd": 0.0006,
+      "funding_usd": -0.0055,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
@@ -87,14 +87,53 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.71393
+      "cur_upnl_usd": 0.69936
+    },
+    {
+      "id": "LT21",
+      "symbol": "LTC-USDT",
+      "side": "short",
+      "status": "pending",
+      "qty": 1.5,
+      "qty_initial": 1.5,
+      "entry_filled_qty": 0.0,
+      "entry_price": 44.11,
+      "stop": 44.79,
+      "stop0": 44.79,
+      "tp1": 43.09,
+      "tp1_qty": 0.7,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-08-17 00:00",
+      "entry_ts": 1786924803883,
+      "risk_usd": 1.02,
+      "notional_usd": 66.16,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h down; LTC-USDT 4h down; F&G 31",
+        "riskPlan": "вход ~44.11, стоп 44.79 (1.54%), TP1 43.09 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.02",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
     }
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1786896000000,
-    "last_trail_4h_ts": 1786896000000,
-    "last_exec_ms": 1786896006828,
+    "last_4h_ts": 1786910400000,
+    "last_trail_4h_ts": 1786910400000,
+    "last_exec_ms": 1786924800000,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -344,9 +383,11 @@
       "69454fca-c2ee-4c2a-97c7-919eaade765b",
       "f94d1a3f-f4f7-49e9-a462-7c3c8ab89df8",
       "89b2860a-2efe-4ae4-879b-f97c46da8c00",
-      "ce186bea-1843-5d26-a045-fec289257af7"
+      "ce186bea-1843-5d26-a045-fec289257af7",
+      "119d9930-82b0-4660-9946-c6d71241aea1",
+      "3a4cbe1a-99e4-4e78-a4e3-b656a1aaba64"
     ],
-    "next_trade_id": 21,
+    "next_trade_id": 22,
     "halt_day_utc": null,
     "soft_dd": false,
     "consec_api_fail": 0,
@@ -364,13 +405,13 @@
       "ARB-USDT",
       "AVAX-USDT"
     ],
-    "last_tick_utc": "2026-08-16 23:45",
-    "last_daily_summary_day": "2026-08-15",
+    "last_tick_utc": "2026-08-17 00:00",
+    "last_daily_summary_day": "2026-08-16",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
   },
-  "week_start_equity_usd": 111.07,
-  "week_start_date_utc": "2026-08-10",
+  "week_start_equity_usd": 108.16,
+  "week_start_date_utc": "2026-08-17",
   "report": {
     "last_day_msk": "2026-08-16",
     "base_ts": 1786903203129,
