@@ -17,6 +17,8 @@ data/live_real/tick_log.txt
 data/live_real/.push_now
 data/live_real/instruments.json
 data/live_real/.git_sync_state
+# таймер сторожа падений движка (engine_watch), см. пояснение у live_rf ниже
+data/live_real/.engine_watch_state
 # env with real API keys must never appear in the tree
 trading-live.env
 
@@ -44,6 +46,9 @@ data/live_rf/dryrun_calls.log
 data/live_rf/engine.lock
 data/live_rf/instruments.json
 data/live_rf/.git_sync_state
+# таймер сторожа падений движка (engine_watch): локальный, как и остальные состояния сторожей.
+# ОБЯЗАТЕЛЬНО в игноре: тик делает `git add data/live_rf`, иначе файл уехал бы в коммит.
+data/live_rf/.engine_watch_state
 
 # disk watchdog (VPS): fault-timer state shared by live_tick.sh/live_rf_tick.sh, local-only
 data/.disk_watch_state
