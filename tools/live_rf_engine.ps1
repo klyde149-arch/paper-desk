@@ -23,7 +23,7 @@ if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 . (Join-Path $PSScriptRoot 'lib_msg_ru.ps1')
 $namesRu = Get-RuNames $Root
 $alertsLib = Join-Path $PSScriptRoot 'lib_alerts.ps1'
-if (Test-Path $alertsLib) { . $alertsLib } else { function Send-TgAlert([string]$Text) { $false } }
+if (Test-Path $alertsLib) { . $alertsLib } else { function Send-TgAlert([string]$Text, [string]$Chat = '') { $false } }
 
 # ================= конфиг live-контура =================
 $LIVE = [ordered]@{
@@ -94,9 +94,19 @@ function Write-LiveJournal([string]$Text) {
 }
 function Alert([string]$Text) {
   $script:ev.Add("ALERT $Text")
-  try { Send-TgAlert "Фьючерсы: $Text" | Out-Null } catch {}
+  [void](Send-RfTelegram "Фьючерсы: $Text")
   # фан-аут второму получателю (только фьючерсы) - если задан TG_CHAT_ID_FUT
-  if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert "Фьючерсы: $Text" -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
+  if ($env:TG_CHAT_ID_FUT) { [void](Send-RfTelegram "Фьючерсы: $Text" -Chat $env:TG_CHAT_ID_FUT) }
+}
+function Send-RfTelegram([string]$Text, [string]$Chat = '') {
+  $ok = $false
+  try { $ok = if ($Chat) { Send-TgAlert $Text -Chat $Chat } else { Send-TgAlert $Text } }
+  catch { $script:TgLastError = 'exception' }
+  if ($ok -ne $true) {
+    $why = if ($script:TgLastError) { [string]$script:TgLastError } else { 'unknown' }
+    Write-LiveLog "tg fail: $why"
+  }
+  return $ok
 }
 function SleeveRu([string]$s) { switch ($s) { 'core' { 'ядро' } 'setA' { 'сетап А' } 'mom' { 'портфель акций' } default { $s } } }
 function RfName($Card) { RuName $namesRu 'fut' ([string]$Card.asset) ([string]$Card.secid) }

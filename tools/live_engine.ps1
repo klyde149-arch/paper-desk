@@ -294,6 +294,13 @@ function Build-CryptoReport($Names, $Trades, [double]$Equity, [double]$PeakEq, $
 
 try {
   # ---------- 0. kill-switches ----------
+  # Локальный dry-run без ключей должен быть чистой проверкой проводки: не ходим в сеть,
+  # не меняем счётчики отказов и не переписываем portfolio.json.
+  if ($DryRun -and (-not $env:BYBIT_API_KEY -or -not $env:BYBIT_API_SECRET)) {
+    LLog 'DRYRUN SKIP: BYBIT credentials are not set'
+    'Crypto dry-run skipped: BYBIT_API_KEY / BYBIT_API_SECRET are not set'
+    return
+  }
   if (Test-Path (Join-Path $Root 'data/HALT')) { LLog 'skip: HALT (global)'; return }
   $haltLive  = Test-Path (Join-Path $Root 'data/HALT_LIVE')
   $haltClose = Test-Path (Join-Path $Root 'data/HALT_CLOSE')
