@@ -69,6 +69,9 @@ function New-Scene {
     New-Item -ItemType Directory -Path 'data' | Out-Null
     Set-Content -Path 'data/state.json' -Value '{"seed":1}' -Encoding utf8
     Set-Content -Path 'journal.md' -Value "seed`n" -Encoding utf8
+    # Отслеживаемый файл ВНЕ -Path: копия report/chart.html из прода, который build_vizdata
+    # переписывает каждым прогоном, а Commit state не коммитит. Нужен сценарию 12.
+    Set-Content -Path 'report_chart.html' -Value '<html>?v=111</html>' -Encoding utf8
     gitq add -A; gitq commit -q -m seed; gitq push -q origin main
   } finally { Pop-Location }
 
@@ -111,6 +114,19 @@ function Invoke-CommitState([string]$WorkDir, [string[]]$Paths, [string]$Label, 
   } finally { Pop-Location }
 }
 
+# Поставить в bare-remote pre-receive хук, который отказывает и печатает заданный текст.
+# Нужен для сценария второго аудита: текст хука попадает в stderr пуша, и классификатор,
+# который разбирает текст, принимал "Updates were rejected by policy" за гонку.
+function Set-RejectHook([string]$Remote, [string]$Message) {
+  $hooks = Join-Path $Remote 'hooks'
+  if (-not (Test-Path $hooks)) { New-Item -ItemType Directory -Path $hooks | Out-Null }
+  $hook = Join-Path $hooks 'pre-receive'
+  # LF и без BOM: это shell-скрипт, git запускает его через sh даже на Windows.
+  $body = "#!/bin/sh`necho '$Message' >&2`nexit 1`n"
+  [IO.File]::WriteAllText($hook, $body, (New-Object System.Text.UTF8Encoding($false)))
+  return $hook
+}
+
 # Заголовок последнего локального коммита в сцене. Отдельной функцией, потому что
 # try/finally - это инструкция, её нельзя вписать выражением в аргумент Check.
 function Get-SceneLastCommit([string]$SceneWork) {
@@ -142,7 +158,7 @@ try {
   Set-SceneFile $s.Work 'portfolio.json' '{"tick":2}'
   $r = Invoke-CommitState $s.Work @('portfolio.json', 'journal.md', 'data') 'tick'
   Check 'гонка выиграна: exit 0' ($r.Code -eq 0)
-  Check 'гонка выиграна: был отбой пуша' ($r.Text -match 'fetch \+ rebase')
+  Check 'гонка выиграна: был отбой пуша' ($r.Text -match '\[race-detected\]')
   $log = Remote-Log $s.Remote
   Check 'гонка выиграна: на remote ОБА коммита' (($log -match 'other tick') -and ($log -match 'tick \d{4}'))
 
@@ -209,6 +225,43 @@ try {
     Check ("{0}: НЕ выдан за гонку" -f $case.n) ($r.Text -notmatch 'state will retry next tick')
     Check ("{0}: коммит всё же создан локально" -f $case.n) ((Get-SceneLastCommit $s.Work) -match 'tick \d{4}')
   }
+
+  # ---- 10. hook-отказ с текстом-ловушкой: дословный сценарий второго аудита ----
+  # pre-receive печатает "Updates were rejected by policy". Классификатор по тексту принимал
+  # это за гонку и отдавал 0, хотя публикация запрещена НАВСЕГДА. Ждём exit 1.
+  Write-Host '== 10. hook отказывает текстом "Updates were rejected by policy" =='
+  $s = New-Scene; $scenes += $s
+  Set-RejectHook $s.Remote 'Updates were rejected by policy' | Out-Null
+  Set-SceneFile $s.Work 'portfolio.json' '{"tick":10}'
+  $r = Invoke-CommitState $s.Work @('portfolio.json', 'journal.md', 'data') 'tick'
+  Check 'hook-ловушка: exit НЕ 0' ($r.Code -ne 0)
+  Check 'hook-ловушка: НЕ выдан за гонку' ($r.Text -notmatch 'state will retry next tick')
+  Check 'hook-ловушка: на remote нашего коммита нет' ((Remote-Log $s.Remote) -notmatch 'tick \d{4}')
+
+  # ---- 11. hook-отказ обычным текстом ----
+  Write-Host '== 11. hook отказывает обычным текстом =='
+  $s = New-Scene; $scenes += $s
+  Set-RejectHook $s.Remote 'push denied by branch policy' | Out-Null
+  Set-SceneFile $s.Work 'portfolio.json' '{"tick":11}'
+  $r = Invoke-CommitState $s.Work @('portfolio.json', 'journal.md', 'data') 'tick'
+  Check 'hook обычный: exit НЕ 0' ($r.Code -ne 0)
+  Check 'hook обычный: на remote нашего коммита нет' ((Remote-Log $s.Remote) -notmatch 'tick \d{4}')
+
+  # ---- 12. ГОНКА ПРИ ГРЯЗНОМ ОТСЛЕЖИВАЕМОМ ФАЙЛЕ - точная копия прода ----
+  # build_vizdata.ps1 каждый прогон переписывает отслеживаемый report/chart.html, а Commit
+  # state его не коммитит. Без --autostash rebase падает с "cannot rebase: You have unstaged
+  # changes", и повтор после гонки не публикует НИЧЕГО, отдавая при этом 0. Поэтому здесь
+  # мало проверить код возврата - требуем, чтобы коммит реально оказался на remote.
+  Write-Host '== 12. гонка + незакоммиченный отслеживаемый файл (как в проде) =='
+  $s = New-Scene; $scenes += $s
+  Invoke-OtherWriter $s.Other 'journal.md' "other moved`n" 'other tick'
+  Set-SceneFile $s.Work 'report_chart.html' '<html>?v=222</html>'   # грязный, вне -Path
+  Set-SceneFile $s.Work 'portfolio.json' '{"tick":12}'
+  $r = Invoke-CommitState $s.Work @('portfolio.json', 'journal.md', 'data') 'tick'
+  Check 'грязное дерево: exit 0' ($r.Code -eq 0)
+  Check 'грязное дерево: СОСТОЯНИЕ РЕАЛЬНО ОПУБЛИКОВАНО' ((Remote-Log $s.Remote) -match 'tick \d{4}')
+  Check 'грязное дерево: чужой коммит цел' ((Remote-Log $s.Remote) -match 'other tick')
+  Check 'грязное дерево: rebase НЕ срывался' ($r.Text -notmatch '\[rebase-aborted\]')
 }
 catch {
   # Сорванный харнесс - это НЕ успех. Без этого блока падение на подготовке сцены давало

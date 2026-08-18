@@ -44,15 +44,27 @@
 # Never throws, never blocks the tick (|| true, bounded timeout, silent on missing creds).
 # chat - optional override (defaults to TG_CHAT_ID); lets a caller fan out to a second
 # recipient (TG_CHAT_ID_FUT), same convention as Send-TgAlert -Chat in lib_alerts.ps1.
+# Возвращает 0 ТОЛЬКО при подтверждённой доставке (HTTP 200). Иначе печатает код в journald
+# и возвращает 1, чтобы вызывающий не пометил тревогу как отправленную.
+#
+# Почему так: инцидент 11-12.08 - сторож ДЕТЕКТИЛ простой, но алерты уходили в никуда, и
+# 27 часов молчания никто не заметил. Урок «проверять надо ДОСТАВКУ, а не детект» до этой
+# функции доведён не был: `curl ... || true` + безусловный `return 0` означали, что при
+# протухшем токене сторож считает, что предупредил. Подсказки по кодам оттуда же:
+# 401 - неверный токен, 404 - мусор в URL (частый случай - хвостовой перевод строки в секрете).
 tg_alert() {
   local chat="${2:-${TG_CHAT_ID:-}}"
-  [ -n "${TG_BOT_TOKEN:-}" ] && [ -n "$chat" ] || return 0
-  curl -sS --max-time 15 \
+  [ -n "${TG_BOT_TOKEN:-}" ] && [ -n "$chat" ] || return 0   # кредов нет - тихий no-op, как раньше
+  local code
+  code=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' \
     --data-urlencode "chat_id=${chat}" \
     --data-urlencode "text=$1" \
     --data-urlencode "disable_web_page_preview=true" \
-    "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" >/dev/null 2>&1 || true
-  return 0
+    "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" 2>/dev/null) || code='000'
+  if [ "$code" = "200" ]; then return 0; fi
+  # 000 - curl не смог соединиться/таймаут. Тик не роняем никогда, только шумим в журнал.
+  echo "WARN: telegram alert NOT delivered (HTTP $code; 401=неверный токен, 404=мусор в URL, 000=сеть)" >&2
+  return 1
 }
 
 # Fan-out helper: default chat + TG_CHAT_ID_FUT if set. Both freeze together when
@@ -63,13 +75,16 @@ tg_alert_all() {
   return 0
 }
 
-# git_sync_watch <label> <state_file> <pull_ok:0|1> [unit]
+# git_sync_watch <label> <state_file> <pull_ok:0|1> [unit] [commit_ok:0|1]
 #   label      - human tag for the alert text, e.g. "LIVE Bybit"
 #   state_file - gitignored file under the contour's data dir; holds the fault timer
 #   pull_ok    - 1 if `git pull` succeeded this tick, 0 otherwise
 #   unit       - systemd unit for the "journalctl -u" hint (default: live-tick)
+#   commit_ok  - 0 если `git commit` в этом тике провалился (по умолчанию 1). Без этого
+#                признака несозданный коммит выглядел здоровым: пушить нечего, ahead=0,
+#                а файлы состояния остались грязными и неопубликованными (второй аудит).
 git_sync_watch() {
-  local label="$1" state_file="$2" pull_ok="$3" unit="${4:-live-tick}"
+  local label="$1" state_file="$2" pull_ok="$3" unit="${4:-live-tick}" commit_ok="${5:-1}"
   local after="${GIT_ALERT_AFTER_MIN:-30}" repeat="${GIT_ALERT_REPEAT_MIN:-120}"
   local now ahead healthy
   now=$(date -u +%s)
@@ -80,7 +95,7 @@ git_sync_watch() {
   case "$ahead" in ''|*[!0-9]*) ahead=999 ;; esac
 
   healthy=0
-  [ "$pull_ok" = "1" ] && [ "$ahead" = "0" ] && healthy=1
+  [ "$pull_ok" = "1" ] && [ "$ahead" = "0" ] && [ "$commit_ok" = "1" ] && healthy=1
 
   # Load prior fault state (KEY=VALUE lines). Absent file => no fault in progress.
   local BAD_SINCE='' ALERTED=0 LAST_MSG=0
@@ -108,9 +123,12 @@ git_sync_watch() {
 
   if [ "$ALERTED" != "1" ]; then
     if [ "$elapsed_min" -ge "$after" ]; then
-      tg_alert "$label: данные не публикуются на дашборд уже больше ${elapsed_min} мин. Дашборд устарел, но торговля идёт на локальном состоянии (защитные стоп-заявки стоят на бирже). Диагностика: journalctl -u ${unit}."
-      ALERTED=1
-      LAST_MSG=$now
+      # ALERTED ставим ТОЛЬКО при подтверждённой доставке: иначе недоставленная тревога
+      # записывалась бы как отправленная и повтора не было бы никогда (инцидент 11-12.08).
+      if tg_alert "$label: данные не публикуются на дашборд уже больше ${elapsed_min} мин. Дашборд устарел, но торговля идёт на локальном состоянии (защитные стоп-заявки стоят на бирже). Диагностика: journalctl -u ${unit}."; then
+        ALERTED=1
+        LAST_MSG=$now
+      fi
     fi
   else
     if [ $(( (now - LAST_MSG) / 60 )) -ge "$repeat" ]; then
@@ -120,6 +138,58 @@ git_sync_watch() {
   fi
 
   # Persist fault state atomically (tmp + mv) so a torn read next tick can't corrupt it.
+  {
+    echo "BAD_SINCE=$BAD_SINCE"
+    echo "ALERTED=$ALERTED"
+    echo "LAST_MSG=$LAST_MSG"
+  } > "${state_file}.tmp" 2>/dev/null && mv -f "${state_file}.tmp" "$state_file" 2>/dev/null || true
+  return 0
+}
+
+# engine_watch <label> <state_file> <engine_rc> [unit]
+#   Немедленный сигнал о том, что торговый движок упал. Раньше обёртки тиков только писали
+#   "WARN: ... exited rc=N" в journald и всё равно делали exit 0, поэтому systemd показывал
+#   success, и единственным, кто это замечал, оставался внешний live_watch.ps1 - по свежести
+#   снимков эквити, то есть с задержкой до часа. Второй аудит 2026-08-17 указал на этот разрыв.
+#
+#   Философию файла не меняем: тик не роняем, exit 0 в обёртках остаётся. Меняется только
+#   наблюдаемость. Повтор ограничен, чтобы падающий каждую минуту движок не дал спам.
+#     ENGINE_ALERT_REPEAT_MIN=60 - минуты между напоминаниями, пока движок продолжает падать
+engine_watch() {
+  local label="$1" state_file="$2" rc="$3" unit="${4:-live-tick}"
+  local repeat="${ENGINE_ALERT_REPEAT_MIN:-60}"
+  local now; now=$(date -u +%s)
+
+  local BAD_SINCE='' ALERTED=0 LAST_MSG=0
+  if [ -f "$state_file" ]; then
+    # shellcheck disable=SC1090
+    . "$state_file" 2>/dev/null || { BAD_SINCE=''; ALERTED=0; LAST_MSG=0; }
+  fi
+
+  if [ "$rc" = "0" ]; then
+    if [ -n "$BAD_SINCE" ]; then
+      local mins=$(( (now - BAD_SINCE) / 60 ))
+      [ "$ALERTED" = "1" ] && tg_alert "$label: движок снова отрабатывает штатно (падал около ${mins} мин)."
+      rm -f "$state_file" 2>/dev/null || true
+    fi
+    return 0
+  fi
+
+  [ -z "$BAD_SINCE" ] && BAD_SINCE=$now
+  local elapsed_min=$(( (now - BAD_SINCE) / 60 ))
+
+  if [ "$ALERTED" != "1" ]; then
+    # Первый отказ - сообщаем сразу, без выдержки: движок не торгует прямо сейчас.
+    if tg_alert "$label: ДВИЖОК УПАЛ (rc=$rc). Позиции не управляются до восстановления, защитные стоп-заявки остаются на бирже. Диагностика: journalctl -u ${unit}."; then
+      ALERTED=1
+      LAST_MSG=$now
+    fi
+  else
+    if [ $(( (now - LAST_MSG) / 60 )) -ge "$repeat" ]; then
+      if tg_alert "$label: движок всё ещё падает (rc=$rc, уже ${elapsed_min} мин)."; then LAST_MSG=$now; fi
+    fi
+  fi
+
   {
     echo "BAD_SINCE=$BAD_SINCE"
     echo "ALERTED=$ALERTED"

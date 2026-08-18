@@ -72,47 +72,58 @@ if ($LASTEXITCODE -ne 0) {
   exit 1
 }
 
-# Гонка - это ТОЛЬКО отказ "твоя ветка отстала". Всё остальное (нет remote, отказ
-# авторизации, DNS, 403, таймаут) - поломка публикации, и её нельзя прятать под тем же
-# "retry next tick": тик был бы зелёным, пока состояние молча никуда не уезжает.
-# Аудит 2026-08-17 поймал ровно это: старая версия трактовала как гонку ЛЮБОЙ ненулевой код
-# пуша. Раннеры Actions работают в английской локали, поэтому сигнатуры стабильны.
-function Test-RaceRejection([string]$Text) {
-  return $Text -match '!\s*\[rejected\]|non-fast-forward|fetch first|Updates were rejected'
+# Гонка определяется ФАКТОМ, а не текстом. Второй аудит 2026-08-17 показал, почему список
+# английских фраз не годится: он искал 'Updates were rejected' во всём stderr, а туда попадает
+# произвольный текст удалённого pre-receive хука. Хук с сообщением "Updates were rejected by
+# policy" - постоянный запрет публикации - выдавался за гонку и давал exit 0.
+#
+# Признак гонки ровно один: пока мы работали, remote уехал вперёд. Это проверяется сравнением
+# origin/main до и после fetch и неуязвимо к чужому тексту, локали раннера и любым будущим
+# формулировкам git.
+function Get-RemoteHead {
+  $sha = (git rev-parse --verify --quiet origin/main 2>$null | Out-String).Trim()
+  return $sha
 }
 
 for ($try = 1; $try -le $Tries; $try++) {
-  $pushOut = (git push -q origin main 2>&1 | Out-String)
-  if ($LASTEXITCODE -eq 0) { Write-Host "state pushed (attempt $try)"; exit 0 }
+  $remoteBefore = Get-RemoteHead
 
-  if (-not (Test-RaceRejection $pushOut)) {
-    # Незнакомый отказ трактуем как поломку, а не как гонку: цена ошибки в эту сторону -
-    # один красный ран, в обратную - молчаливое устаревание состояния сколько угодно долго.
-    Write-Host $pushOut
-    Write-Error "[push-failed-hard] пуш отбит НЕ гонкой (код $LASTEXITCODE) - это отказ публикации, а не отставшая ветка"
+  git push -q origin main
+  if ($LASTEXITCODE -eq 0) { Write-Host "state pushed (attempt $try)"; exit 0 }
+  $pushCode = $LASTEXITCODE
+
+  git fetch origin main
+  if ($LASTEXITCODE -ne 0) {
+    # Не смогли даже вычитать remote - гонки быть не может по определению: связность/доступ.
+    Write-Error "[fetch-failed] git fetch вернул $LASTEXITCODE - до remote не достучаться, это не гонка"
     exit 1
   }
 
-  Write-Warning "push отбит гонкой (попытка $try из $Tries) - fetch + rebase"
+  $remoteAfter = Get-RemoteHead
+  if ($remoteAfter -eq $remoteBefore) {
+    # Remote не двигался, значит мы не отставали - пуш отбили по другой причине:
+    # хук, protected branch, права. Это отказ публикации, ран обязан покраснеть.
+    Write-Error "[push-failed-hard] пуш отбит (код $pushCode), но origin/main не сдвинулся ($remoteAfter) - это не гонка, а отказ публикации"
+    exit 1
+  }
+
+  Write-Warning "[race-detected] push отбит гонкой (попытка $try из $Tries): origin/main уехал $remoteBefore -> $remoteAfter"
   if (-not $NoDelay) {
     # Джиттер, чтобы два писателя не повторяли попытку в лок-степе.
     Start-Sleep -Milliseconds (Get-Random -Minimum 500 -Maximum 2500)
   }
 
-  git fetch origin main
-  if ($LASTEXITCODE -ne 0) {
-    # Если не получилось даже вычитать remote - гонки быть не может по определению:
-    # это связность или доступ.
-    Write-Error "[fetch-failed] git fetch вернул $LASTEXITCODE - до remote не достучаться, это не гонка"
-    exit 1
-  }
-
-  git rebase origin/main
+  # --autostash ОБЯЗАТЕЛЕН, а не украшение: build_vizdata.ps1 на каждом прогоне переписывает
+  # отслеживаемые report/chart.html и report/charts.html (cache-bust ?v=<timestamp>), а этот
+  # шаг их не коммитит. Без autostash rebase гарантированно падает с "cannot rebase: You have
+  # unstaged changes", и повтор после гонки не работает НИКОГДА - именно это нашёл второй
+  # аудит. Тот же приём стоит на VPS: git pull --rebase --autostash в deploy/live_rf_tick.sh.
+  git rebase --autostash origin/main
   if ($LASTEXITCODE -ne 0) {
     # Незавершённый rebase оставляет дерево в середине операции - пушить оттуда нельзя.
     git rebase --abort 2>$null
     # Маркер в ASCII и своими словами: подсказку git'а "run git rebase --abort" тест ловил
-    # как ложно-положительную (аудит 2026-08-17), теперь проверяется именно эта строка.
+    # как ложно-положительную (первый аудит), теперь проверяется именно эта строка.
     Write-Warning '[rebase-aborted] rebase не сошёлся - состояние уедет следующим тиком'
     break
   }
