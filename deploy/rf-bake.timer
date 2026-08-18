@@ -1,0 +1,17 @@
+[Unit]
+Description=paper-desk RF candle bake - 4x per hour, ahead of the publishing tick
+
+[Timer]
+# Minutes 10/25/40/55, i.e. ~5 minutes before live-rf-tick publishes on the :00/:15/:30/:45
+# mark. A bake that finishes inside its 240s budget therefore always lands in the very next
+# publish commit; one that overruns simply rides the following mark - stale charts, nothing
+# else. The offset also keeps the bake clear of both tick runners (live-tick at :00, live-rf
+# at :30), which matters because git pull --rebase --autostash in a tick would otherwise have
+# to stash candle files being rewritten underneath it.
+OnCalendar=*-*-* *:10,25,40,55:00
+AccuracySec=1s
+# a missed bake must NOT fire late - the next quarter covers it
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -14,3 +14,6 @@ ExecStart=/usr/bin/flock -n /run/lock/live-rf-tick.lock /home/trader/paper-desk/
 TimeoutStartSec=110
 # the timer is the retry mechanism - never restart a oneshot
 Restart=no
+# A tick killed by the timeout above executes none of its own watchdogs (they all live inside
+# the script, past the point of death), so without this the failure is completely silent.
+OnFailure=tick-alert@%n.service

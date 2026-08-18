@@ -1,0 +1,22 @@
+[Unit]
+Description=paper-desk RF candle bake (dashboard presentation data, never the money path)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=trader
+EnvironmentFile=/etc/trading-live.env
+Environment=LC_ALL=C.UTF-8
+WorkingDirectory=/home/trader/paper-desk
+# Writes files only - data/live_rf/candles/*.json and the presentation snapshot. It never
+# touches git, so it adds no second writer racing live-rf-tick for index.lock: the candles it
+# leaves on disk ride along in the next 15-minute publish commit made by the tick.
+ExecStart=/usr/bin/flock -n /run/lock/rf-bake.lock /usr/bin/pwsh -NoProfile -File tools/bake_rf_candles.ps1
+# Generous on purpose, unlike the tick's 110s: nothing here is time-critical and killing a bake
+# mid-flight only costs a stale chart. The script keeps its own -TimeBudgetSec (240s default)
+# so a slow broker makes it return early rather than bleed into the next run.
+TimeoutStartSec=300
+# the timer is the retry mechanism - never restart a oneshot
+Restart=no
+OnFailure=tick-alert@%n.service

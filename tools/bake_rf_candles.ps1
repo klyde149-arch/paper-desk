@@ -4,7 +4,7 @@
 # Формат файла: массивы [t,o,h,l,c,v], t = MSK-как-UTC ms (Get-TiCandles уже сдвигает +3ч).
 # Потребители: build_vizdata.ps1 (мини-графики позиций) и report/chart.html (большой график),
 # оба предпочитают эти файлы с фолбэком на MOEX ISS. Только чтение - торговлю не трогает.
-param([string]$Root = '', [switch]$SnapshotOnly)
+param([string]$Root = '', [switch]$SnapshotOnly, [int]$TimeBudgetSec = 240)
 $ErrorActionPreference = 'Stop'
 if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')
@@ -90,6 +90,22 @@ if ($pf) {
 }
 if ($SnapshotOnly) { return }
 if (-not $script:TI.token) { Write-Host 'bake_rf_candles: нет токена T-Invest - свечи пропущены'; return }
+if ($TimeBudgetSec -le 0) { Write-Host 'bake_rf_candles: TimeBudgetSec=0 - свечи пропущены'; return }
+
+# Бюджет времени. Обход 23 инструментов - это ~180 вызовов GetCandles/FutureBy, и его цена
+# целиком зависит от того, как быстро сегодня отвечает брокер: обычно 40-75 с, но 2026-08-18
+# с 17:15 до 17:47 UTC свечные ответы замедлились вдвое и выпечка перевалила за 100 с. Тогда
+# она жила внутри торгового тика и убивала его по TimeoutStartSec=110 ДО git-коммита - час без
+# публикации состояния. Выпечка вынесена в свой юнит (deploy/rf-bake.*), но бюджет нужен и там:
+# без него медленный прогон наезжает на следующий и flock -n глотает очередной запуск.
+# Исчерпание бюджета - штатный исход, а не ошибка: записанное остаётся валидным (каждый файл
+# пишется целиком), недостающее доберёт следующий прогон через 15 минут.
+$script:bakeSw = [Diagnostics.Stopwatch]::StartNew()
+function Test-BudgetLeft([string]$Next) {
+  if ($script:bakeSw.Elapsed.TotalSeconds -lt $TimeBudgetSec) { return $true }
+  Write-Host ("bake_rf_candles: бюджет {0} с исчерпан перед {1} - остальное доберёт следующий прогон" -f $TimeBudgetSec, $Next)
+  return $false
+}
 
 # ТФ дашборда для РФ = 1h и 1D (chart.html поддерживает только их для fut/moex).
 # Окна ограничены, чтобы влезть в лимиты диапазона GetCandles и не раздувать git.
@@ -144,6 +160,7 @@ function Save-CodeCandles([string]$Code, [string]$Uid) {
 }
 
 foreach ($a in $ASSETS) {
+  if (-not (Test-BudgetLeft $a)) { break }
   $secid = if ($fronts.ContainsKey($a)) { $fronts[$a] } else { '' }
   if (-not $secid) { Write-Host "  ${a}: нет фронта в portfolio.json - пропуск"; continue }
   # Страховка от коллизии имён: если код фьючерса совпадёт с тикером momentum-акции, свечи
@@ -152,6 +169,9 @@ foreach ($a in $ASSETS) {
   if ($TICKERS -contains $a) { throw "bake_rf_candles: код фьючерса '$a' совпадает с momentum-тикером - свечи затрут друг друга" }
   Save-CodeCandles $a (Resolve-Uid $secid 'fut')
 }
-foreach ($t in $TICKERS) { Save-CodeCandles $t (Resolve-Uid $t 'share') }
+foreach ($t in $TICKERS) {
+  if (-not (Test-BudgetLeft $t)) { break }
+  Save-CodeCandles $t (Resolve-Uid $t 'share')
+}
 
-Write-Host 'bake_rf_candles: готово'
+Write-Host ('bake_rf_candles: готово за {0:n1} с' -f $script:bakeSw.Elapsed.TotalSeconds)

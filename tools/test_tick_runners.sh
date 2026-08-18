@@ -53,5 +53,33 @@ export GIT_FAIL_COMMIT=0 GIT_PUSH_FAIL_ONCE=1
 tick_commit_paths 'race test' data/live_real
 check 'push race retries with autostash' 1 "$(grep -c '^git rebase --autostash origin/main$' "$TICK_TEST_LOG")"
 
+# --- deploy/live_rf_tick.sh: публикация состояния не стоит в очереди за выпечкой свечей ---
+# Инцидент 2026-08-18: полная выпечка (~180 вызовов брокера) шла ДО tick_commit_paths внутри
+# одного юнита с TimeoutStartSec=110. Брокерские свечные ответы замедлились вдвое, три марки
+# подряд были убиты по таймауту ДО коммита - 63 минуты без публикации при живом движке.
+# Тест фиксирует контракт: в тике полной выпечки нет вовсе (она живёт в rf-bake.timer),
+# а на 15-минутной марке коммит состояния случается.
+cat > "$WORK/bin/date" <<'EOF'
+#!/usr/bin/env bash
+for a in "$@"; do
+  if [ "$a" = "+%M" ]; then echo "${FAKE_MINUTE:-07}"; exit 0; fi
+done
+if [ -x /usr/bin/date ]; then exec /usr/bin/date "$@"; else exec /bin/date "$@"; fi
+EOF
+chmod +x "$WORK/bin/date"
+
+# GIT_STAGED=1 - в индексе есть что публиковать; DISK_WARN_PCT=101 - не будить disk_watch
+# на диске машины, где гоняются тесты.
+export GIT_STAGED=1 GIT_FAIL_COMMIT=0 GIT_PUSH_FAIL_ONCE=0 DISK_WARN_PCT=101
+
+TICK_TEST_LOG="$WORK/mark" FAKE_MINUTE=30 bash "$ROOT/deploy/live_rf_tick.sh" >/dev/null 2>&1
+check 'на 15-минутной марке состояние публикуется' 1 "$(grep -c ' commit -m ' "$WORK/mark")"
+check 'публикация доходит до origin'               1 "$(grep -c '^git push origin main$' "$WORK/mark")"
+check 'полной выпечки свечей в тике больше нет'    0 "$(grep -c 'bake_rf_candles\.ps1$' "$WORK/mark")"
+check 'дешёвый снапшот остался поминутным'         1 "$(grep -c 'bake_rf_candles\.ps1 -SnapshotOnly$' "$WORK/mark")"
+
+TICK_TEST_LOG="$WORK/plain" FAKE_MINUTE=07 bash "$ROOT/deploy/live_rf_tick.sh" >/dev/null 2>&1
+check 'вне марки тик ничего не коммитит' 0 "$(grep -c ' commit -m ' "$WORK/plain")"
+
 if [ "$fail" -ne 0 ]; then echo "итого: pass=$pass fail=$fail"; exit 1; fi
 echo "итого: pass=$pass fail=$fail"
