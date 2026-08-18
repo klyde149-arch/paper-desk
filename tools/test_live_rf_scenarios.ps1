@@ -1371,6 +1371,39 @@ function Scn-AutoRebaseIdempotent {
   Check 'auto-rebase идемпотентность: month_start_eq не уехал' ([math]::Abs([double]$st.sleeves.core.month_start_eq - 660000.0) -lt 0.01)
 }
 
+# --- 55. margin_disabled: маржиналка на счёте отключена -> GetMarginAttributes НЕ зовём вовсе.
+# Боевой факт 2026-08-18: вызов отдавал 400 каждый тик (~400 мс + мусор в latency_log), фолбэк
+# на GetPortfolio был единственным рабочим путём. Флаг убирает заведомо провальный запрос.
+function Scn-MarginDisabled {
+  $r = New-Scenario 'margin-disabled'
+  $s = New-BaseState $r
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{ margin_disabled = $true })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $ret = Get-Calls $r 'GetMarginAttributes'
+  $mg = @($ret | Where-Object { $null -ne $_ })
+  $ret2 = Get-Calls $r 'GetPortfolio'
+  $pf = @($ret2 | Where-Object { $null -ne $_ })
+  Check 'margin-disabled: GetMarginAttributes НЕ вызывался' ($mg.Count -eq 0)
+  Check 'margin-disabled: портфель запрошен (фолбэк-путь жив)' ($pf.Count -ge 1)
+  Check 'margin-disabled: бюджет ГО посчитан' ([double]$st.go.budget_rub -gt 0)
+}
+
+# --- 56. зеркало к 55: без флага (дефолт) маржа опрашивается как раньше - защита от того,
+# что оптимизация случайно отключит вызов на счетах, где маржиналка ВКЛЮЧЕНА.
+function Scn-MarginEnabledDefault {
+  $r = New-Scenario 'margin-enabled'
+  $s = New-BaseState $r
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $ret = Get-Calls $r 'GetMarginAttributes'
+  $mg = @($ret | Where-Object { $null -ne $_ })
+  Check 'margin-default: GetMarginAttributes вызывался' ($mg.Count -ge 1)
+  Check 'margin-default: бюджет ГО посчитан' ([double]$st.go.budget_rub -gt 0)
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -1391,6 +1424,7 @@ $scenarios = @(
   ${function:Scn-GoNewCapAllowsEntry},
   ${function:Scn-AutoRebaseGrow}, ${function:Scn-AutoRebaseShrink}, ${function:Scn-AutoRebaseBelowDrift},
   ${function:Scn-AutoRebaseOpenPosition}, ${function:Scn-AutoRebaseDisabled}, ${function:Scn-AutoRebaseBadSnapshot},
-  ${function:Scn-AutoRebaseClamp}, ${function:Scn-AutoRebaseIdempotent}
+  ${function:Scn-AutoRebaseClamp}, ${function:Scn-AutoRebaseIdempotent},
+  ${function:Scn-MarginDisabled}, ${function:Scn-MarginEnabledDefault}
 )
 foreach ($fn in $scenarios) { & $fn }

@@ -34,6 +34,7 @@ $LIVE = [ordered]@{
   go_cap_pct        = 0.60       # свой стоп по ГО: вход запрещён выше (боевой нюанс #6)
   go_trim_pct       = 0.75       # выше - LIFO-закрытие последней позиции
   reserve_rub       = 50000.0    # неприкосновенный резерв вне ГО-бюджета
+  margin_disabled   = $false     # маржиналка на счёте отключена -> не звать GetMarginAttributes
   profile_day_halt  = 0.08       # доп. предохранитель: профиль-день -8% -> entries_halt до завтра
   hard_dd           = 0.35       # АВАРИЙНЫЙ СТОП: -35% от пика -> закрыть всё + HALT_RF_LIVE (решение пользователя)
   max_orders_day    = 20         # предохранитель флуда (нюанс #11: сделки:заявки не хуже 1:10)
@@ -2483,7 +2484,13 @@ try {
   # prod без маржиналки: то же); полный сбой -> тик прерван, вотермарки не двигаются
   $margin = $null
   $pfPre = $null   # снимок портфеля для расчёта точного капитала (переиспользуем фолбэк-фетч)
-  try { $margin = Get-TiMarginAttributes ([string]$st.account_id) } catch {
+  # margin_disabled (config.json): на боевом счёте маржиналка ОТКЛЮЧЕНА, GetMarginAttributes всегда
+  # отдаёт 400 - не тратим на него вызов каждый тик (боевой факт, подтверждён latency_log 2026-08-18).
+  # Путь фолбэка тот же, что и при ошибке маржи: портфель -> total_amount_portfolio.
+  if (-not [bool]$LIVE.margin_disabled) {
+    try { $margin = Get-TiMarginAttributes ([string]$st.account_id) } catch { $margin = $null }
+  }
+  if ($null -eq $margin) {
     try {
       $pfPre = Get-TiPortfolio ([string]$st.account_id)
       $margin = [pscustomobject]@{ liquid = [double](M2D (Get-TiField $pfPre 'total_amount_portfolio')).value }
