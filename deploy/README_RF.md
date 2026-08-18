@@ -17,8 +17,15 @@
 4. Установить юниты (НЕ раньше):
    ```
    sudo cp deploy/live-rf-tick.service deploy/live-rf-tick.timer /etc/systemd/system/
-   sudo systemctl daemon-reload && sudo systemctl enable --now live-rf-tick.timer
+   sudo cp deploy/rf-bake.service deploy/rf-bake.timer deploy/tick-alert@.service /etc/systemd/system/
+   sudo systemctl daemon-reload && sudo systemctl enable --now live-rf-tick.timer rf-bake.timer
+   # ОБЯЗАТЕЛЬНО после любой правки юнита - systemd игнорирует непонятые ключи МОЛЧА:
+   sudo systemd-analyze verify /etc/systemd/system/live-rf-tick.service \
+        /etc/systemd/system/rf-bake.service /etc/systemd/system/tick-alert@.service
    ```
+   Пустой вывод `systemd-analyze verify` = юниты валидны. Проверка не формальность: при выкатке
+   2026-08-18 `OnFailure=` был по ошибке положен в секцию `[Service]` вместо `[Unit]`, и systemd
+   молча его отбросил — алерт о падении тика не работал бы, а выглядело бы всё установленным.
    `chmod +x` тут НЕ нужен и вреден: бит исполнения лежит в самом коммите (100755). Ручной chmod
    создаёт вечную незакоммиченную mode-диффу, которую `git pull --rebase --autostash` в тике рано
    или поздно роняет — так контур молча умер на 27 ч, инцидент 2026-08-11.

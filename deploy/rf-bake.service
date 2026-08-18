@@ -2,6 +2,7 @@
 Description=paper-desk RF candle bake (dashboard presentation data, never the money path)
 Wants=network-online.target
 After=network-online.target
+OnFailure=tick-alert@%n.service
 
 [Service]
 Type=oneshot
@@ -19,4 +20,3 @@ ExecStart=/usr/bin/flock -n /run/lock/rf-bake.lock /usr/bin/pwsh -NoProfile -Fil
 TimeoutStartSec=300
 # the timer is the retry mechanism - never restart a oneshot
 Restart=no
-OnFailure=tick-alert@%n.service
