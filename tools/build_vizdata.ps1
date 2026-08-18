@@ -259,7 +259,22 @@ if (Test-Path (Join-Path $rfDir2 'c2_portfolio.json')) {
 $rfReal = $null
 $lrDir = Join-Path $dir 'data\live_rf'
 $lrPf = Join-Path $lrDir 'portfolio.json'
-if (Test-Path $lrPf) {
+$rfPresentation = $null
+$rfPresentationPath = Join-Path $dir 'data\rf_presentation_snapshot.json'
+if (Test-Path $rfPresentationPath) { try { $rfPresentation = Get-Content $rfPresentationPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch {} }
+if ($rfPresentation -and [int]$rfPresentation.schema -eq 1) {
+  # Presentation snapshot уже нормализовал расчёты капитала/дня/short-P&L. Свечи остаются
+  # отдельными файлами: они велики и нужны только статическим графикам открытых позиций.
+  $lrCandDir = Join-Path $lrDir 'candles'
+  $lrPos = [object[]]@(@($rfPresentation.positions) | ForEach-Object {
+    $c1h = [object[]]@(); $cf = Join-Path $lrCandDir ("{0}_1h.json" -f $_.asset)
+    if (Test-Path $cf) { try { $c1h = [object[]]@((Get-Content $cf -Raw -Encoding UTF8 | ConvertFrom-Json)) } catch {} }
+    [ordered]@{ id=$_.id; sleeve=$_.sleeve; asset=$_.asset; secid=$_.secid; side=$_.side; lots=$_.lots; entry=$_.entry; stop=$_.stop; tp1=$_.tp1; cur=$_.cur; upnl=$_.upnl; riskRub=$_.risk; entryDay=$_.entryDay; entryTs=$_.entryTs; rolls=$_.rolls; rubPerPt=$_.rubPerPt; notional=$_.notional; pctChg=$_.pctChg; candles1h=$c1h; reconcileStatus=$_.reconcileStatus; reconcileSinceTs=$_.reconcileSinceTs }
+  })
+  $s = $rfPresentation.summary; $op = $rfPresentation.operational
+  $rfReal = [ordered]@{ mode=$s.mode; entriesHalt=[bool]$s.entriesHalt; haltReason=$s.haltReason; goUsed=$s.goUsed; goBudget=$s.goBudget; accountLiquid=$s.accountLiquid; capitalNow=$s.capital; capitalPeak=$s.peak; capitalBreakdown=$op.capitalBreakdown; drift=$op.drift; sleeves=[ordered]@{ core=$rfPresentation.sleeves.core.equity; setA=$rfPresentation.sleeves.setA.equity; mom=$rfPresentation.sleeves.mom.equity }; positions=$lrPos; holdings=@($rfPresentation.holdings); closed=@($rfPresentation.closedTrades); curve=@($rfPresentation.equity); capitalCurve=@($rfPresentation.capitalCurve); lastDailyDay=''; stats=$op.stats }
+}
+elseif (Test-Path $lrPf) {
   $lp = Get-Content $lrPf -Raw -Encoding UTF8 | ConvertFrom-Json
   $lrCurve = [object[]]@()
   $lrCapCurve = [object[]]@()   # кривая ТОЧНОГО капитала бота (колонка bot_capital, есть не во всех строках)

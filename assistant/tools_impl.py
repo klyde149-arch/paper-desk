@@ -106,6 +106,7 @@ def _cap(obj, limit=None):
 # ---------------------------------------------------------------------------
 
 _RF_PORTFOLIO = os.path.join(REPO, 'data', 'live_rf', 'portfolio.json')
+_RF_PRESENTATION = os.path.join(REPO, 'data', 'rf_presentation_snapshot.json')
 _CRYPTO_PORTFOLIO = os.path.join(REPO, 'data', 'live_real', 'portfolio.json')
 _PAPER_PORTFOLIO = os.path.join(REPO, 'portfolio.json')
 _CRYPTO_SIGNALS = os.path.join(REPO, 'data', 'live_real', 'signals.json')
@@ -113,6 +114,41 @@ _PAPER_SIGNALS = os.path.join(REPO, 'data', 'signals.json')
 
 
 def _rf_digest():
+    presentation = read_json(_RF_PRESENTATION)
+    if isinstance(presentation, dict) and presentation.get('schema') == 1:
+        summary = presentation.get('summary') or {}
+        operational = presentation.get('operational') or {}
+        sleeves = presentation.get('sleeves') or {}
+        d = {
+            'контур': 'T-Invest C3b (RF, фьючерсы MOEX)',
+            'режим': summary.get('mode'),
+            'счёт': summary.get('accountId'),
+            'капитал_руб': summary.get('capital'),
+            'база_руб': None,
+            'день_pct': summary.get('todayPct'),
+            'месяц_pct': None,
+            'просадка_от_пика_pct': summary.get('drawdownPct'),
+            'пик_руб': summary.get('peak'),
+            'слипы': {},
+            'позиций_всего': summary.get('openPositions', 0),
+            'ГО': operational.get('go') or {},
+            'дрифты': operational.get('drift'),
+            'стоп_входов': {'active': summary.get('entriesHalt'), 'reason': summary.get('haltReason')},
+            'статистика': operational.get('stats'),
+            'consec_fail': operational.get('consecFail'),
+            'капитал_разбивка': operational.get('capitalBreakdown'),
+            'активные_фронты': operational.get('active'),
+            'возраст_снимка_эквити_мин': _age_min_ms(presentation.get('sourceAtMs')),
+        }
+        for name in ('core', 'setA', 'mom'):
+            sleeve = sleeves.get(name) or {}
+            d['слипы'][name] = {
+                'эквити_руб': sleeve.get('equity'),
+                'позиций': len([p for p in presentation.get('positions', []) if p.get('sleeve') == name]) if name != 'mom' else len(presentation.get('holdings') or []),
+                'день_pct': sleeve.get('dayPct'),
+            }
+        return d
+
     p = read_json(_RF_PORTFOLIO)
     if not p:
         return {'error': 'нет data/live_rf/portfolio.json'}
