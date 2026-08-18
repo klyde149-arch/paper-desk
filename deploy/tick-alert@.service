@@ -1,0 +1,15 @@
+[Unit]
+Description=paper-desk tick failure alert for %i
+# Referenced as OnFailure=tick-alert@%%n.service, so %i is the full failing unit name,
+# e.g. "live-rf-tick.service".
+
+[Service]
+Type=oneshot
+User=trader
+EnvironmentFile=/etc/trading-live.env
+Environment=LC_ALL=C.UTF-8
+WorkingDirectory=/home/trader/paper-desk
+ExecStart=/home/trader/paper-desk/deploy/tick_alert.sh %i
+# One Telegram call with a 15s curl cap inside; never let the alerter itself hang around.
+TimeoutStartSec=60
+Restart=no
