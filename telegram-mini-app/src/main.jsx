@@ -47,8 +47,8 @@ const press = () => telegram?.HapticFeedback?.selectionChanged?.();
  * входом и стопом, зона прибыли до цели, пунктирные уровни, маркер входа, шкала цены справа.
  * Всё на SVG и без анимации: график виден сразу, даже если таймлайн анимаций замер.
  */
-function Candles({ position, tf }) {
-  const k = position.candles ?? [];
+function Candles({ position, tf, candles, error }) {
+  const k = candles ?? [];
 
   const g = useMemo(() => {
     if (k.length < 2) return null;
@@ -76,6 +76,7 @@ function Candles({ position, tf }) {
     };
   }, [k, position.stop, position.entry, position.tp1]);
 
+  if (error) return <div className="none">Свечи сейчас недоступны. Терминал продолжает работать.</div>;
   if (!g) return <div className="none">Свечей по этому инструменту нет — движок ещё не испёк файл.</div>;
 
   const { W, H, m, iw, Y, X, bw } = g;
@@ -265,14 +266,31 @@ function Overview({ rows, onOpen, onReload, loading }) {
 
 /* ---------------- терминал портфеля ---------------- */
 
-function Terminal({ data, onBack, onReload, loading }) {
+function Terminal({ data, onBack, onReload, loading, initData }) {
   const [reg, setReg] = useState('day');
   const [pick, setPick] = useState(null);
+  const [candles, setCandles] = useState([]);
+  const [candleError, setCandleError] = useState(false);
 
   const { summary: s, positions = [], closedTrades = [], equity = [], equityBase, portfolio, canSwitch, candleTf } = data;
   const fmt = useMemo(() => makeFmt(data.currency), [data.currency]);
   const stale = has(s.dataAgeMin) && s.dataAgeMin > 45;
   const sel = positions.find((p) => p.id === pick) ?? positions[0] ?? null;
+
+  useEffect(() => {
+    const abort = new AbortController();
+    setCandles([]);
+    setCandleError(false);
+    if (!sel?.id || !portfolio?.id) return () => abort.abort();
+    fetch(`/api/candles?portfolio=${encodeURIComponent(portfolio.id)}&position=${encodeURIComponent(sel.id)}`, {
+      signal: abort.signal,
+      headers: { 'X-Telegram-Init-Data': initData }
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => { if (!abort.signal.aborted) setCandles(Array.isArray(d.candles) ? d.candles : []); })
+      .catch((e) => { if (!abort.signal.aborted && e.name !== 'AbortError') setCandleError(true); });
+    return () => abort.abort();
+  }, [portfolio?.id, sel?.id, initData]);
 
   const regs = {
     day: { v: fmt.signMoney(s.todayAmt), p: signPct(s.todayPct), of: s.todayAmt, cap: `БАЗА ДНЯ ${fmt.money(s.dayBase)}` },
@@ -363,7 +381,7 @@ function Terminal({ data, onBack, onReload, loading }) {
             <span className="lbl">{tick(sel.secid)} · {sel.title}</span>
             <span className={`r ${dirOf(sel.upnl)}`}>{fmt.signMoney(sel.upnl)}</span>
           </div>
-          <Candles position={sel} tf={candleTf ?? '1ч'} />
+          <Candles position={sel} tf={candleTf ?? '1ч'} candles={candles} error={candleError} />
         </section>
       )}
 
@@ -561,9 +579,10 @@ function App() {
 
   return (
     <Terminal
-      key={open}
+      key={`${open}:${version}`}
       data={data}
       loading={loading}
+      initData={telegram?.initData ?? ''}
       onReload={reload}
       onBack={() => { press(); setOpen(null); }}
     />

@@ -3,10 +3,10 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dashboardV2, portfoliosV2 } from './api-v2.js';
-import { readCryptoDashboard, readCryptoOverview } from './crypto-data.js';
+import { readCryptoCandles, readCryptoDashboard, readCryptoOverview } from './crypto-data.js';
 import { logAccess, openDatabase, upsertUser } from './database.js';
 import { loadPortfolios } from './portfolios.js';
-import { readRfDashboard, readRfOverview } from './rf-data.js';
+import { readRfCandles, readRfDashboard, readRfOverview } from './rf-data.js';
 import { validateInitData } from './telegram-auth.js';
 
 /**
@@ -170,6 +170,27 @@ app.get('/api/v2/dashboard', requireTelegramUser, (req, res) => {
   } catch (error) {
     console.error(`rf/crypto data (${p.id}):`, error.message);
     return res.status(503).json({ error: 'Состояние контура сейчас недоступно' });
+  }
+});
+
+/** Свечи грузятся отдельно и только для выбранной, уже разрешённой позиции. */
+app.get('/api/candles', requireTelegramUser, (req, res) => {
+  const portfolioId = String(req.query.portfolio ?? '').trim();
+  const positionId = String(req.query.position ?? '').trim();
+  if (!portfolioId || !positionId) return res.status(400).json({ error: 'Нужны portfolio и position' });
+
+  const p = registry.resolve(req.telegramUser.id, portfolioId);
+  if (!p) return res.status(403).json({ error: 'Портфель недоступен' });
+
+  try {
+    const data = p.kind === 'crypto'
+      ? readCryptoCandles({ dataDir: p.dataDir, candlesDir: p.candlesDir, positionId })
+      : readRfCandles({ dataDir: p.dataDir, positionId });
+    if (!data) return res.status(404).json({ error: 'Позиция не найдена' });
+    return res.json({ portfolioId: p.id, ...data });
+  } catch (error) {
+    console.error(`candles (${p.id}/${positionId}):`, error.message);
+    return res.status(503).json({ error: 'Свечи сейчас недоступны' });
   }
 });
 

@@ -12,6 +12,42 @@ import { ageMin, downsample, mskDay, normalizeCandles, num, pct, readJson, round
 const CURVE_POINTS = 300;
 const CANDLE_BARS = 120;
 
+const presentationPath = (dataDir) => path.resolve(dataDir, '..', 'rf_presentation_snapshot.json');
+const readPresentation = (dataDir) => {
+  const snapshot = readJson(presentationPath(dataDir));
+  return snapshot && snapshot.schema === 1 ? snapshot : null;
+};
+
+function presentationSummary(snapshot) {
+  const s = snapshot.summary ?? {};
+  return {
+    capital: round(s.capital),
+    peak: round(s.peak),
+    drawdownPct: round(s.drawdownPct),
+    todayAmt: round(s.todayAmt),
+    todayPct: round(s.todayPct),
+    dayBase: round(s.dayBase),
+    dayBaseSource: s.dayBaseSource ?? '',
+    allTimePct: round(s.allTimePct),
+    allTimeAmt: round(s.allTimeAmt),
+    allTimeNote: s.allTimeNote ?? '',
+    openPositions: Number(s.openPositions ?? 0),
+    tradesPnl: round(s.tradesPnl),
+    fees: round(s.fees),
+    winRate: round(s.winRate),
+    wins: Number(s.wins ?? 0),
+    losses: Number(s.losses ?? 0),
+    mode: s.mode ?? '',
+    entriesHalt: Boolean(s.entriesHalt),
+    haltReason: s.haltReason ?? '',
+    extraStat: {
+      label: 'ГО занято',
+      value: num(s.goUsed) !== null && num(s.goBudget) > 0 ? `${Math.round((num(s.goUsed) / num(s.goBudget)) * 100)}%` : '—'
+    },
+    dataAgeMin: ageMin(snapshot.sourceAtMs)
+  };
+}
+
 /**
  * База дня. `day_start_eq` движок фиксирует на первом тике торгового дня, поэтому в выходные
  * и до открытия ЕТС дата отстаёт от календарной. Если дата не сегодняшняя — базой берём
@@ -70,12 +106,28 @@ function positionsOf(portfolio, names, dataDir) {
         pctChg: entry && cur ? round(((p.side === 'short' ? entry / cur : cur / entry) - 1) * 100) : null,
         risk: round(p.risk_rub, 0),
         entryDay: p.entry_day,
-        entryTs: num(p.entry_ts),
-        candles: normalizeCandles(readJson(path.join(dataDir, 'candles', `${p.asset}_1h.json`), []), CANDLE_BARS)
+        entryTs: num(p.entry_ts)
       });
     }
   }
   return out;
+}
+
+/** Свечи запрашиваются только для выбранной позиции, а не для всего dashboard DTO. */
+export function readRfCandles({ dataDir, positionId }) {
+  const portfolio = readJson(path.join(dataDir, 'portfolio.json'));
+  if (!portfolio) throw new Error(`Не читается ${path.join(dataDir, 'portfolio.json')}`);
+  let position = null;
+  for (const sleeve of ['core', 'setA']) {
+    position = (portfolio?.sleeves?.[sleeve]?.positions ?? []).find((p) => p && String(p.id) === String(positionId));
+    if (position) break;
+  }
+  if (!position) return null;
+  return {
+    positionId: String(position.id),
+    candleTf: '1ч',
+    candles: normalizeCandles(readJson(path.join(dataDir, 'candles', `${position.asset}_1h.json`), []), CANDLE_BARS)
+  };
 }
 
 const closedTradesOf = (rows, names) =>
@@ -103,6 +155,15 @@ const openPositionCount = (portfolio) =>
 
 /** Minimal read-only DTO for the portfolio selector; it deliberately skips trades, names, and candles. */
 export function readRfOverview({ dataDir, currency = 'RUB' }) {
+  const snapshot = readPresentation(dataDir);
+  if (snapshot) {
+    const summary = presentationSummary(snapshot);
+    return {
+      currency,
+      summary: Object.fromEntries(['capital', 'todayAmt', 'todayPct', 'openPositions', 'entriesHalt', 'haltReason', 'dataAgeMin']
+        .map((key) => [key, summary[key]]))
+    };
+  }
   const portfolio = readJson(path.join(dataDir, 'portfolio.json'));
   if (!portfolio) throw new Error(`Не читается ${path.join(dataDir, 'portfolio.json')}`);
 
@@ -125,6 +186,27 @@ export function readRfOverview({ dataDir, currency = 'RUB' }) {
 }
 
 export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
+  const snapshot = readPresentation(dataDir);
+  if (snapshot) {
+    return {
+      currency,
+      candleTf: '1ч',
+      summary: presentationSummary(snapshot),
+      positions: (snapshot.positions ?? []).map((p) => ({
+        id: p.id, sleeve: p.sleeve, asset: p.asset, secid: p.secid, title: p.title ?? p.asset,
+        side: p.side, lots: num(p.lots), entry: num(p.entry), stop: num(p.stop), tp1: num(p.tp1),
+        cur: num(p.cur), notional: round(p.notional, 0), upnl: round(p.upnl), pctChg: round(p.pctChg),
+        risk: round(p.risk, 0), entryDay: p.entryDay, entryTs: num(p.entryTs)
+      })),
+      closedTrades: (snapshot.closedTrades ?? []).map((t) => ({
+        id: t.id, asset: t.asset, secid: t.secid, title: t.title ?? t.asset, side: t.side,
+        entryDay: t.entryDay, entry: num(t.entry), exitDay: t.exitDay, exitPx: num(t.exitPx),
+        exitReason: t.exitReason ?? '', pnl: round(t.pnl), rMultiple: round(t.rMultiple), fees: round(t.fees)
+      })),
+      equity: downsample(snapshot.equity ?? [], CURVE_POINTS),
+      equityBase: null
+    };
+  }
   const portfolio = readJson(path.join(dataDir, 'portfolio.json'));
   if (!portfolio) throw new Error(`Не читается ${path.join(dataDir, 'portfolio.json')}`);
 

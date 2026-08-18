@@ -4,7 +4,7 @@ const SUMMARY_KEYS = [
   'capital', 'todayAmt', 'todayPct', 'dayBase', 'allTimePct', 'allTimeAmt', 'allTimeNote',
   'tradesPnl', 'fees', 'winRate', 'wins', 'mode', 'entriesHalt', 'haltReason', 'extraStat', 'dataAgeMin'
 ];
-const POSITION_KEYS = ['id', 'secid', 'title', 'side', 'lots', 'entry', 'stop', 'tp1', 'cur', 'upnl', 'pctChg', 'entryTs', 'candles'];
+const POSITION_KEYS = ['id', 'secid', 'title', 'side', 'lots', 'entry', 'stop', 'tp1', 'cur', 'upnl', 'pctChg', 'entryTs'];
 const CLOSED_TRADE_KEYS = ['id', 'secid', 'side', 'entryDay', 'entry', 'exitDay', 'exitPx', 'exitReason', 'pnl', 'rMultiple'];
 const PORTFOLIO_ROW_KEYS = ['id', 'label', 'currency', 'capital', 'todayAmt', 'todayPct', 'openPositions', 'status', 'dataAgeMin'];
 

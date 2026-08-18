@@ -63,10 +63,22 @@ function positionsOf(portfolio, candlesDir) {
         pctChg: entry && cur ? round(((p.side === 'short' ? entry / cur : cur / entry) - 1) * 100) : null,
         risk: round(p.risk_usd, 2),
         entryDay: String(p.entry_utc ?? '').slice(0, 10),
-        entryTs: num(p.entry_ts),
-        candles: normalizeCandles(readJson(path.join(candlesDir, candleFile(p.symbol)), []), CANDLE_BARS)
+        entryTs: num(p.entry_ts)
       };
     });
+}
+
+/** Свечи запрашиваются только для выбранной позиции, а не для всего dashboard DTO. */
+export function readCryptoCandles({ dataDir, candlesDir, positionId }) {
+  const portfolio = readJson(path.join(dataDir, 'portfolio.json'));
+  if (!portfolio) throw new Error(`Не читается ${path.join(dataDir, 'portfolio.json')}`);
+  const position = (portfolio?.open_trades ?? []).find((p) => p && p.status !== 'closed' && String(p.id) === String(positionId));
+  if (!position) return null;
+  return {
+    positionId: String(position.id),
+    candleTf: '4ч',
+    candles: normalizeCandles(readJson(path.join(candlesDir ?? dataDir, candleFile(position.symbol)), []), CANDLE_BARS)
+  };
 }
 
 const closedTradesOf = (rows) =>

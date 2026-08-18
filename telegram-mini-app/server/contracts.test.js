@@ -4,8 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { readCryptoDashboard, readCryptoOverview } from './crypto-data.js';
-import { readRfDashboard, readRfOverview } from './rf-data.js';
+import { readCryptoCandles, readCryptoDashboard, readCryptoOverview } from './crypto-data.js';
+import { readRfCandles, readRfDashboard, readRfOverview } from './rf-data.js';
 import { dashboardV2, portfoliosV2 } from './api-v2.js';
 import { mskDay, utcDay } from './util.js';
 
@@ -13,13 +13,13 @@ const dashboardKeys = ['candleTf', 'closedTrades', 'currency', 'equity', 'equity
 const summaryKeys = ['allTimeAmt', 'allTimeNote', 'allTimePct', 'capital', 'dataAgeMin', 'dayBase', 'dayBaseSource',
   'drawdownPct', 'entriesHalt', 'extraStat', 'fees', 'haltReason', 'losses', 'mode', 'openPositions', 'peak',
   'todayAmt', 'todayPct', 'tradesPnl', 'winRate', 'wins'];
-const positionKeys = ['asset', 'candles', 'cur', 'entry', 'entryDay', 'entryTs', 'id', 'lots', 'notional', 'pctChg',
+const positionKeys = ['asset', 'cur', 'entry', 'entryDay', 'entryTs', 'id', 'lots', 'notional', 'pctChg',
   'risk', 'secid', 'side', 'sleeve', 'stop', 'title', 'tp1', 'upnl'];
 const tradeKeys = ['asset', 'entry', 'entryDay', 'exitDay', 'exitPx', 'exitReason', 'fees', 'id', 'pnl', 'rMultiple',
   'secid', 'side', 'title'];
 const v2SummaryKeys = ['allTimeAmt', 'allTimeNote', 'allTimePct', 'capital', 'dataAgeMin', 'dayBase', 'entriesHalt',
   'extraStat', 'fees', 'haltReason', 'mode', 'todayAmt', 'todayPct', 'tradesPnl', 'winRate', 'wins'];
-const v2PositionKeys = ['candles', 'cur', 'entry', 'entryTs', 'id', 'lots', 'pctChg', 'secid', 'side', 'stop', 'title', 'tp1', 'upnl'];
+const v2PositionKeys = ['cur', 'entry', 'entryTs', 'id', 'lots', 'pctChg', 'secid', 'side', 'stop', 'title', 'tp1', 'upnl'];
 const v2TradeKeys = ['entry', 'entryDay', 'exitDay', 'exitPx', 'exitReason', 'id', 'pnl', 'rMultiple', 'secid', 'side'];
 
 function writeJson(file, value) {
@@ -80,12 +80,38 @@ test('RF dashboard fixture preserves the common DTO contract', (t) => {
   assert.equal(dashboard.summary.todayAmt, 5000);
   assert.equal(dashboard.summary.dayBaseSource, 'day_start_eq');
   assert.equal(dashboard.positions[0].title, 'Natural Gas');
+  assert.deepEqual(readRfCandles({ dataDir, positionId: 'rf-1' }), {
+    positionId: 'rf-1', candleTf: '1ч', candles: [[now - 3600000, 2.4, 2.8, 2.3, 2.7]]
+  });
+  assert.equal(readRfCandles({ dataDir, positionId: 'missing' }), null);
   const v2 = dashboardV2(dashboard, { id: 'rf', label: 'RF' }, true);
   assertV2Contract(v2);
   assert.equal(v2.portfolio.id, 'rf');
   assert.equal(v2.summary.peak, undefined);
   assert.equal(v2.positions[0].asset, undefined);
   assert.equal(v2.closedTrades[0].fees, undefined);
+});
+
+test('RF presentation snapshot is preferred and keeps its stale source timestamp', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-rf-presentation-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dataDir = path.join(root, 'live_rf');
+  const sourceAtMs = Date.now() - 46 * 60000;
+  writeJson(path.join(root, 'rf_presentation_snapshot.json'), {
+    schema: 1, sourceAtMs,
+    summary: { capital: 123, peak: 130, drawdownPct: -5.38, dayBase: 120, dayBaseSource: 'prev_day_close',
+      todayAmt: 3, todayPct: 2.5, allTimePct: 4, allTimeAmt: 5, allTimeNote: 'note', openPositions: 1,
+      tradesPnl: 2, fees: 1, winRate: 100, wins: 1, losses: 0, mode: 'prod', entriesHalt: false, haltReason: '', goUsed: 10, goBudget: 20 },
+    operational: { go: { used_rub: 10 }, drift: {}, stats: {}, capitalBreakdown: {}, active: {}, consecFail: 0 },
+    sleeves: { core: { equity: 100, dayPct: 1 }, setA: { equity: 0, dayPct: 0 }, mom: { equity: 0, dayPct: 0 } },
+    positions: [{ id: 'p1', sleeve: 'core', asset: 'NG', secid: 'NG', title: 'Gas', side: 'long', lots: 1, entry: 2, stop: 1, cur: 2.1, upnl: 3, risk: 1, entryDay: '2026-01-01', entryTs: 1 }],
+    holdings: [], closedTrades: [], equity: [[1, 100]], capitalCurve: [[1, 100]]
+  });
+  const dashboard = readRfDashboard({ dataDir, namesPath: path.join(root, 'unused.json'), currency: 'RUB' });
+  assert.equal(dashboard.summary.capital, 123);
+  assert.equal(dashboard.summary.dayBaseSource, 'prev_day_close');
+  assert.ok(dashboard.summary.dataAgeMin >= 46);
+  assert.equal(dashboard.positions[0].candles, undefined);
 });
 
 test('crypto dashboard fixture preserves the common DTO contract', (t) => {
@@ -113,6 +139,10 @@ test('crypto dashboard fixture preserves the common DTO contract', (t) => {
   assert.equal(dashboard.summary.todayAmt, 100);
   assert.equal(dashboard.summary.dayBaseSource, 'day_start');
   assert.equal(dashboard.positions[0].cur, 99000);
+  assert.deepEqual(readCryptoCandles({ dataDir, candlesDir, positionId: 'crypto-1' }), {
+    positionId: 'crypto-1', candleTf: '4ч', candles: [[now - 14400000, 101000, 102000, 99000, 100000]]
+  });
+  assert.equal(readCryptoCandles({ dataDir, candlesDir, positionId: 'missing' }), null);
   assert.equal(dashboard.closedTrades[0].fees, 10);
   assertV2Contract(dashboardV2(dashboard, { id: 'crypto', label: 'Crypto' }, false));
 });
@@ -154,5 +184,5 @@ test('overview adapters skip detail-only files', (t) => {
     fs.readFileSync = readFileSync;
   }
 
-  assert.deepEqual(reads.sort(), ['equity.json', 'live_equity.json', 'portfolio.json', 'portfolio.json']);
+  assert.deepEqual(reads.sort(), ['equity.json', 'live_equity.json', 'portfolio.json', 'portfolio.json', 'rf_presentation_snapshot.json']);
 });
