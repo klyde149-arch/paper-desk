@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Shared fail-open plumbing for the two VPS live tick entry scripts.
+TICK_DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 tick_init() {
-  cd "$(dirname "$0")/.." || return 1
+  cd "$TICK_DEPLOY_DIR/.." || return 1
   # shellcheck disable=SC1091
-  . "$(dirname "$0")/git_sync_watch.sh"
+  . "$TICK_DEPLOY_DIR/git_sync_watch.sh"
   commit_failed=0
   pull_ok=1
 }
