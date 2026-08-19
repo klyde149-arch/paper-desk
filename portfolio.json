@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9203.94,
-    "equity_usd":  9277.81,
+    "balance_usd":  9202.26,
+    "equity_usd":  9279.1,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9127.07,
     "day_start_date_utc":  "2026-08-19",
@@ -34,7 +34,7 @@
                                "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
                                "tp1_done":  true,
                                "fees_usd":  2.1670649136048,
-                               "funding_usd":  12.554588700967997,
+                               "funding_usd":  12.395044970257995,
                                "legs":  [
                                             {
                                                 "part":  "TP1",
@@ -63,6 +63,49 @@
                                                              "fearGreed":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T25",
+                               "symbol":  "BNB-USDT",
+                               "side":  "long",
+                               "qty":  5.4188,
+                               "qty_initial":  5.4188,
+                               "entry_price":  618.355451,
+                               "stop":  601.23,
+                               "stop0":  601.23,
+                               "tp1":  644.043627,
+                               "entry_utc":  "2026-08-19 16:01",
+                               "entry_ts":  1787155264084,
+                               "risk_usd":  92.8,
+                               "notional_usd":  3350.74,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  1.8429094848333398,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  618.355451,
+                               "mae_px":  618.355451,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h up; BNB-USDT 4h up; F\u0026G 46",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-08-19 12:00 UTC",
+                                              "indicators":  "RSI 69.3, ATR 0.64% (кэп 3%), фандинг 0.0001/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~618.355451, стоп 601.23 (2.46%), TP1 644.043627 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $92.8",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -73,17 +116,17 @@
                   "total_funding_usd":  -0.91,
                   "realized_pnl_usd":  -856.18
               },
-    "last_check_utc":  "2026-08-19 15:58",
+    "last_check_utc":  "2026-08-19 16:01",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1787155020000,
-                 "last_4h_ts":  1787126400000,
+                 "last_1m_ts":  1787155200000,
+                 "last_4h_ts":  1787140800000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
-                 "next_trade_id":  25,
-                 "ticks_since_viz":  2,
+                 "next_trade_id":  26,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-08-18",
-                 "last_tick_utc":  "2026-08-19 15:58"
+                 "last_tick_utc":  "2026-08-19 16:01"
              }
 }
