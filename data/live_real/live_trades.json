@@ -1072,5 +1072,56 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT21",
+    "sym": "LTC-USDT",
+    "side": "short",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-08-17 00:00",
+    "entryDay": "2026-08-17",
+    "entryTs": 1786924803883,
+    "entry": 44.11000000000001,
+    "qty": 1.5,
+    "exitUtc": "2026-08-19 08:46",
+    "exitDay": "2026-08-19",
+    "exitTs": 1787129162653,
+    "exitPx": 44.832667,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 1.1,
+        "price": 44.83,
+        "utc": "2026-08-19 08:45",
+        "pnl": -0.79
+      },
+      {
+        "part": "stop",
+        "qty": 0.4,
+        "price": 44.84,
+        "utc": "2026-08-19 08:45",
+        "pnl": -0.29
+      }
+    ],
+    "pnlUsd": -1.19,
+    "rMultiple": -1.17,
+    "riskUsd": 1.02,
+    "fees": 0.13,
+    "funding": -0.03,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h down; LTC-USDT 4h down; F&G 31",
+      "riskPlan": "вход ~44.11, стоп 44.79 (1.54%), TP1 43.09 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.02",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
