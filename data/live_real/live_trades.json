@@ -1028,5 +1028,49 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT18",
+    "sym": "ETH-USDT",
+    "side": "short",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-08-12 16:00",
+    "entryDay": "2026-08-12",
+    "entryTs": 1786550408122,
+    "entry": 1892.31,
+    "qty": 0.03,
+    "exitUtc": "2026-08-19 08:39",
+    "exitDay": "2026-08-19",
+    "exitTs": 1787128742727,
+    "exitPx": 1925.6,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 0.03,
+        "price": 1925.6,
+        "utc": "2026-08-19 08:38",
+        "pnl": -1.0
+      }
+    ],
+    "pnlUsd": -1.06,
+    "rMultiple": -1.05,
+    "riskUsd": 1.01,
+    "fees": 0.11,
+    "funding": -0.05,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h down; ETH-USDT 4h down; F&G 27",
+      "riskPlan": "вход ~1892.31, стоп 1926 (1.81%), TP1 1841.77 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.01",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
