@@ -964,3 +964,5 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-08-19 15:00 MSK — РФ АВТО [C2/core]: закрыта R1 NG SHORT — +296.74 (stop)
 
 ## 2026-08-19 15:00 MSK — РФ АВТО [C3b/core]: закрыта R3 NG SHORT — +494.57 (stop)
+
+## 2026-08-19 15:27 UTC — АВТО: TP1 по T4 BTC-USDT — закрыто 50% @68504.2448, стоп в БУ 64745.81792
