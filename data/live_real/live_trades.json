@@ -1123,5 +1123,49 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT20",
+    "sym": "DOGE-USDT",
+    "side": "short",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-08-15 08:00",
+    "entryDay": "2026-08-15",
+    "entryTs": 1786780802787,
+    "entry": 0.07003,
+    "qty": 1457.0,
+    "exitUtc": "2026-08-19 12:53",
+    "exitDay": "2026-08-19",
+    "exitTs": 1787143982743,
+    "exitPx": 0.07076,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 1457.0,
+        "price": 0.07076,
+        "utc": "2026-08-19 12:52",
+        "pnl": -1.06
+      }
+    ],
+    "pnlUsd": -1.23,
+    "rMultiple": -1.14,
+    "riskUsd": 1.08,
+    "fees": 0.21,
+    "funding": -0.03,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h down; DOGE-USDT 4h down; F&G 34",
+      "riskPlan": "вход ~0.07002, стоп 0.07076 (1.04%), TP1 0.06891 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.08",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]

@@ -2,59 +2,18 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 104.15,
+  "equity_usd": 103.65,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 105.58,
   "day_start_date_utc": "2026-08-19",
   "trading_halted": false,
   "entries_halt_reason": "",
-  "open_trades": [
-    {
-      "id": "LT20",
-      "symbol": "DOGE-USDT",
-      "side": "short",
-      "status": "open",
-      "qty": 1457.0,
-      "qty_initial": 1457.0,
-      "entry_filled_qty": 1457.0,
-      "entry_price": 0.07003,
-      "stop": 0.07076,
-      "stop0": 0.07076,
-      "tp1": 0.06891,
-      "tp1_qty": 728.0,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": false,
-      "entry_utc": "2026-08-15 08:00",
-      "entry_ts": 1786780802787,
-      "risk_usd": 1.08,
-      "notional_usd": 102.02,
-      "fees_usd": 0.10203371,
-      "funding_usd": -0.0349,
-      "legs": [],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h down; DOGE-USDT 4h down; F&G 34",
-        "riskPlan": "вход ~0.07002, стоп 0.07076 (1.04%), TP1 0.06891 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.08",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      },
-      "cur_upnl_usd": -0.65565
-    }
-  ],
+  "open_trades": [],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1787126400000,
     "last_trail_4h_ts": 1787126400000,
-    "last_exec_ms": 1787129108447,
+    "last_exec_ms": 1787143972521,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -332,7 +291,8 @@
       "dc7756a0-06a8-4544-8322-e4c0f787664e",
       "0cbf9804-da94-5570-8266-6e357d42d22b",
       "7bcb7ed5-4c28-575a-bb01-9fe97e956299",
-      "7790cefd-f018-5167-964f-fef4c5bb336d"
+      "7790cefd-f018-5167-964f-fef4c5bb336d",
+      "e560a9c4-424a-5d4d-87d0-c71b8e3c0fa2"
     ],
     "next_trade_id": 22,
     "halt_day_utc": null,
@@ -352,7 +312,7 @@
       "ARB-USDT",
       "AVAX-USDT"
     ],
-    "last_tick_utc": "2026-08-19 12:45",
+    "last_tick_utc": "2026-08-19 12:53",
     "last_daily_summary_day": "2026-08-18",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
