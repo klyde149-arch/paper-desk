@@ -54,8 +54,8 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 12.699,
-          "upnl_rub": 15792.0
+          "cur_px": 12.709,
+          "upnl_rub": 17472.0
         },
         {
           "id": "L00035",
@@ -94,8 +94,8 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 85564.0,
-          "upnl_rub": 3250.0
+          "cur_px": 85585.0,
+          "upnl_rub": 3796.0
         },
         {
           "id": "L00036",
@@ -134,18 +134,56 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 98813.0,
-          "upnl_rub": 1656.0
+          "cur_px": 98862.0,
+          "upnl_rub": 2734.0
         }
       ],
-      "equity_mtm": 1165106.47
+      "equity_mtm": 1168410.47
     },
     "setA": {
-      "eq_rub": 1124299.9763089942,
+      "eq_rub": 1124217.3562521068,
       "month_start_eq": 1106513.54,
       "day_start_eq": 1124299.9763089942,
       "halt_day": null,
-      "positions": [],
+      "positions": [
+        {
+          "id": "L00037",
+          "sleeve": "setA",
+          "asset": "PLD",
+          "secid": "PDU6",
+          "uid": "8677985f-9148-4594-a7d3-84102a001b6b",
+          "figi": "FUTPLD092600",
+          "side": "short",
+          "lots": 3,
+          "lots_initial": 3,
+          "entry_px_pts": 1293.49,
+          "entry_day": "2026-08-19",
+          "entry_ts": 1787112032859,
+          "stop_px_pts": 1373.16,
+          "stop_order_id": "96abdba5-d977-48af-a3b3-a69d670e2bc3",
+          "stop_lots": 3,
+          "tp1_px_pts": 1173.985,
+          "tp1_order_id": "173fb948-db91-41a1-a6e4-c28f4d186779",
+          "tp1_done": false,
+          "be_moved": false,
+          "mfe_pts": 1293.49,
+          "atr_entry": 46.099286,
+          "risk_rub": 22486.0,
+          "rub_per_pt": 85.165,
+          "go_per_lot": 25742.84,
+          "rolls": 0,
+          "fees_rub": 82.62,
+          "realized_rub": 0.0,
+          "d6_fails": 0,
+          "d4_fails": 0,
+          "quarantine": false,
+          "stop_deferred": null,
+          "last_stop_update": "2026-08-19 04:00",
+          "lat_sp": 15032859,
+          "lat_pf": 0,
+          "entry_px_tries": 1
+        }
+      ],
       "equity_mtm": 1124299.98
     },
     "mom": {
@@ -163,7 +201,7 @@
       }
     }
   },
-  "profile_eq": 802945.05,
+  "profile_eq": 805190.29,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
   "day_start_eq": 1641717.53,
@@ -172,11 +210,11 @@
   "watermarks": {
     "last_daily_day": "2026-08-18",
     "last_hour_ts": 1787115600000,
-    "ops_since": "2026-08-19T02:45:32Z",
-    "last_eq_snap": 1787110652777,
+    "ops_since": "2026-08-19T03:00:32Z",
+    "last_eq_snap": 1787111552841,
     "last_report_day": "2026-08-18",
-    "orders_day": "2026-08-17",
-    "orders_day_n": 2,
+    "orders_day": "2026-08-19",
+    "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
     "evening_confirm_day": "2026-08-18"
   },
@@ -312,45 +350,13 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [
-    {
-      "id": "i00037",
-      "kind": "entry",
-      "sleeve": "setA",
-      "asset": "PLD",
-      "ticker": "PDU6",
-      "uid": "8677985f-9148-4594-a7d3-84102a001b6b",
-      "side": "sell",
-      "lots": 0,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "f99caba3-302b-2801-150d-827de55b1b1a",
-      "broker_order_id": "",
-      "state": "INTENT",
-      "attempts": 0,
-      "t_signal": 1787097000000,
-      "t_post": 0,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-08-18",
-      "state_ts": 1787088032837,
-      "last_error": "",
-      "ctx": {
-        "swing": 1373.16,
-        "atr": 46.099286,
-        "stop_dist": 0,
-        "risk_pct": 0.02,
-        "ref_px": 1297.25,
-        "note": "setup A pullback"
-      }
-    }
-  ],
+  "pending_intents": [],
   "next_intent_id": 38,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 12,
-    "orders_posted": 19,
-    "fills": 27,
+    "orders_posted": 20,
+    "fills": 28,
     "wins": 9,
     "losses": 3,
     "fees_rub": 3555.26,
