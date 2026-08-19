@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "generatedAtMs": 1787112039173,
-  "sourceAtMs": 1787111552841,
+  "generatedAtMs": 1787112936691,
+  "sourceAtMs": 1787112452862,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1641717.53,
+    "capital": 1651927.38,
     "peak": 1675149.53,
-    "drawdownPct": -2.0,
+    "drawdownPct": -1.39,
     "dayBase": 1641717.53,
     "dayBaseSource": "prev_day_close",
-    "todayAmt": 0.0,
-    "todayPct": 0.0,
-    "allTimePct": 15.03,
-    "allTimeAmt": 105190.29,
+    "todayAmt": 10209.85,
+    "todayPct": 0.62,
+    "allTimePct": 15.75,
+    "allTimeAmt": 110255.5,
     "allTimeNote": "пополнения счёта не учтены",
     "openPositions": 4,
     "tradesPnl": 111432.1,
@@ -23,18 +23,18 @@
     "losses": 3,
     "entriesHalt": false,
     "haltReason": "",
-    "goUsed": 850277.12,
-    "goBudget": 1591717.53,
-    "accountLiquid": 1634361.53
+    "goUsed": 927505.64,
+    "goBudget": 1597615.38,
+    "accountLiquid": 1634228.94
   },
   "operational": {
     "go": {
-      "used_rub": 850277.12,
-      "budget_rub": 1591717.53,
-      "peak_day_rub": 850277.12,
+      "used_rub": 927505.64,
+      "budget_rub": 1597615.38,
+      "peak_day_rub": 927505.64,
       "capital_peak_rub": 1675149.53,
-      "account_liquid_rub": 1634361.53,
-      "bot_capital_rub": 1641717.53
+      "account_liquid_rub": 1634228.94,
+      "bot_capital_rub": 1651927.38
     },
     "drift": {
       "D2": 0,
@@ -56,11 +56,11 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1634361.53,
-      "futures": 7356.0,
+      "currencies": 1634228.94,
+      "futures": 17698.44,
       "mom_shares": 0.0,
-      "user_assets": -7356.0,
-      "portfolio_total": 1634361.53
+      "user_assets": -17698.44,
+      "portfolio_total": 1634228.94
     },
     "active": {
       "BR": "BRU6",
@@ -81,12 +81,12 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1168410.47,
-      "dayPct": 2.1
+      "equity": 1176794.47,
+      "dayPct": 2.83
     },
     "setA": {
-      "equity": 1124299.98,
-      "dayPct": 0.0
+      "equity": 1123295.62,
+      "dayPct": -0.09
     },
     "mom": {
       "equity": 350000.0,
@@ -105,15 +105,15 @@
       "entry": 12.605,
       "stop": 12.318286,
       "tp1": null,
-      "cur": 12.709,
-      "upnl": 17472.0,
+      "cur": 12.72,
+      "upnl": 19320.0,
       "risk": 54812.47,
       "entryDay": "2026-08-13",
       "entryTs": 1786653333021,
       "rolls": 0,
       "rubPerPt": 1000.0,
       "notional": 2117640.0,
-      "pctChg": 0.83,
+      "pctChg": 0.91,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     },
@@ -128,15 +128,15 @@
       "entry": 85439.0,
       "stop": 83499.428571,
       "tp1": null,
-      "cur": 85585.0,
-      "upnl": 3796.0,
+      "cur": 85679.0,
+      "upnl": 6240.0,
       "risk": 57275.34,
       "entryDay": "2026-08-17",
       "entryTs": 1786998932909,
       "rolls": 0,
       "rubPerPt": 1.0,
       "notional": 2221414.0,
-      "pctChg": 0.17,
+      "pctChg": 0.28,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     },
@@ -151,15 +151,15 @@
       "entry": 98737.727273,
       "stop": 96498.0,
       "tp1": null,
-      "cur": 98862.0,
-      "upnl": 2734.0,
+      "cur": 99048.0,
+      "upnl": 6826.0,
       "risk": 57247.49,
       "entryDay": "2026-08-17",
       "entryTs": 1786998932909,
       "rolls": 0,
       "rubPerPt": 1.0,
       "notional": 2172230.0,
-      "pctChg": 0.13,
+      "pctChg": 0.31,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     },
@@ -171,18 +171,18 @@
       "title": "палладий (PDU6)",
       "side": "short",
       "lots": 3,
-      "entry": 1293.49,
+      "entry": 1297.393333,
       "stop": 1373.16,
-      "tp1": 1173.985,
-      "cur": null,
-      "upnl": null,
+      "tp1": 1177.888333,
+      "cur": 1301.0,
+      "upnl": -921.49,
       "risk": 22486.0,
       "entryDay": "2026-08-19",
       "entryTs": 1787112032859,
       "rolls": 0,
       "rubPerPt": 85.165,
-      "notional": 330480.0,
-      "pctChg": null,
+      "notional": 331478.0,
+      "pctChg": -0.28,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     }
@@ -11686,6 +11686,10 @@
     [
       1787111552841,
       802945.05
+    ],
+    [
+      1787112452862,
+      807200.68
     ]
   ],
   "capitalCurve": [
@@ -22944,6 +22948,10 @@
     [
       1787111552841,
       1641717.53
+    ],
+    [
+      1787112452862,
+      1645633.26
     ]
   ]
 }

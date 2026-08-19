@@ -54,8 +54,8 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 12.709,
-          "upnl_rub": 17472.0
+          "cur_px": 12.72,
+          "upnl_rub": 19320.0
         },
         {
           "id": "L00035",
@@ -94,8 +94,8 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 85585.0,
-          "upnl_rub": 3796.0
+          "cur_px": 85679.0,
+          "upnl_rub": 6240.0
         },
         {
           "id": "L00036",
@@ -134,14 +134,14 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 98862.0,
-          "upnl_rub": 2734.0
+          "cur_px": 99048.0,
+          "upnl_rub": 6826.0
         }
       ],
-      "equity_mtm": 1168410.47
+      "equity_mtm": 1176794.47
     },
     "setA": {
-      "eq_rub": 1124217.3562521068,
+      "eq_rub": 1124217.1062521068,
       "month_start_eq": 1106513.54,
       "day_start_eq": 1124299.9763089942,
       "halt_day": null,
@@ -156,23 +156,23 @@
           "side": "short",
           "lots": 3,
           "lots_initial": 3,
-          "entry_px_pts": 1293.49,
+          "entry_px_pts": 1297.393333,
           "entry_day": "2026-08-19",
           "entry_ts": 1787112032859,
           "stop_px_pts": 1373.16,
           "stop_order_id": "96abdba5-d977-48af-a3b3-a69d670e2bc3",
           "stop_lots": 3,
-          "tp1_px_pts": 1173.985,
+          "tp1_px_pts": 1177.888333,
           "tp1_order_id": "173fb948-db91-41a1-a6e4-c28f4d186779",
           "tp1_done": false,
           "be_moved": false,
-          "mfe_pts": 1293.49,
+          "mfe_pts": 1297.393333,
           "atr_entry": 46.099286,
           "risk_rub": 22486.0,
           "rub_per_pt": 85.165,
           "go_per_lot": 25742.84,
           "rolls": 0,
-          "fees_rub": 82.62,
+          "fees_rub": 82.87,
           "realized_rub": 0.0,
           "d6_fails": 0,
           "d4_fails": 0,
@@ -181,10 +181,13 @@
           "last_stop_update": "2026-08-19 04:00",
           "lat_sp": 15032859,
           "lat_pf": 0,
-          "entry_px_tries": 1
+          "entry_px_tries": 2,
+          "entry_px_ok": true,
+          "cur_px": 1301.0,
+          "upnl_rub": -921.49
         }
       ],
-      "equity_mtm": 1124299.98
+      "equity_mtm": 1123295.62
     },
     "mom": {
       "eq_rub": 350000.0,
@@ -201,7 +204,7 @@
       }
     }
   },
-  "profile_eq": 805190.29,
+  "profile_eq": 810255.5,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
   "day_start_eq": 1641717.53,
@@ -210,8 +213,8 @@
   "watermarks": {
     "last_daily_day": "2026-08-18",
     "last_hour_ts": 1787115600000,
-    "ops_since": "2026-08-19T03:00:32Z",
-    "last_eq_snap": 1787111552841,
+    "ops_since": "2026-08-19T03:15:32Z",
+    "last_eq_snap": 1787112452862,
     "last_report_day": "2026-08-18",
     "orders_day": "2026-08-19",
     "orders_day_n": 1,
@@ -335,12 +338,12 @@
     "since": ""
   },
   "go": {
-    "used_rub": 850277.12,
-    "budget_rub": 1591717.53,
-    "peak_day_rub": 850277.12,
+    "used_rub": 927505.64,
+    "budget_rub": 1597615.38,
+    "peak_day_rub": 927505.64,
     "capital_peak_rub": 1675149.53,
-    "account_liquid_rub": 1634361.53,
-    "bot_capital_rub": 1641717.53
+    "account_liquid_rub": 1634228.94,
+    "bot_capital_rub": 1651927.38
   },
   "drift": {
     "D2": 0,
@@ -388,15 +391,16 @@
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {
-    "49bea593-bec8-475a-9756-4965a13e1eab": 20815.0,
-    "574d37d8-9de4-423a-9e33-b936002d8bda": 22141.0,
-    "81f07a5c-99af-4b3a-a939-067e2ed3dd7a": 15960.0
+    "49bea593-bec8-475a-9756-4965a13e1eab": 25985.0,
+    "574d37d8-9de4-423a-9e33-b936002d8bda": 25209.0,
+    "81f07a5c-99af-4b3a-a939-067e2ed3dd7a": 19152.0,
+    "8677985f-9148-4594-a7d3-84102a001b6b": -1087.56
   },
   "capital_breakdown": {
-    "currencies": 1634361.53,
-    "futures": 7356.0,
+    "currencies": 1634228.94,
+    "futures": 17698.44,
     "mom_shares": 0.0,
-    "user_assets": -7356.0,
-    "portfolio_total": 1634361.53
+    "user_assets": -17698.44,
+    "portfolio_total": 1634228.94
   }
 }
