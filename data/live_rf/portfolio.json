@@ -143,7 +143,7 @@
     "setA": {
       "eq_rub": 1124217.1062521068,
       "month_start_eq": 1106513.54,
-      "day_start_eq": 1124299.9763089942,
+      "day_start_eq": 1124217.1062521068,
       "halt_day": null,
       "positions": [
         {
@@ -207,14 +207,14 @@
   "profile_eq": 725306.97,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
-  "day_start_eq": 1641717.53,
-  "day_start_date": "2026-08-18",
+  "day_start_eq": 1529582.93,
+  "day_start_date": "2026-08-19",
   "peak_eq": 822812.43,
   "watermarks": {
-    "last_daily_day": "2026-08-18",
-    "last_hour_ts": 1787176800000,
-    "ops_since": "2026-08-19T20:15:32Z",
-    "last_eq_snap": 1787173353194,
+    "last_daily_day": "2026-08-19",
+    "last_hour_ts": 1787180400000,
+    "ops_since": "2026-08-19T20:30:32Z",
+    "last_eq_snap": 1787174253393,
     "last_report_day": "2026-08-19",
     "orders_day": "2026-08-19",
     "orders_day_n": 1,
@@ -353,8 +353,40 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 38,
+  "pending_intents": [
+    {
+      "id": "i00038",
+      "kind": "entry",
+      "sleeve": "setA",
+      "asset": "SBRF",
+      "ticker": "",
+      "uid": "",
+      "side": "sell",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "ba872f0d-e6e2-c7b8-2b74-218103c36beb",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1787183400000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-08-19",
+      "state_ts": 1787174432841,
+      "last_error": "",
+      "ctx": {
+        "swing": 28428.0,
+        "atr": 543.214286,
+        "stop_dist": 0,
+        "risk_pct": 0.02,
+        "ref_px": 27958.0,
+        "note": "setup A pullback"
+      }
+    }
+  ],
+  "next_intent_id": 39,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 12,
@@ -380,12 +412,12 @@
     }
   },
   "readiness": {
-    "day": "2026-08-18",
+    "day": "2026-08-19",
     "checked_n": 12,
     "total_n": 12,
     "failed": [],
-    "go_worst_rub": 1689684.22,
-    "go_cap_rub": 1193788.15,
+    "go_worst_rub": 1656634.14,
+    "go_cap_rub": 1109687.2,
     "fits": false
   },
   "consec_fail": 0,
