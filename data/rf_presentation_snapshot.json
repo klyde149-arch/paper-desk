@@ -1,21 +1,21 @@
 {
   "schema": 1,
-  "generatedAtMs": 1787257837295,
-  "sourceAtMs": 1787257712935,
+  "generatedAtMs": 1787259638917,
+  "sourceAtMs": 1787259633798,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1508213.33,
+    "capital": 1509257.12,
     "peak": 1675149.53,
-    "drawdownPct": -9.97,
-    "dayBase": 1529509.3,
+    "drawdownPct": -9.9,
+    "dayBase": 1510382.64,
     "dayBaseSource": "prev_day_close",
-    "todayAmt": -21295.97,
-    "todayPct": -1.39,
-    "allTimePct": -0.76,
-    "allTimeAmt": -5312.29,
+    "todayAmt": -1125.52,
+    "todayPct": -0.07,
+    "allTimePct": -0.38,
+    "allTimeAmt": -2649.45,
     "allTimeNote": "пополнения счёта не учтены",
-    "openPositions": 3,
+    "openPositions": 4,
     "tradesPnl": 58161.93,
     "fees": 4652.79,
     "winRate": 69.2,
@@ -23,18 +23,18 @@
     "losses": 4,
     "entriesHalt": false,
     "haltReason": "",
-    "goUsed": 590225.84,
-    "goBudget": 1458382.36,
-    "accountLiquid": 1546740.47
+    "goUsed": 741217.59,
+    "goBudget": 1459257.12,
+    "accountLiquid": 1546437.73
   },
   "operational": {
     "go": {
-      "used_rub": 590225.84,
-      "budget_rub": 1458382.36,
+      "used_rub": 741217.59,
+      "budget_rub": 1459257.12,
       "peak_day_rub": 927505.64,
       "capital_peak_rub": 1675149.53,
-      "account_liquid_rub": 1546740.47,
-      "bot_capital_rub": 1508213.33
+      "account_liquid_rub": 1546437.73,
+      "bot_capital_rub": 1509257.12
     },
     "drift": {
       "D2": 0,
@@ -46,8 +46,8 @@
     },
     "stats": {
       "trades": 13,
-      "orders_posted": 21,
-      "fills": 29,
+      "orders_posted": 22,
+      "fills": 30,
       "wins": 9,
       "losses": 4,
       "fees_rub": 4652.78,
@@ -56,11 +56,11 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1546740.47,
-      "futures": -38527.14,
+      "currencies": 1546437.73,
+      "futures": -37180.61,
       "mom_shares": 0.0,
-      "user_assets": 38527.14,
-      "portfolio_total": 1546740.47
+      "user_assets": 37180.61,
+      "portfolio_total": 1546437.73
     },
     "active": {
       "BR": "BRU6",
@@ -81,12 +81,12 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1018190.3,
-      "dayPct": -11.03
+      "equity": 1021533.78,
+      "dayPct": -10.74
     },
     "setA": {
-      "equity": 1110922.0,
-      "dayPct": -1.18
+      "equity": 1111542.85,
+      "dayPct": -1.13
     },
     "mom": {
       "equity": 350000.0,
@@ -105,15 +105,15 @@
       "entry": 12.605,
       "stop": 12.318286,
       "tp1": null,
-      "cur": 12.388,
-      "upnl": -36456.0,
+      "cur": 12.393,
+      "upnl": -35616.0,
       "risk": 54812.47,
       "entryDay": "2026-08-13",
       "entryTs": 1786653333021,
       "rolls": 0,
       "rubPerPt": 1000.0,
       "notional": 2117640.0,
-      "pctChg": -1.72,
+      "pctChg": -1.68,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     },
@@ -128,15 +128,38 @@
       "entry": 98737.727273,
       "stop": 96498.0,
       "tp1": null,
-      "cur": 97079.0,
-      "upnl": -36492.0,
+      "cur": 97136.0,
+      "upnl": -35238.0,
       "risk": 57247.49,
       "entryDay": "2026-08-17",
       "entryTs": 1786998932909,
       "rolls": 0,
       "rubPerPt": 1.0,
       "notional": 2172230.0,
-      "pctChg": -1.68,
+      "pctChg": -1.62,
+      "reconcileStatus": null,
+      "reconcileSinceTs": null
+    },
+    {
+      "id": "L00039",
+      "sleeve": "core",
+      "asset": "SILV",
+      "secid": "SVU6",
+      "title": "серебро (SVU6)",
+      "side": "long",
+      "lots": 13,
+      "entry": 68.39,
+      "stop": 63.875714,
+      "tp1": null,
+      "cur": 68.52,
+      "upnl": 1438.69,
+      "risk": 54556.91,
+      "entryDay": "2026-08-20",
+      "entryTs": 1787258132909,
+      "rolls": 0,
+      "rubPerPt": 851.293,
+      "notional": 756859.0,
+      "pctChg": 0.19,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     },
@@ -151,15 +174,15 @@
       "entry": 1297.393333,
       "stop": 1373.16,
       "tp1": 1177.888333,
-      "cur": 1349.43,
-      "upnl": -13295.11,
+      "cur": 1347.0,
+      "upnl": -12674.26,
       "risk": 22486.0,
       "entryDay": "2026-08-19",
       "entryTs": 1787112032859,
       "rolls": 0,
       "rubPerPt": 85.165,
       "notional": 331478.0,
-      "pctChg": -3.86,
+      "pctChg": -3.68,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     }
@@ -12302,6 +12325,14 @@
     [
       1787257712935,
       694815.21
+    ],
+    [
+      1787258672786,
+      696489.59
+    ],
+    [
+      1787259633798,
+      697350.55
     ]
   ],
   "capitalCurve": [
@@ -24184,6 +24215,14 @@
     [
       1787257712935,
       1508567.85
+    ],
+    [
+      1787258672786,
+      1510382.64
+    ],
+    [
+      1787259633798,
+      1509257.12
     ]
   ]
 }
