@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "generatedAtMs": 1787661942532,
-  "sourceAtMs": 1787661812831,
+  "generatedAtMs": 1787662837700,
+  "sourceAtMs": 1787662712922,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1566302.53,
+    "capital": 1564818.91,
     "peak": 1675149.53,
-    "drawdownPct": -6.5,
+    "drawdownPct": -6.59,
     "dayBase": 1569362.31,
     "dayBaseSource": "prev_day_close",
-    "todayAmt": -3059.78,
-    "todayPct": -0.19,
-    "allTimePct": 6.77,
-    "allTimeAmt": 47358.44,
+    "todayAmt": -4543.4,
+    "todayPct": -0.29,
+    "allTimePct": 6.6,
+    "allTimeAmt": 46175.12,
     "allTimeNote": "пополнения счёта не учтены",
     "openPositions": 2,
     "tradesPnl": 40471.15,
@@ -24,17 +24,18 @@
     "entriesHalt": false,
     "haltReason": "",
     "goUsed": 334535.11,
-    "goBudget": 1516194.24,
-    "accountLiquid": 1556260.25
+    "goBudget": 1516252.33,
+    "accountLiquid": 1555900.25,
+    "lastDailyDay": "2026-08-24"
   },
   "operational": {
     "go": {
       "used_rub": 334535.11,
-      "budget_rub": 1516194.24,
+      "budget_rub": 1516252.33,
       "peak_day_rub": 663989.07,
       "capital_peak_rub": 1675149.53,
-      "account_liquid_rub": 1556260.25,
-      "bot_capital_rub": 1566302.53
+      "account_liquid_rub": 1555900.25,
+      "bot_capital_rub": 1564818.91
     },
     "drift": {
       "D2": 0,
@@ -56,11 +57,11 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1556260.25,
-      "futures": 10042.28,
+      "currencies": 1555900.25,
+      "futures": 8918.66,
       "mom_shares": 0.0,
-      "user_assets": -10042.28,
-      "portfolio_total": 1556260.25
+      "user_assets": -8918.66,
+      "portfolio_total": 1555900.25
     },
     "active": {
       "BR": "BRU6",
@@ -81,8 +82,8 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1101350.12,
-      "dayPct": 0.95
+      "equity": 1099608.8,
+      "dayPct": 0.79
     },
     "setA": {
       "equity": 1104819.95,
@@ -105,15 +106,15 @@
       "entry": 12.605,
       "stop": 12.318286,
       "tp1": null,
-      "cur": 12.664,
-      "upnl": 9912.0,
+      "cur": 12.651,
+      "upnl": 7728.0,
       "risk": 54812.47,
       "entryDay": "2026-08-13",
       "entryTs": 1786653333021,
       "rolls": 0,
       "rubPerPt": 1000.0,
       "notional": 2117640.0,
-      "pctChg": 0.47,
+      "pctChg": 0.36,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     },
@@ -128,15 +129,15 @@
       "entry": 68.39,
       "stop": 63.875714,
       "tp1": null,
-      "cur": 68.28,
-      "upnl": -1217.35,
+      "cur": 68.32,
+      "upnl": -774.68,
       "risk": 54556.91,
       "entryDay": "2026-08-20",
       "entryTs": 1787258132909,
       "rolls": 0,
       "rubPerPt": 851.293,
       "notional": 756859.0,
-      "pctChg": -0.16,
+      "pctChg": -0.1,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     }
@@ -145,10 +146,12 @@
   "closedTrades": [
     {
       "id": "L00008",
+      "sleeve": "core",
       "asset": "BR",
       "secid": "BRQ6",
       "title": "нефть Brent (BRQ6)",
       "side": "long",
+      "lots": 6,
       "entryDay": "2026-07-21",
       "entry": 88.990002,
       "exitDay": "2026-07-27",
@@ -160,10 +163,12 @@
     },
     {
       "id": "L00011",
+      "sleeve": "setA",
       "asset": "GOLD",
       "secid": "GDU6",
       "title": "золото (GDU6)",
       "side": "short",
+      "lots": 1,
       "entryDay": "2026-07-24",
       "entry": 4037.9,
       "exitDay": "2026-07-31",
@@ -175,10 +180,12 @@
     },
     {
       "id": "L00018",
+      "sleeve": "core",
       "asset": "CNY",
       "secid": "CRU6",
       "title": "юань (CRU6)",
       "side": "long",
+      "lots": 110,
       "entryDay": "2026-08-04",
       "entry": 12.074,
       "exitDay": "2026-08-06",
@@ -190,10 +197,12 @@
     },
     {
       "id": "L00017",
+      "sleeve": "core",
       "asset": "Si",
       "secid": "SiU6",
       "title": "доллар-рубль (SiU6)",
       "side": "long",
+      "lots": 15,
       "entryDay": "2026-08-04",
       "entry": 81548.4,
       "exitDay": "2026-08-06",
@@ -205,10 +214,12 @@
     },
     {
       "id": "L00021",
+      "sleeve": "core",
       "asset": "Si",
       "secid": "SiU6",
       "title": "доллар-рубль (SiU6)",
       "side": "long",
+      "lots": 17,
       "entryDay": "2026-08-07",
       "entry": 82386.647059,
       "exitDay": "2026-08-07",
@@ -220,10 +231,12 @@
     },
     {
       "id": "L00022",
+      "sleeve": "core",
       "asset": "CNY",
       "secid": "CRU6",
       "title": "юань (CRU6)",
       "side": "long",
+      "lots": 118,
       "entryDay": "2026-08-07",
       "entry": 12.222,
       "exitDay": "2026-08-07",
@@ -235,10 +248,12 @@
     },
     {
       "id": "L00020",
+      "sleeve": "setA",
       "asset": "BR",
       "secid": "BRU6",
       "title": "нефть Brent (BRU6)",
       "side": "long",
+      "lots": 3,
       "entryDay": "2026-08-07",
       "entry": 83.706667,
       "exitDay": "2026-08-12",
@@ -250,10 +265,12 @@
     },
     {
       "id": "L00019",
+      "sleeve": "core",
       "asset": "NG",
       "secid": "NGQ6",
       "title": "природный газ (NGQ6)",
       "side": "short",
+      "lots": 13,
       "entryDay": "2026-08-05",
       "entry": 2.706,
       "exitDay": "2026-08-12",
@@ -265,10 +282,12 @@
     },
     {
       "id": "L00031",
+      "sleeve": "setA",
       "asset": "MIX",
       "secid": "MXU6",
       "title": "индекс МосБиржи (MXU6)",
       "side": "short",
+      "lots": 1,
       "entryDay": "2026-08-14",
       "entry": 224725.0,
       "exitDay": "2026-08-17",
@@ -280,10 +299,12 @@
     },
     {
       "id": "L00033",
+      "sleeve": "setA",
       "asset": "PLD",
       "secid": "PDU6",
       "title": "палладий (PDU6)",
       "side": "short",
+      "lots": 2,
       "entryDay": "2026-08-14",
       "entry": 1312.975,
       "exitDay": "2026-08-17",
@@ -295,10 +316,12 @@
     },
     {
       "id": "L00032",
+      "sleeve": "core",
       "asset": "Eu",
       "secid": "EuU6",
       "title": "евро-рубль (EuU6)",
       "side": "long",
+      "lots": 19,
       "entryDay": "2026-08-14",
       "entry": 97780.842105,
       "exitDay": "2026-08-17",
@@ -310,10 +333,12 @@
     },
     {
       "id": "L00029",
+      "sleeve": "core",
       "asset": "Si",
       "secid": "SiU6",
       "title": "доллар-рубль (SiU6)",
       "side": "long",
+      "lots": 25,
       "entryDay": "2026-08-13",
       "entry": 84793.48,
       "exitDay": "2026-08-17",
@@ -325,10 +350,12 @@
     },
     {
       "id": "L00035",
+      "sleeve": "core",
       "asset": "Si",
       "secid": "SiU6",
       "title": "доллар-рубль (SiU6)",
       "side": "long",
+      "lots": 26,
       "entryDay": "2026-08-17",
       "entry": 85439.0,
       "exitDay": "2026-08-20",
@@ -340,10 +367,12 @@
     },
     {
       "id": "L00037",
+      "sleeve": "setA",
       "asset": "PLD",
       "secid": "PDU6",
       "title": "палладий (PDU6)",
       "side": "short",
+      "lots": 3,
       "entryDay": "2026-08-19",
       "entry": 1297.393333,
       "exitDay": "2026-08-21",
@@ -355,10 +384,12 @@
     },
     {
       "id": "L00036",
+      "sleeve": "core",
       "asset": "Eu",
       "secid": "EuU6",
       "title": "евро-рубль (EuU6)",
       "side": "long",
+      "lots": 22,
       "entryDay": "2026-08-17",
       "entry": 98737.727273,
       "exitDay": "2026-08-25",
@@ -14037,6 +14068,10 @@
     [
       1787661812831,
       747511.57
+    ],
+    [
+      1787662712922,
+      747269.66
     ]
   ],
   "capitalCurve": [
@@ -27647,6 +27682,10 @@
     [
       1787661812831,
       1565621.76
+    ],
+    [
+      1787662712922,
+      1566468.91
     ]
   ]
 }
