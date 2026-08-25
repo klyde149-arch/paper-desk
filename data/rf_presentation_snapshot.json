@@ -1,40 +1,40 @@
 {
   "schema": 1,
-  "generatedAtMs": 1787656537334,
-  "sourceAtMs": 1787656113121,
+  "generatedAtMs": 1787657442536,
+  "sourceAtMs": 1787657073822,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1570659.48,
+    "capital": 1563178.72,
     "peak": 1675149.53,
-    "drawdownPct": -6.24,
+    "drawdownPct": -6.68,
     "dayBase": 1569362.31,
     "dayBaseSource": "prev_day_close",
-    "todayAmt": 1297.17,
-    "todayPct": 0.08,
-    "allTimePct": 6.55,
-    "allTimeAmt": 45848.68,
+    "todayAmt": -6183.59,
+    "todayPct": -0.39,
+    "allTimePct": 6.53,
+    "allTimeAmt": 45715.74,
     "allTimeNote": "пополнения счёта не учтены",
-    "openPositions": 3,
-    "tradesPnl": 38764.77,
-    "fees": 4823.36,
-    "winRate": 64.3,
-    "wins": 9,
+    "openPositions": 2,
+    "tradesPnl": 40471.15,
+    "fees": 5910.04,
+    "winRate": 66.7,
+    "wins": 10,
     "losses": 5,
     "entriesHalt": false,
     "haltReason": "",
-    "goUsed": 663989.07,
-    "goBudget": 1520681.48,
-    "accountLiquid": 1556410.04
+    "goUsed": 334535.11,
+    "goBudget": 1512073.69,
+    "accountLiquid": 1555630.25
   },
   "operational": {
     "go": {
-      "used_rub": 663989.07,
-      "budget_rub": 1520681.48,
+      "used_rub": 334535.11,
+      "budget_rub": 1512073.69,
       "peak_day_rub": 663989.07,
       "capital_peak_rub": 1675149.53,
-      "account_liquid_rub": 1556410.04,
-      "bot_capital_rub": 1570659.48
+      "account_liquid_rub": 1555630.25,
+      "bot_capital_rub": 1563178.72
     },
     "drift": {
       "D2": 0,
@@ -45,22 +45,22 @@
       "last": "D4 L00011"
     },
     "stats": {
-      "trades": 14,
+      "trades": 15,
       "orders_posted": 22,
-      "fills": 31,
-      "wins": 9,
+      "fills": 32,
+      "wins": 10,
       "losses": 5,
-      "fees_rub": 4823.35,
-      "realized_rub": 38764.77,
+      "fees_rub": 5910.03,
+      "realized_rub": 40471.15,
       "skipped_qty0": 0,
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1556410.04,
-      "futures": 14249.44,
+      "currencies": 1555630.25,
+      "futures": 7548.47,
       "mom_shares": 0.0,
-      "user_assets": -14249.44,
-      "portfolio_total": 1556410.04
+      "user_assets": -7548.47,
+      "portfolio_total": 1555630.25
     },
     "active": {
       "BR": "BRU6",
@@ -81,8 +81,8 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1099128.42,
-      "dayPct": 0.75
+      "equity": 1098932.8,
+      "dayPct": 0.73
     },
     "setA": {
       "equity": 1104819.95,
@@ -105,38 +105,15 @@
       "entry": 12.605,
       "stop": 12.318286,
       "tp1": null,
-      "cur": 12.639,
-      "upnl": 5712.0,
+      "cur": 12.645,
+      "upnl": 6720.0,
       "risk": 54812.47,
       "entryDay": "2026-08-13",
       "entryTs": 1786653333021,
       "rolls": 0,
       "rubPerPt": 1000.0,
       "notional": 2117640.0,
-      "pctChg": 0.27,
-      "reconcileStatus": null,
-      "reconcileSinceTs": null
-    },
-    {
-      "id": "L00036",
-      "sleeve": "core",
-      "asset": "Eu",
-      "secid": "EuU6",
-      "title": "евро-рубль (EuU6)",
-      "side": "long",
-      "lots": 22,
-      "entry": 98737.727273,
-      "stop": 96498.0,
-      "tp1": null,
-      "cur": 98870.0,
-      "upnl": 2910.0,
-      "risk": 57247.49,
-      "entryDay": "2026-08-17",
-      "entryTs": 1786998932909,
-      "rolls": 0,
-      "rubPerPt": 1.0,
-      "notional": 2172230.0,
-      "pctChg": 0.13,
+      "pctChg": 0.32,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     },
@@ -375,6 +352,21 @@
       "pnl": -19397.16,
       "rMultiple": -0.86,
       "fees": 170.57
+    },
+    {
+      "id": "L00036",
+      "asset": "Eu",
+      "secid": "EuU6",
+      "title": "евро-рубль (EuU6)",
+      "side": "long",
+      "entryDay": "2026-08-17",
+      "entry": 98737.727273,
+      "exitDay": "2026-08-25",
+      "exitPx": 98840.0,
+      "exitReason": "manual-ext",
+      "pnl": 1706.38,
+      "rMultiple": 0.03,
+      "fees": 1086.68
     }
   ],
   "equity": [
@@ -14021,6 +14013,10 @@
     [
       1787656113121,
       746135.43
+    ],
+    [
+      1787657073822,
+      744462.65
     ]
   ],
   "capitalCurve": [
@@ -27607,6 +27603,10 @@
     [
       1787656113121,
       1570946.13
+    ],
+    [
+      1787657073822,
+      1560849.11
     ]
   ]
 }
