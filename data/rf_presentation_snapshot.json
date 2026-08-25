@@ -1,41 +1,41 @@
 {
   "schema": 1,
-  "generatedAtMs": 1787664637932,
-  "sourceAtMs": 1787664572903,
+  "generatedAtMs": 1787665537599,
+  "sourceAtMs": 1787665472988,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1559238.35,
+    "capital": 1568733.91,
     "peak": 1675149.53,
-    "drawdownPct": -6.92,
+    "drawdownPct": -6.35,
     "dayBase": 1569362.31,
     "dayBaseSource": "prev_day_close",
-    "todayAmt": -10123.96,
-    "todayPct": -0.65,
-    "allTimePct": 6.27,
-    "allTimeAmt": 43924.4,
+    "todayAmt": -628.4,
+    "todayPct": -0.04,
+    "allTimePct": 6.41,
+    "allTimeAmt": 44835.68,
     "allTimeNote": "пополнения счёта не учтены",
-    "openPositions": 2,
-    "tradesPnl": 40471.15,
-    "fees": 5910.04,
-    "winRate": 66.7,
+    "openPositions": 1,
+    "tradesPnl": 35541.41,
+    "fees": 6287.28,
+    "winRate": 62.5,
     "wins": 10,
-    "losses": 5,
+    "losses": 6,
     "entriesHalt": false,
     "haltReason": "",
-    "goUsed": 334535.11,
-    "goBudget": 1508229.48,
-    "accountLiquid": 1554460.25,
+    "goUsed": 183543.36,
+    "goBudget": 1518565.91,
+    "accountLiquid": 1553445.91,
     "lastDailyDay": "2026-08-24"
   },
   "operational": {
     "go": {
-      "used_rub": 334535.11,
-      "budget_rub": 1508229.48,
+      "used_rub": 183543.36,
+      "budget_rub": 1518565.91,
       "peak_day_rub": 663989.07,
       "capital_peak_rub": 1675149.53,
-      "account_liquid_rub": 1554460.25,
-      "bot_capital_rub": 1559238.35
+      "account_liquid_rub": 1553445.91,
+      "bot_capital_rub": 1568733.91
     },
     "drift": {
       "D2": 0,
@@ -46,22 +46,22 @@
       "last": "D4 L00011"
     },
     "stats": {
-      "trades": 15,
+      "trades": 16,
       "orders_posted": 22,
-      "fills": 32,
+      "fills": 33,
       "wins": 10,
-      "losses": 5,
-      "fees_rub": 5910.03,
-      "realized_rub": 40471.15,
+      "losses": 6,
+      "fees_rub": 6287.27,
+      "realized_rub": 35541.41,
       "skipped_qty0": 0,
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1554460.25,
-      "futures": 4778.1,
+      "currencies": 1553445.91,
+      "futures": 15288.0,
       "mom_shares": 0.0,
-      "user_assets": -4778.1,
-      "portfolio_total": 1554460.25
+      "user_assets": -15288.0,
+      "portfolio_total": 1553445.91
     },
     "active": {
       "BR": "BRU6",
@@ -82,8 +82,8 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1096296.74,
-      "dayPct": 0.49
+      "equity": 1097637.74,
+      "dayPct": 0.61
     },
     "setA": {
       "equity": 1104819.95,
@@ -106,38 +106,15 @@
       "entry": 12.605,
       "stop": 12.318286,
       "tp1": null,
-      "cur": 12.655,
-      "upnl": 8400.0,
+      "cur": 12.664,
+      "upnl": 9912.0,
       "risk": 54812.47,
       "entryDay": "2026-08-13",
       "entryTs": 1786653333021,
       "rolls": 0,
       "rubPerPt": 1000.0,
       "notional": 2117640.0,
-      "pctChg": 0.4,
-      "reconcileStatus": null,
-      "reconcileSinceTs": null
-    },
-    {
-      "id": "L00039",
-      "sleeve": "core",
-      "asset": "SILV",
-      "secid": "SVU6",
-      "title": "серебро (SVU6)",
-      "side": "long",
-      "lots": 13,
-      "entry": 68.39,
-      "stop": 63.875714,
-      "tp1": null,
-      "cur": 67.96,
-      "upnl": -4758.73,
-      "risk": 54556.91,
-      "entryDay": "2026-08-20",
-      "entryTs": 1787258132909,
-      "rolls": 0,
-      "rubPerPt": 851.293,
-      "notional": 756859.0,
-      "pctChg": -0.63,
+      "pctChg": 0.47,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     }
@@ -398,6 +375,23 @@
       "pnl": 1706.38,
       "rMultiple": 0.03,
       "fees": 1086.68
+    },
+    {
+      "id": "L00039",
+      "sleeve": "core",
+      "asset": "SILV",
+      "secid": "SVU6",
+      "title": "серебро (SVU6)",
+      "side": "long",
+      "lots": 13,
+      "entryDay": "2026-08-20",
+      "entry": 68.39,
+      "exitDay": "2026-08-25",
+      "exitPx": 67.961538,
+      "exitReason": "manual-ext",
+      "pnl": -4929.74,
+      "rMultiple": -0.09,
+      "fees": 377.24
     }
   ],
   "equity": [
@@ -14080,6 +14074,10 @@
     [
       1787664572903,
       743247.56
+    ],
+    [
+      1787665472988,
+      745520.67
     ]
   ],
   "capitalCurve": [
@@ -27702,6 +27700,10 @@
     [
       1787664572903,
       1558229.48
+    ],
+    [
+      1787665472988,
+      1568565.91
     ]
   ]
 }

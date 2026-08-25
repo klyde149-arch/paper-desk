@@ -12,7 +12,7 @@
   },
   "sleeves": {
     "core": {
-      "eq_rub": 1092655.472304866,
+      "eq_rub": 1087725.73584701,
       "month_start_eq": 1024863.62,
       "day_start_eq": 1090949.0923108659,
       "halt_day": null,
@@ -54,51 +54,11 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 12.655,
-          "upnl_rub": 8400.0
-        },
-        {
-          "id": "L00039",
-          "sleeve": "core",
-          "asset": "SILV",
-          "secid": "SVU6",
-          "uid": "4efee70d-e626-495b-af30-b6ccd9b566e3",
-          "figi": "FUTSILV09260",
-          "side": "long",
-          "lots": 13,
-          "lots_initial": 13,
-          "entry_px_pts": 68.39,
-          "entry_day": "2026-08-20",
-          "entry_ts": 1787258132909,
-          "stop_px_pts": 63.875714,
-          "stop_order_id": "60fe2db3-0423-45ba-9b42-d8323890d61d",
-          "stop_lots": 13,
-          "tp1_px_pts": null,
-          "tp1_order_id": "",
-          "tp1_done": false,
-          "be_moved": false,
-          "mfe_pts": 70.37,
-          "atr_entry": 2.362143,
-          "risk_rub": 54556.91,
-          "rub_per_pt": 851.293,
-          "go_per_lot": 11614.75,
-          "rolls": 0,
-          "fees_rub": 189.21,
-          "realized_rub": 0.0,
-          "d6_fails": 0,
-          "d4_fails": 0,
-          "quarantine": false,
-          "stop_deferred": null,
-          "last_stop_update": "2026-08-20 20:35",
-          "lat_sp": 0,
-          "lat_pf": 0,
-          "entry_px_tries": 2,
-          "entry_px_ok": true,
-          "cur_px": 67.96,
-          "upnl_rub": -4758.73
+          "cur_px": 12.664,
+          "upnl_rub": 9912.0
         }
       ],
-      "equity_mtm": 1096296.74
+      "equity_mtm": 1097637.74
     },
     "setA": {
       "eq_rub": 1104819.9489744043,
@@ -123,7 +83,7 @@
       }
     }
   },
-  "profile_eq": 743924.4,
+  "profile_eq": 744835.68,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
   "day_start_eq": 1569362.31,
@@ -132,8 +92,8 @@
   "watermarks": {
     "last_daily_day": "2026-08-24",
     "last_hour_ts": 1787670000000,
-    "ops_since": "2026-08-25T12:30:33Z",
-    "last_eq_snap": 1787664572903,
+    "ops_since": "2026-08-25T12:45:32Z",
+    "last_eq_snap": 1787665472988,
     "last_report_day": "2026-08-24",
     "orders_day": "2026-08-20",
     "orders_day_n": 2,
@@ -249,6 +209,10 @@
     "c3b_Eu": {
       "exit_day": "2026-08-25",
       "dir": "long"
+    },
+    "c3b_SILV": {
+      "exit_day": "2026-08-25",
+      "dir": "long"
     }
   },
   "entries_halt": {
@@ -257,12 +221,12 @@
     "since": "2026-08-19 21:03"
   },
   "go": {
-    "used_rub": 334535.11,
-    "budget_rub": 1508229.48,
+    "used_rub": 183543.36,
+    "budget_rub": 1518565.91,
     "peak_day_rub": 663989.07,
     "capital_peak_rub": 1675149.53,
-    "account_liquid_rub": 1554460.25,
-    "bot_capital_rub": 1559238.35
+    "account_liquid_rub": 1553445.91,
+    "bot_capital_rub": 1568733.91
   },
   "drift": {
     "D2": 0,
@@ -276,13 +240,13 @@
   "next_intent_id": 40,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
-    "trades": 15,
+    "trades": 16,
     "orders_posted": 22,
-    "fills": 32,
+    "fills": 33,
     "wins": 10,
-    "losses": 5,
-    "fees_rub": 5910.03,
-    "realized_rub": 40471.15,
+    "losses": 6,
+    "fees_rub": 6287.27,
+    "realized_rub": 35541.41,
     "skipped_qty0": 0,
     "signal_mismatch": 0
   },
@@ -310,14 +274,13 @@
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {
-    "4efee70d-e626-495b-af30-b6ccd9b566e3": -4598.75,
-    "81f07a5c-99af-4b3a-a939-067e2ed3dd7a": 8400.0
+    "81f07a5c-99af-4b3a-a939-067e2ed3dd7a": 10248.0
   },
   "capital_breakdown": {
-    "currencies": 1554460.25,
-    "futures": 4778.1,
+    "currencies": 1553445.91,
+    "futures": 15288.0,
     "mom_shares": 0.0,
-    "user_assets": -4778.1,
-    "portfolio_total": 1554460.25
+    "user_assets": -15288.0,
+    "portfolio_total": 1553445.91
   }
 }
