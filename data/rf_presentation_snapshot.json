@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "generatedAtMs": 1787668238980,
-  "sourceAtMs": 1787668232939,
+  "generatedAtMs": 1787669139442,
+  "sourceAtMs": 1787669133226,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1563213.91,
+    "capital": 1548663.91,
     "peak": 1675149.53,
-    "drawdownPct": -6.68,
+    "drawdownPct": -7.55,
     "dayBase": 1569362.31,
     "dayBaseSource": "prev_day_close",
-    "todayAmt": -6148.4,
-    "todayPct": -0.39,
-    "allTimePct": 5.79,
-    "allTimeAmt": 40497.42,
+    "todayAmt": -20698.4,
+    "todayPct": -1.32,
+    "allTimePct": 4.53,
+    "allTimeAmt": 31706.74,
     "allTimeNote": "пополнения счёта не учтены",
     "openPositions": 1,
     "tradesPnl": 35541.41,
@@ -24,18 +24,18 @@
     "entriesHalt": false,
     "haltReason": "",
     "goUsed": 183543.36,
-    "goBudget": 1515637.91,
-    "accountLiquid": 1553805.91,
+    "goBudget": 1499077.91,
+    "accountLiquid": 1553535.91,
     "lastDailyDay": "2026-08-24"
   },
   "operational": {
     "go": {
       "used_rub": 183543.36,
-      "budget_rub": 1515637.91,
+      "budget_rub": 1499077.91,
       "peak_day_rub": 663989.07,
       "capital_peak_rub": 1675149.53,
-      "account_liquid_rub": 1553805.91,
-      "bot_capital_rub": 1563213.91
+      "account_liquid_rub": 1553535.91,
+      "bot_capital_rub": 1548663.91
     },
     "drift": {
       "D2": 0,
@@ -57,11 +57,11 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1553805.91,
-      "futures": 9408.0,
+      "currencies": 1553535.91,
+      "futures": -4872.0,
       "mom_shares": 0.0,
-      "user_assets": -9408.0,
-      "portfolio_total": 1553805.91
+      "user_assets": 4872.0,
+      "portfolio_total": 1553535.91
     },
     "active": {
       "BR": "BRU6",
@@ -82,8 +82,8 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1091253.74,
-      "dayPct": 0.03
+      "equity": 1078317.74,
+      "dayPct": -1.16
     },
     "setA": {
       "equity": 1104819.95,
@@ -106,15 +106,15 @@
       "entry": 12.605,
       "stop": 12.318286,
       "tp1": null,
-      "cur": 12.626,
-      "upnl": 3528.0,
+      "cur": 12.549,
+      "upnl": -9408.0,
       "risk": 54812.47,
       "entryDay": "2026-08-13",
       "entryTs": 1786653333021,
       "rolls": 0,
       "rubPerPt": 1000.0,
       "notional": 2117640.0,
-      "pctChg": 0.17,
+      "pctChg": -0.44,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     }
@@ -14090,6 +14090,10 @@
     [
       1787668232939,
       740497.42
+    ],
+    [
+      1787669133226,
+      731706.74
     ]
   ],
   "capitalCurve": [
@@ -27728,6 +27732,10 @@
     [
       1787668232939,
       1563213.91
+    ],
+    [
+      1787669133226,
+      1548663.91
     ]
   ]
 }
