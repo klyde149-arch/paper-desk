@@ -272,7 +272,14 @@ if ($rfPresentation -and [int]$rfPresentation.schema -eq 1) {
     [ordered]@{ id=$_.id; sleeve=$_.sleeve; asset=$_.asset; secid=$_.secid; side=$_.side; lots=$_.lots; entry=$_.entry; stop=$_.stop; tp1=$_.tp1; cur=$_.cur; upnl=$_.upnl; riskRub=$_.risk; entryDay=$_.entryDay; entryTs=$_.entryTs; rolls=$_.rolls; rubPerPt=$_.rubPerPt; notional=$_.notional; pctChg=$_.pctChg; candles1h=$c1h; reconcileStatus=$_.reconcileStatus; reconcileSinceTs=$_.reconcileSinceTs }
   })
   $s = $rfPresentation.summary; $op = $rfPresentation.operational
-  $rfReal = [ordered]@{ mode=$s.mode; entriesHalt=[bool]$s.entriesHalt; haltReason=$s.haltReason; goUsed=$s.goUsed; goBudget=$s.goBudget; accountLiquid=$s.accountLiquid; capitalNow=$s.capital; capitalPeak=$s.peak; capitalBreakdown=$op.capitalBreakdown; drift=$op.drift; sleeves=[ordered]@{ core=$rfPresentation.sleeves.core.equity; setA=$rfPresentation.sleeves.setA.equity; mom=$rfPresentation.sleeves.mom.equity }; positions=$lrPos; holdings=@($rfPresentation.holdings); closed=@($rfPresentation.closedTrades); curve=@($rfPresentation.equity); capitalCurve=@($rfPresentation.capitalCurve); lastDailyDay=''; stats=$op.stats }
+  # Снапшот отдаёт сделки в DTO Mini App (pnl/fees) - фронт дашборда читает pnlRub/feesRub/sleeve,
+  # как их всегда отдавала ветка из live_rf/trades.json ниже. Нормализуем здесь, в адаптере.
+  $lrClosed = [object[]]@(@($rfPresentation.closedTrades) | Where-Object { $null -ne $_ } | ForEach-Object {
+    [ordered]@{ id=$_.id; sleeve=$_.sleeve; asset=$_.asset; secid=$_.secid; side=$_.side; lots=$_.lots
+      entryDay=$_.entryDay; entry=$_.entry; exitDay=$_.exitDay; exitPx=$_.exitPx; exitReason=$_.exitReason
+      pnlRub=$_.pnl; feesRub=$_.fees; rMultiple=$_.rMultiple }
+  })
+  $rfReal = [ordered]@{ mode=$s.mode; entriesHalt=[bool]$s.entriesHalt; haltReason=$s.haltReason; goUsed=$s.goUsed; goBudget=$s.goBudget; accountLiquid=$s.accountLiquid; capitalNow=$s.capital; capitalPeak=$s.peak; capitalBreakdown=$op.capitalBreakdown; drift=$op.drift; sleeves=[ordered]@{ core=$rfPresentation.sleeves.core.equity; setA=$rfPresentation.sleeves.setA.equity; mom=$rfPresentation.sleeves.mom.equity }; positions=$lrPos; holdings=@($rfPresentation.holdings); closed=$lrClosed; curve=@($rfPresentation.equity); capitalCurve=@($rfPresentation.capitalCurve); lastDailyDay=[string]$rfPresentation.summary.lastDailyDay; stats=$op.stats }
 }
 elseif (Test-Path $lrPf) {
   $lp = Get-Content $lrPf -Raw -Encoding UTF8 | ConvertFrom-Json

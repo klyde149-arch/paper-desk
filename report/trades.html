@@ -1711,14 +1711,17 @@
     const TR=RFR?arr(RFR.closed):[];
     if(!TR.length){ wrap.innerHTML='<div class="card" style="margin-top:14px;color:var(--muted);font-size:13.5px">Закрытых сделок по фьючерсам ещё нет — каждая появится здесь автоматически.</div>'; return; }
     let t=`<div class="card" style="margin-top:14px"><h3 style="font-family:var(--serif);margin:0 0 8px;font-size:16px">Закрытые сделки (${TR.length})</h3><div class="tbl-scroll"><table style="min-width:760px"><thead><tr><th></th><th>Рукав</th><th>Актив</th><th>Сторона</th><th>Вход</th><th>Выход</th><th>Причина</th><th>Комиссии</th><th>P&L</th></tr></thead><tbody>`;
-    t+=TR.slice().reverse().map(x=>{const win=(+x.pnlRub||0)>0;
+    const sleeveRu=s=>s==="core"?"ядро":(s==="setA"?"сетап A":(s||""));
+    t+=TR.slice().reverse().map(x=>{
+      // снапшот бота отдаёт те же поля как pnl/fees (DTO Mini App) — читаем оба имени
+      const pnl=+(x.pnlRub??x.pnl)||0, fees=+(x.feesRub??x.fees)||0, win=pnl>0;
       return `<tr><td><span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:${win?'var(--gain-soft)':'var(--loss-soft)'};color:${win?'var(--gain)':'var(--loss)'}">${win?"WIN":"LOSS"}</span></td>`+
-        `<td style="color:var(--muted)">${x.sleeve||""}</td><td>${x.asset||x.secid||""}</td>`+
+        `<td style="color:var(--muted)">${sleeveRu(x.sleeve)}</td><td>${x.asset||x.secid||""}</td>`+
         `<td style="color:${x.side==="long"?"var(--gain)":"var(--loss)"};font-weight:600">${x.side==="long"?"ЛОНГ":"ШОРТ"}</td>`+
         `<td>${x.entryDay||""} · ${fmtP(x.entry)}</td><td>${x.exitDay||""} · ${fmtP(x.exitPx)}</td>`+
         `<td style="color:var(--muted);font-size:11.5px">${x.exitReason||""}</td>`+
-        `<td class="num">${Math.round(x.feesRub||0).toLocaleString("ru-RU")} ₽</td>`+
-        `<td style="color:${win?'var(--gain)':'var(--loss)'};font-weight:700">${(+x.pnlRub||0)>=0?"+":"−"}${Math.round(Math.abs(+x.pnlRub||0)).toLocaleString("ru-RU")} ₽</td></tr>`;
+        `<td class="num">${Math.round(fees).toLocaleString("ru-RU")} ₽</td>`+
+        `<td style="color:${win?'var(--gain)':'var(--loss)'};font-weight:700">${pnl>=0?"+":"−"}${Math.round(Math.abs(pnl)).toLocaleString("ru-RU")} ₽</td></tr>`;
     }).join("");
     t+=`</tbody></table></div></div>`;
     wrap.innerHTML=t;
