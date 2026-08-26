@@ -1,21 +1,21 @@
 {
   "schema": 1,
-  "generatedAtMs": 1787776237839,
-  "sourceAtMs": 1787775632809,
+  "generatedAtMs": 1787777137282,
+  "sourceAtMs": 1787776532986,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1583930.73,
+    "capital": 1582986.74,
     "peak": 1675149.53,
-    "drawdownPct": -5.45,
+    "drawdownPct": -5.5,
     "dayBase": 1561941.91,
     "dayBaseSource": "prev_day_close",
-    "todayAmt": 21988.82,
-    "todayPct": 1.41,
-    "allTimePct": 7.79,
-    "allTimeAmt": 54539.68,
+    "todayAmt": 21044.83,
+    "todayPct": 1.35,
+    "allTimePct": 7.56,
+    "allTimeAmt": 52891.94,
     "allTimeNote": "пополнения счёта не учтены",
-    "openPositions": 1,
+    "openPositions": 2,
     "tradesPnl": 35541.41,
     "fees": 6287.28,
     "winRate": 62.5,
@@ -23,19 +23,19 @@
     "losses": 6,
     "entriesHalt": false,
     "haltReason": "",
-    "goUsed": 183543.36,
-    "goBudget": 1534098.73,
-    "accountLiquid": 1554194.73,
+    "goUsed": 482188.96,
+    "goBudget": 1533622.74,
+    "accountLiquid": 1553396.74,
     "lastDailyDay": "2026-08-25"
   },
   "operational": {
     "go": {
-      "used_rub": 183543.36,
-      "budget_rub": 1534098.73,
-      "peak_day_rub": 183543.36,
+      "used_rub": 482188.96,
+      "budget_rub": 1533622.74,
+      "peak_day_rub": 482188.96,
       "capital_peak_rub": 1675149.53,
-      "account_liquid_rub": 1554194.73,
-      "bot_capital_rub": 1583930.73
+      "account_liquid_rub": 1553396.74,
+      "bot_capital_rub": 1582986.74
     },
     "drift": {
       "D2": 0,
@@ -47,8 +47,8 @@
     },
     "stats": {
       "trades": 16,
-      "orders_posted": 22,
-      "fills": 33,
+      "orders_posted": 24,
+      "fills": 34,
       "wins": 10,
       "losses": 6,
       "fees_rub": 6287.27,
@@ -57,11 +57,11 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1554194.73,
-      "futures": 29736.0,
+      "currencies": 1553396.74,
+      "futures": 29590.0,
       "mom_shares": 0.0,
-      "user_assets": -29736.0,
-      "portfolio_total": 1554194.73
+      "user_assets": -29590.0,
+      "portfolio_total": 1553396.74
     },
     "active": {
       "BR": "BRU6",
@@ -82,8 +82,8 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1111917.74,
-      "dayPct": 2.22
+      "equity": 1109492.99,
+      "dayPct": 2.0
     },
     "setA": {
       "equity": 1104819.95,
@@ -106,15 +106,38 @@
       "entry": 12.605,
       "stop": 12.318286,
       "tp1": null,
-      "cur": 12.749,
-      "upnl": 24192.0,
+      "cur": 12.747,
+      "upnl": 23856.0,
       "risk": 54812.47,
       "entryDay": "2026-08-13",
       "entryTs": 1786653333021,
       "rolls": 0,
       "rubPerPt": 1000.0,
       "notional": 2117640.0,
-      "pctChg": 1.14,
+      "pctChg": 1.13,
+      "reconcileStatus": null,
+      "reconcileSinceTs": null
+    },
+    {
+      "id": "L00040",
+      "sleeve": "core",
+      "asset": "Eu",
+      "secid": "EuU6",
+      "title": "евро-рубль (EuU6)",
+      "side": "long",
+      "lots": 20,
+      "entry": 99749.5,
+      "stop": 97460.142857,
+      "tp1": null,
+      "cur": 99670.0,
+      "upnl": -1590.0,
+      "risk": 54386.29,
+      "entryDay": "2026-08-26",
+      "entryTs": 1787776532986,
+      "rolls": 0,
+      "rubPerPt": 1.0,
+      "notional": 1994990.0,
+      "pctChg": -0.08,
       "reconcileStatus": null,
       "reconcileSinceTs": null
     }
@@ -14550,6 +14573,10 @@
     [
       1787775632809,
       754425.52
+    ],
+    [
+      1787776532986,
+      754539.68
     ]
   ],
   "capitalCurve": [
@@ -28648,6 +28675,10 @@
     [
       1787775632809,
       1583930.73
+    ],
+    [
+      1787776532986,
+      1583762.73
     ]
   ]
 }
