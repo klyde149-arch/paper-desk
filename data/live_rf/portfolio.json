@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1087226.98584701,
       "month_start_eq": 1024863.62,
-      "day_start_eq": 1087725.73584701,
+      "day_start_eq": 1087226.98584701,
       "halt_day": null,
       "positions": [
         {
@@ -77,7 +77,7 @@
           "tp1_order_id": "",
           "tp1_done": false,
           "be_moved": false,
-          "mfe_pts": 99749.5,
+          "mfe_pts": 99774.0,
           "atr_entry": 1294.928571,
           "risk_rub": 54386.29,
           "rub_per_pt": 1.0,
@@ -126,14 +126,14 @@
   "profile_eq": 754058.05,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
-  "day_start_eq": 1561100.73,
-  "day_start_date": "2026-08-25",
+  "day_start_eq": 1582970.74,
+  "day_start_date": "2026-08-26",
   "peak_eq": 822812.43,
   "watermarks": {
-    "last_daily_day": "2026-08-25",
-    "last_hour_ts": 1787781600000,
-    "ops_since": "2026-08-26T20:15:32Z",
-    "last_eq_snap": 1787778333017,
+    "last_daily_day": "2026-08-26",
+    "last_hour_ts": 1787785200000,
+    "ops_since": "2026-08-26T20:30:32Z",
+    "last_eq_snap": 1787779292939,
     "last_report_day": "2026-08-26",
     "orders_day": "2026-08-26",
     "orders_day_n": 2,
@@ -216,7 +216,7 @@
   },
   "active": {
     "BR": "BRU6",
-    "NG": "NGQ6",
+    "NG": "NGU6",
     "GOLD": "GDU6",
     "SILV": "SVU6",
     "Si": "SiU6",
@@ -276,8 +276,39 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 42,
+  "pending_intents": [
+    {
+      "id": "i00042",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "VTBR",
+      "ticker": "",
+      "uid": "",
+      "side": "sell",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "2c767148-8736-ff28-573d-5355b4cd9521",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1787788200000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-08-26",
+      "state_ts": 1787779232996,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 387.142857,
+        "atr": 193.571429,
+        "risk_pct": 0.05,
+        "ref_px": 5050.0,
+        "note": "donchian close 5050 vs [5105 / 6036]"
+      }
+    }
+  ],
+  "next_intent_id": 43,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 16,
@@ -301,12 +332,12 @@
     }
   },
   "readiness": {
-    "day": "2026-08-25",
+    "day": "2026-08-26",
     "checked_n": 12,
     "total_n": 12,
     "failed": [],
-    "go_worst_rub": 1501578.13,
-    "go_cap_rub": 1133325.55,
+    "go_worst_rub": 1490318.2,
+    "go_cap_rub": 1149728.06,
     "fits": false
   },
   "consec_fail": 0,
