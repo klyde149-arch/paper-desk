@@ -8,11 +8,51 @@
   "day_start_date_utc": "2026-08-26",
   "trading_halted": false,
   "entries_halt_reason": "",
-  "open_trades": [],
+  "open_trades": [
+    {
+      "id": "LT23",
+      "symbol": "ATOM-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 15.2,
+      "qty_initial": 15.2,
+      "entry_filled_qty": 0.0,
+      "entry_price": 1.56,
+      "stop": 1.49,
+      "stop0": 1.49,
+      "tp1": 1.665,
+      "tp1_qty": 7.6,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-08-26 12:00",
+      "entry_ts": 1787745603069,
+      "risk_usd": 1.06,
+      "notional_usd": 23.71,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; ATOM-USDT 4h up; F&G 65",
+        "riskPlan": "вход ~1.56, стоп 1.49 (4.73%), TP1 1.665 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.06",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
+    }
+  ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1787716800000,
-    "last_trail_4h_ts": 1787716800000,
+    "last_4h_ts": 1787731200000,
+    "last_trail_4h_ts": 1787731200000,
     "last_exec_ms": 1787702407275,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
@@ -317,7 +357,7 @@
       "671c4243-ca3c-40c4-8f7e-364241fbbbc0",
       "4951ae27-321d-5343-b474-4f8f4725bcfb"
     ],
-    "next_trade_id": 23,
+    "next_trade_id": 24,
     "halt_day_utc": null,
     "soft_dd": false,
     "consec_api_fail": 0,
@@ -333,9 +373,10 @@
       "DOGE-USDT",
       "BCH-USDT",
       "ARB-USDT",
-      "AVAX-USDT"
+      "AVAX-USDT",
+      "ATOM-USDT"
     ],
-    "last_tick_utc": "2026-08-26 11:45",
+    "last_tick_utc": "2026-08-26 12:00",
     "last_daily_summary_day": "2026-08-25",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
