@@ -2,59 +2,18 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 105.99,
+  "equity_usd": 105.85,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 106.96,
   "day_start_date_utc": "2026-08-26",
   "trading_halted": false,
   "entries_halt_reason": "",
-  "open_trades": [
-    {
-      "id": "LT23",
-      "symbol": "ATOM-USDT",
-      "side": "long",
-      "status": "open",
-      "qty": 15.2,
-      "qty_initial": 15.2,
-      "entry_filled_qty": 15.2,
-      "entry_price": 1.561,
-      "stop": 1.49,
-      "stop0": 1.49,
-      "tp1": 1.665,
-      "tp1_qty": 7.6,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": false,
-      "entry_utc": "2026-08-26 12:00",
-      "entry_ts": 1787745603069,
-      "risk_usd": 1.06,
-      "notional_usd": 23.71,
-      "fees_usd": 0.0237272,
-      "funding_usd": -0.0014,
-      "legs": [],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h up; ATOM-USDT 4h up; F&G 65",
-        "riskPlan": "вход ~1.56, стоп 1.49 (4.73%), TP1 1.665 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.06",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      },
-      "cur_upnl_usd": -0.93936
-    }
-  ],
+  "open_trades": [],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1787745600000,
     "last_trail_4h_ts": 1787745600000,
-    "last_exec_ms": 1787760000000,
+    "last_exec_ms": 1787762249197,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -358,7 +317,8 @@
       "671c4243-ca3c-40c4-8f7e-364241fbbbc0",
       "4951ae27-321d-5343-b474-4f8f4725bcfb",
       "9625eec4-230d-58a8-bb2f-f1fb012b2228",
-      "37061a3d-1ec8-4b31-84c6-ca7c00c41db8"
+      "37061a3d-1ec8-4b31-84c6-ca7c00c41db8",
+      "0066ac11-c6e4-5e62-aaa4-d19f67be1de2"
     ],
     "next_trade_id": 24,
     "halt_day_utc": null,
@@ -379,7 +339,7 @@
       "AVAX-USDT",
       "ATOM-USDT"
     ],
-    "last_tick_utc": "2026-08-26 16:30",
+    "last_tick_utc": "2026-08-26 16:38",
     "last_daily_summary_day": "2026-08-25",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
