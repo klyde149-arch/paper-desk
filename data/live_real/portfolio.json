@@ -2,67 +2,18 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 106.96,
+  "equity_usd": 106.94,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 106.96,
   "day_start_date_utc": "2026-08-26",
   "trading_halted": false,
   "entries_halt_reason": "",
-  "open_trades": [
-    {
-      "id": "LT22",
-      "symbol": "BNB-USDT",
-      "side": "long",
-      "status": "open",
-      "qty": 0.03,
-      "qty_initial": 0.06,
-      "entry_filled_qty": 0.06,
-      "entry_price": 617.0,
-      "stop": 617.0,
-      "stop0": 601.0,
-      "tp1": 640.8,
-      "tp1_qty": 0.03,
-      "tp1_filled_qty": 0.03,
-      "tp1_done": true,
-      "be_done": true,
-      "close_reason": "trail-ema20",
-      "sl_exec": false,
-      "entry_utc": "2026-08-19 16:00",
-      "entry_ts": 1787155203865,
-      "risk_usd": 0.95,
-      "notional_usd": 37.01,
-      "fees_usd": 0.043940639999999996,
-      "funding_usd": 0.0392,
-      "legs": [
-        {
-          "part": "TP1",
-          "qty": 0.03,
-          "price": 640.8,
-          "utc": "2026-08-20 08:14",
-          "pnl": 0.71
-        }
-      ],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h up; BNB-USDT 4h up; F&G 46",
-        "riskPlan": "вход ~616.9, стоп 601 (2.47%), TP1 640.8 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.95",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      },
-      "cur_upnl_usd": 2.3163
-    }
-  ],
+  "open_trades": [],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1787688000000,
     "last_trail_4h_ts": 1787688000000,
-    "last_exec_ms": 1787702400000,
+    "last_exec_ms": 1787702407275,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -363,7 +314,8 @@
       "d4fc2ea5-5c08-4473-be30-6aa9834b79d0",
       "39e5410e-20c9-45f9-bf85-17a47588dc82",
       "91ab10f0-069f-4501-bdb2-42276b878bb6",
-      "671c4243-ca3c-40c4-8f7e-364241fbbbc0"
+      "671c4243-ca3c-40c4-8f7e-364241fbbbc0",
+      "4951ae27-321d-5343-b474-4f8f4725bcfb"
     ],
     "next_trade_id": 23,
     "halt_day_utc": null,
@@ -383,7 +335,7 @@
       "ARB-USDT",
       "AVAX-USDT"
     ],
-    "last_tick_utc": "2026-08-26 00:00",
+    "last_tick_utc": "2026-08-26 00:01",
     "last_daily_summary_day": "2026-08-25",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
