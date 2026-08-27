@@ -10,14 +10,56 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9730.11,
-    "equity_usd":  9730.11,
+    "balance_usd":  9728.68,
+    "equity_usd":  9727.55,
     "peak_equity_usd":  10269.04,
-    "day_start_equity_usd":  9741.87,
-    "day_start_date_utc":  "2026-08-26",
+    "day_start_equity_usd":  9730.11,
+    "day_start_date_utc":  "2026-08-27",
     "trading_halted":  false,
     "open_positions":  [
+                           {
+                               "id":  "T26",
+                               "symbol":  "AVAX-USDT",
+                               "side":  "long",
+                               "qty":  349.7108,
+                               "qty_initial":  349.7108,
+                               "entry_price":  7.43523,
+                               "stop":  7.157,
+                               "stop0":  7.157,
+                               "tp1":  7.852575,
+                               "entry_utc":  "2026-08-27 00:00",
+                               "entry_ts":  1787788858175,
+                               "risk_usd":  97.3,
+                               "notional_usd":  2600.18,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  1.4300991080821059,
+                               "funding_usd":  0,
+                               "legs":  [
 
+                                        ],
+                               "mfe_px":  7.43523,
+                               "mae_px":  7.43523,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h up; AVAX-USDT 4h up; F\u0026G 71",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-08-26 20:00 UTC",
+                                              "indicators":  "RSI 52.6, ATR 2.48% (кэп 3%), фандинг 0.0001/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~7.43523, стоп 7.157 (3.76%), TP1 7.852575 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $97.3",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
+                           }
                        ],
     "stats":  {
                   "closed_trades":  25,
@@ -27,17 +69,17 @@
                   "total_funding_usd":  18.18,
                   "realized_pnl_usd":  -269.96
               },
-    "last_check_utc":  "2026-08-26 23:45",
+    "last_check_utc":  "2026-08-27 00:00",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1787787840000,
-                 "last_4h_ts":  1787760000000,
+                 "last_1m_ts":  1787788740000,
+                 "last_4h_ts":  1787774400000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
-                 "next_trade_id":  26,
-                 "ticks_since_viz":  1,
-                 "last_daily_summary_day":  "2026-08-25",
-                 "last_tick_utc":  "2026-08-26 23:45"
+                 "next_trade_id":  27,
+                 "ticks_since_viz":  0,
+                 "last_daily_summary_day":  "2026-08-26",
+                 "last_tick_utc":  "2026-08-27 00:00"
              }
 }
