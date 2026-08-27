@@ -1404,6 +1404,92 @@ function Scn-MarginEnabledDefault {
   Check 'margin-default: бюджет ГО посчитан' ([double]$st.go.budget_rub -gt 0)
 }
 
+# --- 57. long_only: шорт по VTBR/SBRF до брокера НЕ доходит. Боевой факт 2026-08-27 (i00041,
+# i00042): VBU6 - поставочный фьючерс на акции, шорт по нему на экспирации = продажа самих
+# акций, которых нет; маржиналка на счёте выключена -> PostOrder 400 / 30051. Интент должен
+# умереть у нас, не тратя заявку и не поднимая отказ брокера.
+function Scn-LongOnlyShortBlocked {
+  $r = New-Scenario 'long-only-short'
+  $s = New-BaseState $r
+  $s.active | Add-Member -NotePropertyName VTBR -NotePropertyValue 'VBU6' -Force
+  $s.pending_intents = @(New-EntryIntent 'core' 'VTBR' 'sell' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  $ret = Get-Calls $r 'PostOrder'
+  $posts = @($ret | Where-Object { $null -ne $_ })
+  Check 'long-only шорт: ни одной заявки брокеру' ($posts.Count -eq 0)
+  Check 'long-only шорт: интент вычищен (CANCELLED убран cleanup-ом)' (@($st.pending_intents).Count -eq 0)
+  Check 'long-only шорт: карточек нет' (@($st.sleeves.core.positions).Count -eq 0)
+  Check 'long-only шорт: причина в логе' ([string]$log -match 'SKIP long-only')
+  Check 'long-only шорт: тик выжил' ([string]$log -match 'tick ok')
+  Check 'long-only шорт: слот заявок дня не потрачен' ([int]$st.watermarks.orders_day_n -eq 0)
+}
+
+# --- 58. зеркало к 57: ЛОНГ по тому же активу проходит как обычно. Гейт обязан резать только
+# сторону - иначе он молча выключит VTBR/SBRF из торговли целиком.
+function Scn-LongOnlyLongPasses {
+  $r = New-Scenario 'long-only-long'
+  $s = New-BaseState $r
+  $s.active | Add-Member -NotePropertyName VTBR -NotePropertyValue 'VBU6' -Force
+  $s.pending_intents = @(New-EntryIntent 'core' 'VTBR' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  $ret = Get-Calls $r 'PostOrder'
+  $posts = @($ret | Where-Object { $null -ne $_ })
+  Check 'long-only лонг: заявка ушла брокеру' ($posts.Count -eq 1)
+  Check 'long-only лонг: гейт не сработал' ([string]$log -notmatch 'SKIP long-only')
+}
+
+# --- 59. гейт НЕ трогает выход: закрытие лонга по VTBR - это side=sell, но kind=exit, и оно
+# обязано проходить. Заблокированный выход = зависшая позиция на реальных деньгах.
+function Scn-LongOnlyExitAllowed {
+  $r = New-Scenario 'long-only-exit'
+  $s = New-BaseState $r
+  $s.active | Add-Member -NotePropertyName VTBR -NotePropertyValue 'VBU6' -Force
+  $c = New-Card 'setA' 'VTBR' 'VBU6' 'uid-VBU6' 'long' 5 2.9 2.6 7749.12
+  $s.sleeves.setA.positions = @($c)
+  $ex = New-EntryIntent 'setA' 'VTBR' 'sell' 0.229 0.1145 2.9 0.02
+  $ex.kind = 'exit'; $ex.lots = 5; $ex.ticker = 'VBU6'; $ex.uid = 'uid-VBU6'
+  $ex.ctx = [pscustomobject]@{ card_id = $c.id; reason = 'trail-ema20' }
+  $s.pending_intents = @($ex)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  $ret = Get-Calls $r 'PostOrder'
+  $posts = @($ret | Where-Object { $null -ne $_ })
+  Check 'long-only выход: заявка на закрытие ушла' ($posts.Count -eq 1)
+  Check 'long-only выход: гейт не сработал' ([string]$log -notmatch 'SKIP long-only')
+}
+
+# --- 60. вечерний same-day путь: именно он породил боевой i00041 (26.08 20:35Z). Шорт-сигнал по
+# VTBR обязан умереть на сигнале, НЕ создав интент - Invoke-EveningConfirm постит заявку сразу,
+# без ожидания окна входов, поэтому гейт на постановке тут был бы уже поздно виден в логе.
+# whitelist=VTBR по той же причине, что в evening-no-signal: мок цен не различает uid.
+function Scn-LongOnlyEveningShort {
+  $r = New-Scenario 'long-only-evening'
+  Write-SynthSeries $r 'VTBR' 2.9 0.1145
+  $s = New-BaseState $r
+  $s.active | Add-Member -NotePropertyName VTBR -NotePropertyValue 'VBU6' -Force
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{ whitelist = @('VTBR') })
+  # цена ниже нижней границы канала (2.9 - 0.1145/2 = 2.84275) -> донч-сигнал short
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{
+    lastPrices = @([pscustomobject]@{ instrumentId='uid-NGQ6'; price=[pscustomobject]@{units='2';nano=500000000} }) })
+  [void](Run-Tick $r '2026-07-15 23:40')
+  $st = Get-State $r
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  $ret = Get-Calls $r 'PostOrder'
+  $posts = @($ret | Where-Object { $null -ne $_ })
+  Check 'long-only вечер: ни одной заявки брокеру' ($posts.Count -eq 0)
+  Check 'long-only вечер: интент даже не создан' (@($st.pending_intents).Count -eq 0)
+  Check 'long-only вечер: карточек нет' (@($st.sleeves.core.positions).Count -eq 0)
+  Check 'long-only вечер: причина в логе (@evening)' ([string]$log -match 'SKIP long-only \[core\] VTBR short @evening')
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -1425,6 +1511,8 @@ $scenarios = @(
   ${function:Scn-AutoRebaseGrow}, ${function:Scn-AutoRebaseShrink}, ${function:Scn-AutoRebaseBelowDrift},
   ${function:Scn-AutoRebaseOpenPosition}, ${function:Scn-AutoRebaseDisabled}, ${function:Scn-AutoRebaseBadSnapshot},
   ${function:Scn-AutoRebaseClamp}, ${function:Scn-AutoRebaseIdempotent},
-  ${function:Scn-MarginDisabled}, ${function:Scn-MarginEnabledDefault}
+  ${function:Scn-MarginDisabled}, ${function:Scn-MarginEnabledDefault},
+  ${function:Scn-LongOnlyShortBlocked}, ${function:Scn-LongOnlyLongPasses}, ${function:Scn-LongOnlyExitAllowed},
+  ${function:Scn-LongOnlyEveningShort}
 )
 foreach ($fn in $scenarios) { & $fn }

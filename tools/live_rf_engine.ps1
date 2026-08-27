@@ -35,6 +35,7 @@ $LIVE = [ordered]@{
   go_trim_pct       = 0.75       # выше - LIFO-закрытие последней позиции
   reserve_rub       = 50000.0    # неприкосновенный резерв вне ГО-бюджета
   margin_disabled   = $false     # маржиналка на счёте отключена -> не звать GetMarginAttributes
+  long_only         = @('VTBR','SBRF')   # активы, по которым разрешён ТОЛЬКО лонг (см. Test-SideAllowed)
   profile_day_halt  = 0.08       # доп. предохранитель: профиль-день -8% -> entries_halt до завтра
   hard_dd           = 0.35       # АВАРИЙНЫЙ СТОП: -35% от пика -> закрыть всё + HALT_RF_LIVE (решение пользователя)
   max_orders_day    = 20         # предохранитель флуда (нюанс #11: сделки:заявки не хуже 1:10)
@@ -93,11 +94,14 @@ function Write-LiveLog([string]$Line) {
 function Write-LiveJournal([string]$Text) {
   [IO.File]::AppendAllText((Join-Path $Root 'journal_live_rf.md'), $Text, (New-Object System.Text.UTF8Encoding($false)))
 }
-function Alert([string]$Text) {
+function Alert([string]$Text, [switch]$Client) {
   $script:ev.Add("ALERT $Text")
   [void](Send-RfTelegram "Фьючерсы: $Text")
-  # фан-аут второму получателю (только фьючерсы) - если задан TG_CHAT_ID_FUT
-  if ($env:TG_CHAT_ID_FUT) { [void](Send-RfTelegram "Фьючерсы: $Text" -Chat $env:TG_CHAT_ID_FUT) }
+  # Фан-аут клиенту (TG_CHAT_ID_FUT) - ТОЛЬКО события по его деньгам: входы, выходы,
+  # аварийные остановки. Техническая диагностика (роллы, дрифт, состояния заявок, суточные
+  # проверки) остаётся у владельца. Дефолт НЕ клиентский нарочно: забытая пометка -Client
+  # даёт недосказанность, а забытое исключение дало бы утечку технической кухни клиенту.
+  if ($Client -and $env:TG_CHAT_ID_FUT) { [void](Send-RfTelegram "Фьючерсы: $Text" -Chat $env:TG_CHAT_ID_FUT) }
 }
 function Send-RfTelegram([string]$Text, [string]$Chat = '') {
   $ok = $false
@@ -508,7 +512,7 @@ function Close-CardLedger($Card, [double]$ExitPx, [string]$Reason, [double]$FeeR
     $holdD = ($NowMs - [long]$Card.entry_ts) / 3600000.0
     $rM = if ([double]$Card.risk_rub -gt 0) { $net / [double]$Card.risk_rub } else { $null }
     $rTailC = if ($null -ne $rM) { " — это $((('{0:0.##}' -f [math]::Abs($rM)).Replace('.',','))) изначального риска" } else { '' }
-    Alert (
+    Alert -Client (
       ("закрыта позиция {0} — {1}, была {2} {3} {4} по {5}." -f $Card.id, (RfName $Card), (RuSide $Card.side 'noun'), [int]$Card.lots_initial, (RuLots ([int]$Card.lots_initial)), (Fmt-Px ([double]$Card.entry_px_pts))) +
       ("`nРезультат: {0} ({1}){2}." -f (Fmt-Money $net '₽' 0 -Sign), (RfReasonRu $Reason), $rTailC) +
       ("`nВыход по {0}, позиция держалась {1}." -f (Fmt-Px ([double]$ExitPx)), (RuHoldRu $holdD)) +
@@ -600,7 +604,7 @@ function Replace-CardStop($Card, [double]$NewStopPts) {
 function Invoke-EmergencyClose($Card, [string]$Why) {
   # аварийное закрытие: cancel стопа + market в обратную сторону (write-ahead)
   $script:ev.Add("EMERGENCY CLOSE $($Card.id) $($Card.asset) ($Why)")
-  Alert ("аварийное закрытие позиции {0} ({1}). Причина: {2}." -f $Card.id, (RfName $Card), (RfReasonRu $Why))
+  Alert -Client ("аварийное закрытие позиции {0} ({1}). Причина: {2}." -f $Card.id, (RfName $Card), (RfReasonRu $Why))
   if ([string]$Card.stop_order_id -and -not $LIVE.emulate_stops) {
     try { Cancel-TiStopOrder ([string]$st.account_id) ([string]$Card.stop_order_id) | Out-Null } catch {}
   }
@@ -896,6 +900,21 @@ function Invoke-AutoRebase {
 }
 function Test-GoAllows([double]$AddGoRub) {
   return (([double]$st.go.used_rub + $AddGoRub) -le ([double]$LIVE.go_cap_pct * [double]$st.go.budget_rub))
+}
+# long-only активы (боевой факт 2026-08-27, инциденты i00041/i00042 по VBU6): VTBR и SBRF - это
+# ПОСТАВОЧНЫЕ фьючерсы на акции. На экспирации шорт по такому контракту превращается в продажу
+# самих акций ("с вашего счета будет продан базовый актив", справка Т-Банка), которых на счёте
+# нет, - брокеру пришлось бы открыть непокрытый шорт по бумаге. Маржинальная торговля на счёте
+# выключена, поэтому T-Invest отбивает заявку ещё на постановке: PostOrder -> HTTP 400,
+# 30051 "Account margin status is disabled". Лонг ограничения не имеет: там на экспирации бумаги
+# покупаются за рубли, заём не нужен.
+# Гейт живёт ЗДЕСЬ, а не в lib_rf_signals.ps1, сознательно: это свойство боевого СЧЁТА, а не
+# стратегии. lib_rf_signals - ОБЩЕЕ сигнальное ядро paper-контура (rf_engine.ps1) и live;
+# правка там молча изменила бы и paper, и бэктест, а они должны продолжать считать обе стороны -
+# иначе бенчмарк перестанет быть сравнимым с live.
+function Test-SideAllowed([string]$Asset, [string]$Side) {
+  if ($Side -eq 'long' -or $Side -eq 'buy') { return $true }
+  return (@($LIVE.long_only) -notcontains $Asset)
 }
 
 # ================= reconcile (каждый тик, до любых действий) =================
@@ -1275,7 +1294,7 @@ function Apply-FilledIntent($It) {
       $script:ev.Add("ENTRY [$($It.sleeve)] $($card.id) $($It.asset) $sideName $([int]$It.filled_lots) лот @$px")
       $script:jr.Add(("`r`n## {0} MSK — RF-LIVE [{1}]: ВХОД {2} {3} {4} {5} лот @{6}, стоп {7}, риск {8} ₽`r`n" -f (MsToUtcStr $mskNowMs), $It.sleeve, $card.id, $It.asset, $sideName.ToUpper(), [int]$It.filled_lots, $px, $card.stop_px_pts, $card.risk_rub))
       $notionalE = [int]$card.lots_initial * [double]$card.entry_px_pts * [double]$card.rub_per_pt
-      Alert (
+      Alert -Client (
         ("открыта позиция {0} — {1}, {2}, {3} {4} по {5} (стратегия «{6}»)." -f $card.id, (RfName $card), (RuSide $card.side 'noun'), [int]$card.lots, (RuLots ([int]$card.lots)), (Fmt-Px ([double]$card.entry_px_pts)), (SleeveRu ([string]$card.sleeve))) +
         ("`nОбъём позиции: {0}, риск сделки: {1}." -f (Fmt-Money $notionalE '₽' 0), (Fmt-Money ([double]$card.risk_rub) '₽' 0)) +
         ("`nСтоп-заявка выставляется у брокера: {0}." -f (Fmt-Px ([double]$card.stop_px_pts))))
@@ -1622,7 +1641,9 @@ function Invoke-LiveDayHook([string]$D) {
     $key = "c3b_$a"
     $ra = if ($st.rearm.PSObject.Properties[$key]) { $st.rearm.$key } else { $null }
     $dsig = Get-DonchianSide $s $i $ra
-    if ([string]$dsig.side -ne '') {
+    if ([string]$dsig.side -ne '' -and -not (Test-SideAllowed $a ([string]$dsig.side))) {
+      $script:ev.Add("SKIP long-only [core] $a $($dsig.side) @close $cl")
+    } elseif ([string]$dsig.side -ne '') {
       $slC = $st.sleeves.core
       $busy = @($slC.positions).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'core' -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
       $has = @($slC.positions | Where-Object { $_.asset -eq $a }).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'core' -and $_.asset -eq $a -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
@@ -1638,7 +1659,9 @@ function Invoke-LiveDayHook([string]$D) {
     }
     # setA
     $asig = Get-SetupASignal $s $i
-    if ($null -ne $asig) {
+    if ($null -ne $asig -and -not (Test-SideAllowed $a ([string]$asig.side))) {
+      $script:ev.Add("SKIP long-only [setA] $a $($asig.side) @close $cl")
+    } elseif ($null -ne $asig) {
       $slA = $st.sleeves.setA
       $busy = @($slA.positions).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'setA' -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
       $has = @($slA.positions | Where-Object { $_.asset -eq $a }).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'setA' -and $_.asset -eq $a -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
@@ -1694,6 +1717,13 @@ function Invoke-EntryWindow {
 function Invoke-EntryIntentPost($it) {
   $sl = Get-SleeveRef ([string]$it.sleeve)
   if ([string]$sl.halt_day -eq $mskToday) { Set-IntentState $it 'CANCELLED' 'sleeve halt'; return }
+  # страховка на реальных деньгах: интент мог быть создан ДО появления гейта (восстановлен из
+  # state) или прийти по будущему пути в обход сигнальных проверок - брокер такой шорт отобьёт
+  if (-not (Test-SideAllowed ([string]$it.asset) ([string]$it.side))) {
+    Set-IntentState $it 'CANCELLED' 'long-only'
+    $script:ev.Add("SKIP long-only [$($it.sleeve)] $($it.asset) $($it.side)")
+    return
+  }
   $secid = [string]$st.active.$([string]$it.asset)
   $inst = $null
   try { $inst = Get-Inst $secid 'fut' } catch { Set-IntentState $it 'CANCELLED' "инструмент: $($_.Exception.Message)"; Alert ("вход по {0} отменён: {1}." -f (AssetName ([string]$it.asset) $secid), $_.Exception.Message); return }
@@ -1805,6 +1835,10 @@ function Invoke-EveningConfirm {
       $ra = if ($st.rearm.PSObject.Properties[$key]) { $st.rearm.$key } else { $null }
       $dsig = Get-DonchianSide $tmp ($tmp.Count - 1) $ra
       if ([string]$dsig.side -eq '') { continue }
+      if (-not (Test-SideAllowed $a ([string]$dsig.side))) {
+        $script:ev.Add("SKIP long-only [core] $a $($dsig.side) @evening $px (same-day)")
+        continue
+      }
       $dir = if ($dsig.side -eq 'long') { 'buy' } else { 'sell' }
       $it = New-Intent 'entry' @{ sleeve = 'core'; asset = $a; side = $dir; created_day = $mskToday
         t_signal = $NowMs
@@ -1977,7 +2011,7 @@ function Invoke-Tp1Sync($StopIds) {
       $script:ev.Add("TP1 fill $($c.id) $($c.asset) $half лот @$px")
       # стоп остатка в безубыток
       [void](Replace-CardStop $c ([double]$c.entry_px_pts))
-      Alert ("позиция {0} ({1}) дошла до первой цели {2} — закрыта половина ({3} {4}) с прибылью {5}, стоп остатка переведён на цену входа. Хуже нуля позиция уже не закроется." -f $c.id, (RfName $c), (Fmt-Px $px), [int]$half, (RuLots ([int]$half)), (Fmt-Money ([math]::Round($pnl,0)) '₽' 0 -Sign))
+      Alert -Client ("позиция {0} ({1}) дошла до первой цели {2} — закрыта половина ({3} {4}) с прибылью {5}, стоп остатка переведён на цену входа. Хуже нуля позиция уже не закроется." -f $c.id, (RfName $c), (Fmt-Px $px), [int]$half, (RuLots ([int]$half)), (Fmt-Money ([math]::Round($pnl,0)) '₽' 0 -Sign))
     } else {
       $c.tp1_order_id = ''   # заявка исчезла без операции - перевыставим при следующем reconcile? нет: алерт
       Alert "заявка на первую цель по позиции $($c.id) ($(RfName $c)) исчезла, но исполнение не найдено — пожалуйста, проверьте позицию у брокера вручную."
@@ -2053,7 +2087,7 @@ function Invoke-Governors {
       return
     }
     if ($dd -ge [double]$LIVE.hard_dd) {
-      Alert ("АВАРИЙНАЯ ОСТАНОВКА — просадка достигла {0:P1} от максимума капитала. Все позиции закрываются по рынку, торговля остановлена до ручного разбора." -f $dd)
+      Alert -Client ("АВАРИЙНАЯ ОСТАНОВКА — просадка достигла {0:P1} от максимума капитала. Все позиции закрываются по рынку, торговля остановлена до ручного разбора." -f $dd)
       foreach ($sn in 'core','setA') {
         foreach ($c in @($st.sleeves.$sn.positions)) { Invoke-EmergencyClose $c 'hard-dd' }
       }
@@ -2081,7 +2115,7 @@ function Invoke-Governors {
         foreach ($c in @($st.sleeves.$sn.positions)) { if ($null -eq $newest -or [long]$c.entry_ts -gt [long]$newest.entry_ts) { $newest = $c } }
       }
       if ($null -ne $newest) {
-        Alert ("гарантийное обеспечение занято на {0:P0} (порог {1:P0}) — закрываю последнюю открытую позицию {2} ({3}), чтобы освободить обеспечение." -f $goPct, [double]$LIVE.go_trim_pct, $newest.id, (RfName $newest))
+        Alert -Client ("гарантийное обеспечение занято на {0:P0} (порог {1:P0}) — закрываю последнюю открытую позицию {2} ({3}), чтобы освободить обеспечение." -f $goPct, [double]$LIVE.go_trim_pct, $newest.id, (RfName $newest))
         Invoke-EmergencyClose $newest 'go-trim'
       }
     } elseif ($goPct -gt [double]$LIVE.go_cap_pct) {
@@ -2187,9 +2221,9 @@ function Invoke-ReportVerify([string]$ReportText, $Facts) {
     if ($null -eq $answer) { return }
     $answer = $answer.Trim()
     if ($answer -and $answer -ne 'OK' -and $answer -ne 'ОК') {
+      # только владельцу: это внутренняя проверка качества текста, а не событие по счёту
       $warn = "⚠️ Проверка вечернего отчёта: $answer"
       [void](Send-TgAlert $warn)
-      if ($env:TG_CHAT_ID_FUT) { [void](Send-TgAlert $warn -Chat $env:TG_CHAT_ID_FUT) }
     } else {
       # успех молчит в Telegram нарочно (не спамить) - но должен быть виден в логе тика,
       # иначе "ничего не пришло" неотличимо от "проверка вообще не запускалась"
@@ -2275,25 +2309,46 @@ function Invoke-DailyReport([switch]$Preview) {
   if ([double]$st.go.budget_rub -gt 0) {
     $L.Add("Гарантийное обеспечение (ГО): занято $(Fmt-Money ([double]$st.go.used_rub) '₽' 0) из $(Fmt-Money ([double]$st.go.budget_rub) '₽' 0)")
   }
+  # Служебные строчки отчёта (суточная проверка, расхождения с брокером) помечаются по ИНДЕКСУ
+  # в $L и вырезаются из клиентской версии ниже. Именно по индексу, а не по тексту: в $L есть
+  # пустые строки-разделители, сравнение по значению вырезало бы чужие строки.
+  $opsIdx = New-Object System.Collections.Generic.HashSet[int]
   if ($st.PSObject.Properties['readiness']) {
     $rdy = $st.readiness
     if (@($rdy.failed).Count -eq 0 -and [bool]$rdy.fits) {
       $L.Add("Готовность инструментов: $($rdy.checked_n)/$($rdy.total_n) торгуются, худший случай ГО $(Fmt-Money ([double]$rdy.go_worst_rub) '₽' 0) укладывается в кэп $(Fmt-Money ([double]$rdy.go_cap_rub) '₽' 0).")
     } else {
-      $L.Add("ВНИМАНИЕ: суточная проверка готовности нашла проблему (см. алерт) — недоступно у брокера: $(@($rdy.failed).Count), худший случай ГО $(Fmt-Money ([double]$rdy.go_worst_rub) '₽' 0) / кэп $(Fmt-Money ([double]$rdy.go_cap_rub) '₽' 0).")
+      # Перечисляем ТОЛЬКО те проверки, что реально не сошлись. Раньше строка печатала обе
+      # безусловно, и при чистом брокере выдавала «недоступно у брокера: 0» - нулевой счётчик
+      # рядом со словом «проблема» читался как отдельная авария (вопрос пользователя 2026-08-26).
+      # Превышение худшего случая ГО - штатное состояние (канон шире кэпа), поэтому без «ВНИМАНИЕ».
+      $why = New-Object System.Collections.Generic.List[string]
+      if (@($rdy.failed).Count -gt 0) {
+        $why.Add("недоступны у брокера: $(@($rdy.failed).Count) из $($rdy.total_n) (см. алерт)")
+      }
+      if (-not [bool]$rdy.fits) {
+        $why.Add(("худший случай ГО {0} превышает кэп {1} — это если бы все {2}+{2} слота заполнились разом; на реальные заявки не влияет, их режет governor" -f (Fmt-Money ([double]$rdy.go_worst_rub) '₽' 0), (Fmt-Money ([double]$rdy.go_cap_rub) '₽' 0), $MAXCONC))
+      }
+      $L.Add("Суточная проверка готовности: $($why -join '; ').")
     }
+    [void]$opsIdx.Add($L.Count - 1)
   }
   $dsum = [int]$st.drift.D2 + [int]$st.drift.D4 + [int]$st.drift.D5 + [int]$st.drift.D6
   if ($dsum -eq 0) { $L.Add("Расхождений с брокером нет (D2/D4/D5/D6 = $($st.drift.D2)/$($st.drift.D4)/$($st.drift.D5)/$($st.drift.D6))") }
   else { $L.Add("Внимание, расхождения с брокером: D2/D4/D5/D6 = $($st.drift.D2)/$($st.drift.D4)/$($st.drift.D5)/$($st.drift.D6)") }
+  [void]$opsIdx.Add($L.Count - 1)
   if ($st.entries_halt.active) { $L.Add("Новые входы остановлены: $([string]$st.entries_halt.reason)") }
   else { $L.Add('Входы разрешены, торговля идёт штатно.') }
   if ($open.Count -gt 0) { $L.Add('Проценты по позициям — от объёма позиции при входе.') }
 
   $txt = ($L -join "`n")
+  # Клиентская версия - тот же отчёт без служебных строк ($opsIdx). Деньги (капитал, P&L,
+  # позиции, сделки, ГО занято, статус входов) остаются; техническая диагностика - нет.
+  $clientLines = Get-ClientLines $L $opsIdx
+  $txtClient = ($clientLines -join "`n")
   $script:jr.Add("`r`n## $(MsToUtcStr $mskNowMs) MSK — вечерний отчёт`r`n$txt`r`n")
   try { Send-TgAlert $txt | Out-Null } catch {}
-  if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert $txt -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
+  if ($env:TG_CHAT_ID_FUT) { try { Send-TgAlert $txtClient -Chat $env:TG_CHAT_ID_FUT | Out-Null } catch {} }
 
   # ИИ-проверка ПОСЛЕ отправки: сверка уже готового текста с фактами, никогда не блокирует
   # и не задерживает сам отчёт (см. Invoke-ReportVerify - fail-open по конструкции).
