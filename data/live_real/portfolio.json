@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 105.87,
+  "equity_usd": 105.77,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 105.87,
   "day_start_date_utc": "2026-08-27",
@@ -13,11 +13,11 @@
       "id": "LT24",
       "symbol": "AVAX-USDT",
       "side": "long",
-      "status": "pending",
+      "status": "open",
       "qty": 3.8,
       "qty_initial": 3.8,
-      "entry_filled_qty": 0.0,
-      "entry_price": 7.431,
+      "entry_filled_qty": 3.8,
+      "entry_price": 7.433000000000001,
       "stop": 7.153,
       "stop0": 7.153,
       "tp1": 7.848,
@@ -31,7 +31,7 @@
       "entry_ts": 1787788803339,
       "risk_usd": 1.06,
       "notional_usd": 28.24,
-      "fees_usd": 0.0,
+      "fees_usd": 0.0282454,
       "funding_usd": 0.0,
       "legs": [],
       "thesis": {
@@ -46,17 +46,18 @@
           "funding": true,
           "fearGreed": true
         }
-      }
+      },
+      "cur_upnl_usd": -0.0038
     },
     {
       "id": "LT25",
       "symbol": "LINK-USDT",
       "side": "long",
-      "status": "pending",
+      "status": "open",
       "qty": 1.8,
       "qty_initial": 1.8,
-      "entry_filled_qty": 0.0,
-      "entry_price": 11.598,
+      "entry_filled_qty": 1.8,
+      "entry_price": 11.603,
       "stop": 11.028,
       "stop0": 11.028,
       "tp1": 12.453,
@@ -70,7 +71,7 @@
       "entry_ts": 1787788803339,
       "risk_usd": 1.03,
       "notional_usd": 20.88,
-      "fees_usd": 0.0,
+      "fees_usd": 0.0208854,
       "funding_usd": 0.0,
       "legs": [],
       "thesis": {
@@ -85,17 +86,18 @@
           "funding": true,
           "fearGreed": true
         }
-      }
+      },
+      "cur_upnl_usd": 0.018
     },
     {
       "id": "LT26",
       "symbol": "DOT-USDT",
       "side": "long",
-      "status": "pending",
+      "status": "open",
       "qty": 23.7,
       "qty_initial": 23.7,
-      "entry_filled_qty": 0.0,
-      "entry_price": 0.8738,
+      "entry_filled_qty": 23.7,
+      "entry_price": 0.8743,
       "stop": 0.8291,
       "stop0": 0.8291,
       "tp1": 0.9409,
@@ -109,7 +111,7 @@
       "entry_ts": 1787788803339,
       "risk_usd": 1.06,
       "notional_usd": 20.71,
-      "fees_usd": 0.0,
+      "fees_usd": 0.02072091,
       "funding_usd": 0.0,
       "legs": [],
       "thesis": {
@@ -124,14 +126,15 @@
           "funding": true,
           "fearGreed": true
         }
-      }
+      },
+      "cur_upnl_usd": -0.04266
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1787774400000,
     "last_trail_4h_ts": 1787774400000,
-    "last_exec_ms": 1787762249197,
+    "last_exec_ms": 1787788830549,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -436,7 +439,11 @@
       "4951ae27-321d-5343-b474-4f8f4725bcfb",
       "9625eec4-230d-58a8-bb2f-f1fb012b2228",
       "37061a3d-1ec8-4b31-84c6-ca7c00c41db8",
-      "0066ac11-c6e4-5e62-aaa4-d19f67be1de2"
+      "0066ac11-c6e4-5e62-aaa4-d19f67be1de2",
+      "48b07bd9-7c26-55a1-a994-be4ed19960cd",
+      "e3438b0e-a8aa-5945-8785-d2e427dddaa8",
+      "e2c9d8e6-3eb8-58fc-9ab7-2cd32721ff02",
+      "ab9dc667-ff45-5aed-b982-b05d6397b665"
     ],
     "next_trade_id": 27,
     "halt_day_utc": null,
@@ -458,7 +465,7 @@
       "ATOM-USDT",
       "DOT-USDT"
     ],
-    "last_tick_utc": "2026-08-27 00:00",
+    "last_tick_utc": "2026-08-27 00:01",
     "last_daily_summary_day": "2026-08-26",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
