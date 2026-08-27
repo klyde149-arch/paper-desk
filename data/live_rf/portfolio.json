@@ -54,8 +54,8 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 12.749,
-          "upnl_rub": 24192.0
+          "cur_px": 12.769,
+          "upnl_rub": 27552.0
         },
         {
           "id": "L00040",
@@ -94,11 +94,11 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 99739.0,
-          "upnl_rub": -210.0
+          "cur_px": 99818.0,
+          "upnl_rub": 1370.0
         }
       ],
-      "equity_mtm": 1111208.99
+      "equity_mtm": 1116148.99
     },
     "setA": {
       "eq_rub": 1104819.9489744043,
@@ -123,7 +123,7 @@
       }
     }
   },
-  "profile_eq": 754058.05,
+  "profile_eq": 757415.03,
   "profile_month_start": 696447.86,
   "cur_month": "2026-08",
   "day_start_eq": 1582970.74,
@@ -132,11 +132,11 @@
   "watermarks": {
     "last_daily_day": "2026-08-26",
     "last_hour_ts": 1787806800000,
-    "ops_since": "2026-08-27T02:45:32Z",
-    "last_eq_snap": 1787802272828,
+    "ops_since": "2026-08-27T03:00:33Z",
+    "last_eq_snap": 1787803172863,
     "last_report_day": "2026-08-26",
-    "orders_day": "2026-08-26",
-    "orders_day_n": 2,
+    "orders_day": "2026-08-27",
+    "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
     "evening_confirm_day": "2026-08-26"
   },
@@ -276,43 +276,12 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [
-    {
-      "id": "i00042",
-      "kind": "entry",
-      "sleeve": "core",
-      "asset": "VTBR",
-      "ticker": "VBU6",
-      "uid": "d4cf8101-c236-4415-a410-3d395cbee9eb",
-      "side": "sell",
-      "lots": 0,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "2c767148-8736-ff28-573d-5355b4cd9521",
-      "broker_order_id": "",
-      "state": "INTENT",
-      "attempts": 0,
-      "t_signal": 1787788200000,
-      "t_post": 0,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-08-26",
-      "state_ts": 1787779232996,
-      "last_error": "",
-      "ctx": {
-        "stop_dist": 387.142857,
-        "atr": 193.571429,
-        "risk_pct": 0.05,
-        "ref_px": 5050.0,
-        "note": "donchian close 5050 vs [5105 / 6036]"
-      }
-    }
-  ],
+  "pending_intents": [],
   "next_intent_id": 43,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 16,
-    "orders_posted": 24,
+    "orders_posted": 25,
     "fills": 34,
     "wins": 10,
     "losses": 6,
