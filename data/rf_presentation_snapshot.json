@@ -1,41 +1,41 @@
 {
   "schema": 1,
-  "generatedAtMs": 1787828438353,
-  "sourceAtMs": 1787827593204,
+  "generatedAtMs": 1787829337999,
+  "sourceAtMs": 1787828553126,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1631688.74,
+    "capital": 1564998.83,
     "peak": 1675149.53,
-    "drawdownPct": -2.59,
+    "drawdownPct": -6.58,
     "dayBase": 1582970.74,
     "dayBaseSource": "prev_day_close",
-    "todayAmt": 48718.0,
-    "todayPct": 3.08,
-    "allTimePct": 11.95,
-    "allTimeAmt": 83683.79,
+    "todayAmt": -17971.91,
+    "todayPct": -1.14,
+    "allTimePct": 12.3,
+    "allTimeAmt": 86072.95,
     "allTimeNote": "пополнения счёта не учтены",
-    "openPositions": 2,
-    "tradesPnl": 35541.41,
-    "fees": 6287.28,
-    "winRate": 62.5,
-    "wins": 10,
+    "openPositions": 0,
+    "tradesPnl": 106635.21,
+    "fees": 8361.64,
+    "winRate": 66.7,
+    "wins": 12,
     "losses": 6,
     "entriesHalt": false,
     "haltReason": "",
-    "goUsed": 482188.96,
-    "goBudget": 1582394.74,
-    "accountLiquid": 1566492.74,
+    "goUsed": 0.0,
+    "goBudget": 1514908.83,
+    "accountLiquid": 1564998.83,
     "lastDailyDay": "2026-08-26"
   },
   "operational": {
     "go": {
-      "used_rub": 482188.96,
-      "budget_rub": 1582394.74,
+      "used_rub": 0.0,
+      "budget_rub": 1514908.83,
       "peak_day_rub": 482188.96,
       "capital_peak_rub": 1675149.53,
-      "account_liquid_rub": 1566492.74,
-      "bot_capital_rub": 1631688.74
+      "account_liquid_rub": 1564998.83,
+      "bot_capital_rub": 1564998.83
     },
     "drift": {
       "D2": 0,
@@ -46,22 +46,22 @@
       "last": "D4 L00011"
     },
     "stats": {
-      "trades": 16,
+      "trades": 18,
       "orders_posted": 25,
-      "fills": 34,
-      "wins": 10,
+      "fills": 36,
+      "wins": 12,
       "losses": 6,
-      "fees_rub": 6287.27,
-      "realized_rub": 35541.41,
+      "fees_rub": 8361.63,
+      "realized_rub": 106635.21,
       "skipped_qty0": 0,
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1566492.74,
-      "futures": 65196.0,
+      "currencies": 1564998.83,
+      "futures": 0.0,
       "mom_shares": 0.0,
-      "user_assets": -65196.0,
-      "portfolio_total": 1566492.74
+      "user_assets": 0.0,
+      "portfolio_total": 1564998.83
     },
     "active": {
       "BR": "BRU6",
@@ -82,11 +82,11 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1154804.99,
-      "dayPct": 6.22
+      "equity": 1505817.03,
+      "dayPct": 6.54
     },
     "setA": {
-      "equity": 1104819.95,
+      "equity": 1436265.93,
       "dayPct": 0.0
     },
     "mom": {
@@ -94,54 +94,7 @@
       "dayPct": null
     }
   },
-  "positions": [
-    {
-      "id": "L00030",
-      "sleeve": "core",
-      "asset": "CNY",
-      "secid": "CRU6",
-      "title": "юань (CRU6)",
-      "side": "long",
-      "lots": 168,
-      "entry": 12.605,
-      "stop": 12.318286,
-      "tp1": null,
-      "cur": 12.896,
-      "upnl": 48888.0,
-      "risk": 54812.47,
-      "entryDay": "2026-08-13",
-      "entryTs": 1786653333021,
-      "rolls": 0,
-      "rubPerPt": 1000.0,
-      "notional": 2117640.0,
-      "pctChg": 2.31,
-      "reconcileStatus": null,
-      "reconcileSinceTs": null
-    },
-    {
-      "id": "L00040",
-      "sleeve": "core",
-      "asset": "Eu",
-      "secid": "EuU6",
-      "title": "евро-рубль (EuU6)",
-      "side": "long",
-      "lots": 20,
-      "entry": 99749.5,
-      "stop": 97460.142857,
-      "tp1": null,
-      "cur": 100684.0,
-      "upnl": 18690.0,
-      "risk": 54386.29,
-      "entryDay": "2026-08-26",
-      "entryTs": 1787776532986,
-      "rolls": 0,
-      "rubPerPt": 1.0,
-      "notional": 1994990.0,
-      "pctChg": 0.94,
-      "reconcileStatus": null,
-      "reconcileSinceTs": null
-    }
-  ],
+  "positions": [],
   "holdings": [],
   "closedTrades": [
     {
@@ -415,6 +368,40 @@
       "pnl": -4929.74,
       "rMultiple": -0.09,
       "fees": 377.24
+    },
+    {
+      "id": "L00030",
+      "sleeve": "core",
+      "asset": "CNY",
+      "secid": "CRU6",
+      "title": "юань (CRU6)",
+      "side": "long",
+      "lots": 168,
+      "entryDay": "2026-08-13",
+      "entry": 12.605,
+      "exitDay": "2026-08-27",
+      "exitPx": 12.913,
+      "exitReason": "manual-ext",
+      "pnl": 51201.65,
+      "rMultiple": 0.93,
+      "fees": 1071.76
+    },
+    {
+      "id": "L00040",
+      "sleeve": "core",
+      "asset": "Eu",
+      "secid": "EuU6",
+      "title": "евро-рубль (EuU6)",
+      "side": "long",
+      "lots": 20,
+      "entryDay": "2026-08-26",
+      "entry": 99749.5,
+      "exitDay": "2026-08-27",
+      "exitPx": 100769.3,
+      "exitReason": "manual-ext",
+      "pnl": 19892.15,
+      "rMultiple": 0.37,
+      "fees": 1002.6
     }
   ],
   "equity": [
@@ -14793,6 +14780,10 @@
     [
       1787827593204,
       784129.57
+    ],
+    [
+      1787828553126,
+      782373.61
     ]
   ],
   "capitalCurve": [
@@ -29111,6 +29102,10 @@
     [
       1787827593204,
       1631754.74
+    ],
+    [
+      1787828553126,
+      1632752.74
     ]
   ]
 }
