@@ -1,9 +1,9 @@
 ﻿# test_live_rf.ps1 - тест-раннер LIVE-контура Т-Инвестиций (C3b): юнит-тесты конвертеров/сайзинга
 # + сценарная матрица state machine / reconcile / governors на mock-транспорте (без сети и токена).
-# Запуск: powershell -File tools\test_live_rf.ps1 [-Only converters|sizing|scenarios]
+# Запуск: powershell -File tools\test_live_rf.ps1 [-Only converters|sizing|report|scenarios]
 # Каждый сценарий: чистый data-каталог + mock-сценарий + прогон N тиков live_rf_engine с -NowMs + assert'ы.
 param(
-  [string]$Only = ''   # '' = всё; 'converters' | 'sizing' | 'scenarios' | имя сценария
+  [string]$Only = ''   # '' = всё; 'converters' | 'sizing' | 'report' | 'scenarios' | имя сценария
 )
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
@@ -121,7 +121,18 @@ function Test-Sizing {
   Check 'TopNSum худший случай core (MAXCONC=3): 45000+41000+38000=124000' ((Get-TopNSum $goCore 'goCore' $MAXCONC) -eq 124000)
 }
 
-# ================= 3. сценарная матрица (движок на mock-транспорте) =================
+# ================= 3. client report =================
+function Test-Report {
+  Write-Host '== report =='
+  $lines = @('visible', 'internal', 'visible-after')
+  $hidden = New-Object System.Collections.Generic.HashSet[int]
+  [void]$hidden.Add(1)
+  $actual = (Get-ClientLines $lines $hidden) -join ','
+  Check 'client report omits internal line' ($actual -eq 'visible,visible-after')
+  Check 'client report handles no hidden lines' ((Get-ClientLines $lines $null) -join ',' -eq 'visible,internal,visible-after')
+}
+
+# ================= 4. сценарная матрица (движок на mock-транспорте) =================
 # заполняется вместе с live_rf_engine.ps1 (см. Invoke-Scenario ниже)
 function Test-Scenarios {
   Write-Host "== сценарии state machine (движок + mock) =="
@@ -131,6 +142,7 @@ function Test-Scenarios {
 
 if (-not $Only -or $Only -eq 'converters') { Test-Converters }
 if (-not $Only -or $Only -eq 'sizing') { Test-Sizing }
+if (-not $Only -or $Only -eq 'report') { Test-Report }
 if (-not $Only -or $Only -eq 'scenarios') { Test-Scenarios }
 
 Write-Host ""

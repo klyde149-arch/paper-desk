@@ -273,6 +273,16 @@ function Get-TopNSum([object[]]$Items, [string]$Key, [int]$N) {
   return [double]((($top | Measure-Object -Property $Key -Sum).Sum))
 }
 
+# Builds the client report by omitting internal lines marked by index.
+function Get-ClientLines($Lines, $OpsIdx) {
+  $src = if ($null -eq $Lines) { @() } else { @($Lines) }
+  $out = New-Object System.Collections.Generic.List[string]
+  for ($i = 0; $i -lt $src.Count; $i++) {
+    if ($null -eq $OpsIdx -or -not $OpsIdx.Contains($i)) { $out.Add([string]$src[$i]) }
+  }
+  , $out.ToArray()
+}
+
 # ---------- JSON io ----------
 function Read-JsonFile([string]$Path) {
   if (-not (Test-Path $Path)) { return $null }
