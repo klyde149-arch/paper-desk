@@ -109,7 +109,9 @@ VPS: Ubuntu 24.04, пользователь `trader`, репозиторий с�
 Если бандла секретов нет — ключи перевыпускаются:
 - **Bybit:** новый API-ключ, **trade-only, без вывода средств, с IP-whitelist** нового VPS.
 - **T-Invest:** токены по фазам — readonly → sandbox → полный (trade).
-- **Telegram:** bot token + chat id (основной `TG_CHAT_ID` и фьючерсный `TG_CHAT_ID_FUT`).
+- **Telegram:** bot token + chat id (основной `TG_CHAT_ID` — владелец, получает всё;
+  `TG_CHAT_ID_FUT` — клиент, только фьючерсы и без технической диагностики,
+  см. «Два потока в Telegram» в `deploy/README_RF.md`).
 - **OpenRouter:** ключ для ассистента.
 
 Полный список имён переменных — в `deploy\trading-live.env.example`.

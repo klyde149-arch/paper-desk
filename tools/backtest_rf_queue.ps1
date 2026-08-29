@@ -1,4 +1,4 @@
-# RF (MOEX futures) single-sleeve backtest with an optional "reactivate blocked signal on slot-free"
+﻿# RF (MOEX futures) single-sleeve backtest with an optional "reactivate blocked signal on slot-free"
 # queue experiment. Derived from tools\backtest.ps1's Donchian-breakout (core/"ядро") and
 # pullback (setA/"сетап А") branches, trimmed to RF-only concerns (no crypto BTC-filter/funding/F&G/
 # range-setup/anti-chase research knobs - canon RF research runs never use them, see
@@ -47,6 +47,11 @@ param(
   # ВНИМАНИЕ: в боевом движке такого механизма НЕТ ($REARM_N в lib_rf_signals.ps1 глобальный),
   # перенос в бой потребует правки торгового пути.
   [string[]]$ReArmExclude = @(),
+  # Символы, по которым разрешён ТОЛЬКО лонг: шорт-сигнал гасится и слот НЕ занимает. Пусто = как
+  # раньше, бит-в-бит. Зачем (2026-08-27): VTBR и SBRF - поставочные фьючерсы на акции, шорт по ним
+  # брокер не примет при выключенной маржиналке (PostOrder -> 30051), в бою это гасит
+  # Test-SideAllowed в live_rf_engine.ps1. Флаг позволяет померить цену этого ограничения.
+  [string[]]$LongOnly = @(),
   [string]$DataDir = 'C:\Users\klyde\trading-sim\data\moex_fut',
   [string]$FileSuffix = '_1d',
   [int]$WarmupBars = 60,
@@ -58,6 +63,13 @@ param(
   # Мотив (2026-08): Eu = Si * ED и CNY = Si / UCNY, то есть валютные пары к рублю - это одна и та
   # же ставка. Без лимита при MaxConcurrent=3 все слоты рукава может занять один фактор.
   [string[]]$ClusterGroup = @(),
+  # Сколько позиций из -ClusterGroup разрешено держать ОДНОВРЕМЕННО. 1 = прежнее поведение
+  # ("не более одной"), бит-в-бит. 2 = "не более двух". Действует только вместе с -ClusterGroup.
+  [int]$ClusterMax = 1,
+  # Множитель риска для ВТОРОЙ и последующих позиций из -ClusterGroup: 1.0 = выключено, бит-в-бит.
+  # 0.5 = вторая коррелированная позиция открывается половинным размером. Мягкая альтернатива
+  # жёсткому запрету: сделка не теряется, но совместный убыток кластера ограничен.
+  [double]$ClusterRiskScale = 1.0,
   # Посимвольная комиссия: @{ SFIN=0.0031; T=0.0007 }. Символы, которых тут нет, платят $FeePct.
   # Пусто (по умолчанию) = поведение бит-в-бит как раньше.
   # Зачем (2026-08): $FeePct - это доля от нотионала, а сборы на FORTS берутся ЗА КОНТРАКТ.
@@ -84,8 +96,9 @@ function Get-SymFee([string]$Sym) {
 function Test-ClusterBlocked([string]$Sym, $Open) {
   if (-not $ClusterGroup -or $ClusterGroup.Count -eq 0) { return $false }
   if ($ClusterGroup -notcontains $Sym) { return $false }
-  foreach ($os in @($Open.Keys)) { if ($ClusterGroup -contains $os) { return $true } }
-  return $false
+  $n = 0
+  foreach ($os in @($Open.Keys)) { if ($ClusterGroup -contains $os) { $n++ } }
+  return ($n -ge $ClusterMax)
 }
 
 function EMAseries([double[]]$v, [int]$p) {
@@ -204,6 +217,9 @@ function Get-StopDist([string]$sym, [int]$i, [string]$side) {
 # entry condition at bar $i: '' | 'long' | 'short' (breakout: Donchian-N + re-arm; else: EMA20/50 pullback)
 function Get-Signal([string]$sym, [int]$i) {
   if ($i -lt $WarmupBars) { return '' }
+  # long-only: шорт гасится ЗДЕСЬ, на сигнале - так же, как Test-SideAllowed в боевом движке
+  # (сигнал теряется, слот не занимает, re-arm не трогает: он ставится на выходе, не на сигнале)
+  $noShort = ($LongOnly -contains $sym)
   $atr = $S[$sym].atr[$i]
   if ([double]::IsNaN($atr) -or $atr -le 0) { return '' }
   if ($Breakout) {
@@ -219,7 +235,7 @@ function Get-Signal([string]$sym, [int]$i) {
       }
     }
     if ($cl -gt $chHi) { return 'long' }
-    if ($cl -lt $chLo) { return 'short' }
+    if ($cl -lt $chLo) { if ($noShort) { return '' }; return 'short' }
     return ''
   }
   $e20 = $S[$sym].ema20[$i]; $e50 = $S[$sym].ema50[$i]; $rsi = $S[$sym].rsi[$i]
@@ -236,7 +252,7 @@ function Get-Signal([string]$sym, [int]$i) {
     $touched = $false; $rsiHot = $false
     for ($j = $i - $PullbackLookback; $j -lt $i; $j++) { if ($j -ge 0) { if ($S[$sym].h[$j] -ge $S[$sym].ema20[$j]) { $touched = $true }; if ($S[$sym].rsi[$j] -ge 50.0) { $rsiHot = $true } } }
     $trigger = ($cl -lt $op) -and ($cl -lt $e20) -and ($S[$sym].c[$i - 1] -ge $S[$sym].ema20[$i - 1] -or $S[$sym].rsi[$i - 1] -ge 50.0)
-    if ($touched -and $rsiHot -and $trigger) { return 'short' }
+    if ($touched -and $rsiHot -and $trigger) { if ($noShort) { return '' }; return 'short' }
   }
   return ''
 }
@@ -248,7 +264,13 @@ function Open-Position([string]$sym, [string]$side, [double]$stopDist, [int]$i, 
   $entry = if ($side -eq 'long') { $cl * (1 + $SlipPct) } else { $cl * (1 - $SlipPct) }
   $stop = if ($side -eq 'long') { $entry - $stopDist } else { $entry + $stopDist }
   $tp1 = if ($Breakout) { $null } elseif ($side -eq 'long') { $entry + $RewardR * $stopDist } else { $entry - $RewardR * $stopDist }
-  $qty = ($script:equity * $RiskPct) / $stopDist
+  $rp = $RiskPct
+  if ($ClusterRiskScale -ne 1.0 -and $ClusterGroup -and $ClusterGroup.Count -gt 0 -and $ClusterGroup -contains $sym) {
+    $nOpen = 0
+    foreach ($os in @($script:open.Keys)) { if ($ClusterGroup -contains $os) { $nOpen++ } }
+    if ($nOpen -gt 0) { $rp = $RiskPct * $ClusterRiskScale }
+  }
+  $qty = ($script:equity * $rp) / $stopDist
   if ($qty * $entry -gt $MaxLev * $script:equity) { $qty = $MaxLev * $script:equity / $entry }
   $symFee = Get-SymFee $sym
   $efee = $qty * $entry * $symFee; $script:equity -= $efee

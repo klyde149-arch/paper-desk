@@ -121,15 +121,73 @@ function Test-Sizing {
   Check 'TopNSum худший случай core (MAXCONC=3): 45000+41000+38000=124000' ((Get-TopNSum $goCore 'goCore' $MAXCONC) -eq 124000)
 }
 
-# ================= 3. client report =================
+# ================= 3. отчёт: владелец vs клиент =================
 function Test-Report {
-  Write-Host '== report =='
-  $lines = @('visible', 'internal', 'visible-after')
-  $hidden = New-Object System.Collections.Generic.HashSet[int]
-  [void]$hidden.Add(1)
-  $actual = (Get-ClientLines $lines $hidden) -join ','
-  Check 'client report omits internal line' ($actual -eq 'visible,visible-after')
-  Check 'client report handles no hidden lines' ((Get-ClientLines $lines $null) -join ',' -eq 'visible,internal,visible-after')
+  Write-Host "== отчёт: два потока (владелец / клиент) =="
+
+  # Get-ClientLines (lib_engine.ps1): клиентская версия вечернего отчёта - тот же список строк
+  # за вычетом служебных, помеченных по индексу. Владельцу уходит полный текст.
+  $L = New-Object System.Collections.Generic.List[string]
+  $opsIdx = New-Object System.Collections.Generic.HashSet[int]
+  $L.Add('Капитал бота: 1 566 303 ₽')
+  $L.Add('')                                   # разделитель: НЕ служебная строка, должен выжить
+  $L.Add('Открытые позиции: 1')
+  $L.Add('Гарантийное обеспечение (ГО): занято 183 543 ₽ из 1 512 278 ₽')
+  $L.Add('Суточная проверка готовности: худший случай ГО 1 518 814 ₽ превышает кэп 1 139 522 ₽.')
+  [void]$opsIdx.Add($L.Count - 1)
+  $L.Add('Внимание, расхождения с брокером: D2/D4/D5/D6 = 0/1/0/3')
+  [void]$opsIdx.Add($L.Count - 1)
+  $L.Add('Входы разрешены, торговля идёт штатно.')
+
+  $txt = ($L -join "`n")
+  $txtClient = ((Get-ClientLines $L $opsIdx) -join "`n")
+
+  Check 'клиент: без строки суточной проверки' (-not $txtClient.Contains('Суточная проверка готовности'))
+  Check 'клиент: без расхождений D2/D4/D5/D6' (-not $txtClient.Contains('D2/D4/D5/D6'))
+  Check 'клиент: капитал на месте' ($txtClient.Contains('Капитал бота: 1 566 303 ₽'))
+  Check 'клиент: ГО занято/бюджет на месте' ($txtClient.Contains('занято 183 543 ₽ из 1 512 278 ₽'))
+  Check 'клиент: статус входов на месте' ($txtClient.Contains('Входы разрешены'))
+  Check 'клиент: пустой разделитель не съеден' (($txtClient -split "`n").Count -eq $L.Count - 2)
+  Check 'владелец: суточная проверка на месте' ($txt.Contains('Суточная проверка готовности'))
+  Check 'владелец: расхождения на месте' ($txt.Contains('D2/D4/D5/D6'))
+  Check 'владелец: текст не урезан' (($txt -split "`n").Count -eq $L.Count)
+
+  # вырожденные входы
+  Check 'Get-ClientLines: пустой opsIdx -> текст как есть' (
+    ((Get-ClientLines $L (New-Object System.Collections.Generic.HashSet[int])) -join "`n") -eq $txt)
+  Check 'Get-ClientLines: $null opsIdx -> текст как есть' (((Get-ClientLines $L $null) -join "`n") -eq $txt)
+  # вызывать ТАК ЖЕ, как движок: с присваиванием. Get-ClientLines возвращает , $arr - унарная
+  # запятая держит форму массива для 0/1 строки (как ToArr), но инлайновый @(Get-ClientLines ...)
+  # увидел бы из-за неё один элемент - пустой массив, а не пустой результат.
+  $emptyRes = Get-ClientLines (New-Object System.Collections.Generic.List[string]) $opsIdx
+  Check 'Get-ClientLines: пустой список -> пусто' (@($emptyRes).Count -eq 0)
+  $nullRes = Get-ClientLines $null $opsIdx
+  Check 'Get-ClientLines: $null список -> пусто (не одна пустая строка)' (@($nullRes).Count -eq 0)
+  $oneRes = Get-ClientLines @('одна строка') $null
+  Check 'Get-ClientLines: одна строка остаётся массивом' ($oneRes -is [array] -and @($oneRes).Count -eq 1)
+
+  # формулировка суточной проверки (Invoke-DailyReadinessCheck -> Invoke-DailyReport): перечисляем
+  # ТОЛЬКО реально провалившиеся проверки. Раньше при чистом брокере в текст лез «недоступно у
+  # брокера: 0» - нулевой счётчик рядом со словом «проблема» читался как отдельная авария.
+  function Build-ReadinessWhy($Rdy, [int]$MaxConc) {
+    $why = New-Object System.Collections.Generic.List[string]
+    if (@($Rdy.failed).Count -gt 0) { $why.Add("недоступны у брокера: $(@($Rdy.failed).Count) из $($Rdy.total_n) (см. алерт)") }
+    if (-not [bool]$Rdy.fits) { $why.Add("худший случай ГО превышает кэп ($MaxConc+$MaxConc слота)") }
+    return ($why -join '; ')
+  }
+  # боевой снимок 2026-08-24: брокер чист, не сходится только ёмкость ГО
+  $rdyGo = [pscustomobject]@{ failed = @(); total_n = 12; fits = $false }
+  $whyGo = Build-ReadinessWhy $rdyGo 3
+  Check 'причины: только ГО, без «недоступно: 0»' (-not $whyGo.Contains('недоступн'))
+  Check 'причины: ГО названо' ($whyGo.Contains('худший случай ГО'))
+  # брокер отвалился, ГО в норме
+  $rdyBr = [pscustomobject]@{ failed = @('NG (NGQ6): 404'); total_n = 12; fits = $true }
+  $whyBr = Build-ReadinessWhy $rdyBr 3
+  Check 'причины: только брокер' ($whyBr.Contains('недоступны у брокера: 1 из 12') -and -not $whyBr.Contains('худший случай'))
+  # обе разом
+  $rdyBoth = [pscustomobject]@{ failed = @('NG (NGQ6): 404', 'BR (BRQ6): 404'); total_n = 12; fits = $false }
+  $whyBoth = Build-ReadinessWhy $rdyBoth 3
+  Check 'причины: обе через «; »' ($whyBoth.Contains('недоступны у брокера: 2 из 12 (см. алерт); худший случай ГО'))
 }
 
 # ================= 4. сценарная матрица (движок на mock-транспорте) =================

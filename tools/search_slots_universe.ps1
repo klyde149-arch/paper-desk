@@ -48,7 +48,11 @@ param(
   [int]$ReArmN = 0,
   [int]$ReArmBars = 15,
   # Символы, которым re-arm НЕ применяется (проброс к -ReArmExclude в backtest_rf_queue.ps1).
-  [string[]]$ReArmExclude = @()
+  [string[]]$ReArmExclude = @(),
+  # Символы, по которым разрешён только лонг (проброс к -LongOnly). Применяется к ОБОИМ рукавам;
+  # momentum не затронут - он и так только покупает. Мотив 2026-08-27: VTBR/SBRF - поставочные
+  # фьючерсы, шорт по ним брокер не принимает при выключенной маржиналке.
+  [string[]]$LongOnly = @()
 )
 $ErrorActionPreference = 'Stop'
 if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
@@ -90,6 +94,7 @@ function Invoke-Sleeve([string]$Sleeve, [string[]]$Syms, [double]$Risk, [int]$Sl
   if ($ToDate)   { $p.ToDate   = $ToDate }
   $fees = Get-FeeTable $Syms
   if ($fees.Count) { $p.FeePctBySymbol = $fees }
+  if ($LongOnly.Count) { $p.LongOnly = $LongOnly }
   if ($Sleeve -eq 'core') {
     $p.Breakout = $true; $p.BreakoutN = 20; $p.AtrStopMult = 2.0; $p.AtrTrailMult = 3.0
     if ($ReArmN -gt 0) { $p.ReArmN = $ReArmN; $p.ReArmBars = $ReArmBars; $p.ReArmExclude = $ReArmExclude }   # re-arm только у ядра
@@ -151,6 +156,7 @@ $out = [pscustomobject]@{
   coreSlots = $CoreSlots; setASlots = $SetASlots; riskMode = $RiskMode
   coreRisk = $coreRisk; setaRisk = $setaRisk; queueMode = $QueueMode
   realFees = [bool]$RealFees; fromDate = $FromDate; toDate = $ToDate; devOnly = [bool]$DevOnly; reserveOnly = [bool]$ReserveOnly
+  longOnly = @($LongOnly)
   monthlyPct = $res.monthlyPct; maxDDPct = $res.maxDDPct; multiple = $res.multiple
   worstMonthPct = $res.worstMonthPct; months = $res.months
 }

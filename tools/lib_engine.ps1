@@ -273,8 +273,13 @@ function Get-TopNSum([object[]]$Items, [string]$Key, [int]$N) {
   return [double]((($top | Measure-Object -Property $Key -Sum).Sum))
 }
 
-# Builds the client report by omitting internal lines marked by index.
+# Строки отчёта за вычетом служебных, помеченных по ИНДЕКСУ в $OpsIdx - клиентская версия
+# вечернего отчёта (владелец получает полный текст). Фильтр именно по индексу, а не по тексту:
+# в списке строк есть пустые разделители, сравнение по значению вырезало бы и их, и любую
+# случайно совпавшую строку. Пустой/непереданный $OpsIdx = текст возвращается как есть.
 function Get-ClientLines($Lines, $OpsIdx) {
+  # PS 5.1: пустая коллекция, переданная аргументом, доезжает как $null, а @($null).Count = 1 -
+  # без явной проверки функция вернула бы одну пустую строку вместо пустого результата.
   $src = if ($null -eq $Lines) { @() } else { @($Lines) }
   $out = New-Object System.Collections.Generic.List[string]
   for ($i = 0; $i -lt $src.Count; $i++) {
