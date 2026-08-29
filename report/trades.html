@@ -376,9 +376,10 @@
   <section id="pane-fut-real" style="display:none">
     <h2>Реальный счёт — <span class="em">Т-Инвестиции · C3b</span></h2>
     <div id="futRealStatus" class="callout" style="border-left-color:#d9a441"></div>
-    <div class="kpis" id="futRealKpis" style="margin-top:14px;grid-template-columns:repeat(5,1fr)">
+    <div class="kpis" id="futRealKpis" style="margin-top:14px;grid-template-columns:repeat(6,1fr)">
       <div class="kpi"><p class="l">Капитал бота</p><div class="v num" id="frCap">—</div><p class="s" id="frCapS">рубли+USD+серебро+фьючерсы</p></div>
       <div class="kpi"><p class="l">P&L сделок</p><div class="v num" id="frPnl">—</div><p class="s" id="frPnlS">реализованный</p></div>
+      <div class="kpi"><p class="l">Общий P&L</p><div class="v num" id="frTot">—</div><p class="s" id="frTotS">реализованный + плавающий</p></div>
       <div class="kpi"><p class="l">P&L сегодня</p><div class="v num" id="frDay">—</div><p class="s" id="frDayS">МСК-день</p></div>
       <div class="kpi"><p class="l">Открытых позиций</p><div class="v num" id="frPos">—</div><p class="s" id="frPosS">ГО —</p></div>
       <div class="kpi"><p class="l">От максимума</p><div class="v num" id="frDd">—</div><p class="s" id="frDdS">исторический пик</p></div>
@@ -1675,6 +1676,10 @@
     $("frCapS").textContent="весь счёт: "+(RFR.accountLiquid!=null?fmtRub(RFR.accountLiquid):"—");
     const pe=$("frPnl"); pe.textContent=sgnRub(real); pe.className="v num "+(real>=0?"pos":"neg");
     $("frPnlS").textContent="комиссии "+fmtRub(S.fees_rub||0);
+    const flt=arr(RFR.positions).filter(p=>!p.reconcileStatus).reduce((t,p)=>t+(+p.upnl||0),0);
+    const tot=real+flt, te=$("frTot");
+    if(te){ te.textContent=sgnRub(tot); te.className="v num "+(tot>=0?"pos":"neg");
+      $("frTotS").textContent="закрытые "+sgnRub(real)+" · открытые "+sgnRub(flt); }
     const cc=arr(RFR.capitalCurve), de=$("frDay"), deS=$("frDayS");
     // Приоритет — число самого бота (dayBase = закрытие предыдущего дня), та же цифра, что
     // в вечернем отчёте. Клиентский пересчёт брал первую точку после полуночи МСК, а при
