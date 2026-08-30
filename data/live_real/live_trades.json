@@ -1350,5 +1350,49 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT25",
+    "sym": "LINK-USDT",
+    "side": "long",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-08-27 00:00",
+    "entryDay": "2026-08-27",
+    "entryTs": 1787788803339,
+    "entry": 11.603,
+    "qty": 1.8,
+    "exitUtc": "2026-08-30 23:46",
+    "exitDay": "2026-08-30",
+    "exitTs": 1788133562744,
+    "exitPx": 11.023,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 1.8,
+        "price": 11.023,
+        "utc": "2026-08-30 23:46",
+        "pnl": -1.04
+      }
+    ],
+    "pnlUsd": -1.09,
+    "rMultiple": -1.06,
+    "riskUsd": 1.03,
+    "fees": 0.04,
+    "funding": 0.01,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; LINK-USDT 4h up; F&G 71",
+      "riskPlan": "вход ~11.598, стоп 11.028 (5.07%), TP1 12.453 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.03",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
