@@ -2,53 +2,13 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 103.24,
+  "equity_usd": 102.76,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 104.38,
   "day_start_date_utc": "2026-08-30",
   "trading_halted": false,
   "entries_halt_reason": "",
   "open_trades": [
-    {
-      "id": "LT24",
-      "symbol": "AVAX-USDT",
-      "side": "long",
-      "status": "open",
-      "qty": 3.8,
-      "qty_initial": 3.8,
-      "entry_filled_qty": 3.8,
-      "entry_price": 7.433000000000001,
-      "stop": 7.153,
-      "stop0": 7.153,
-      "tp1": 7.848,
-      "tp1_qty": 1.9,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": false,
-      "entry_utc": "2026-08-27 00:00",
-      "entry_ts": 1787788803339,
-      "risk_usd": 1.06,
-      "notional_usd": 28.24,
-      "fees_usd": 0.0282454,
-      "funding_usd": 0.0137,
-      "legs": [],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h up; AVAX-USDT 4h up; F&G 71",
-        "riskPlan": "вход ~7.431, стоп 7.153 (3.81%), TP1 7.848 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.06",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      },
-      "cur_upnl_usd": -0.8626
-    },
     {
       "id": "LT25",
       "symbol": "LINK-USDT",
@@ -87,14 +47,14 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": -0.54
+      "cur_upnl_usd": -0.7596
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1788105600000,
     "last_trail_4h_ts": 1788105600000,
-    "last_exec_ms": 1788132204333,
+    "last_exec_ms": 1788132572729,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -437,7 +397,8 @@
       "446e6b59-8486-4197-9b57-3f53c06d78eb",
       "0211b4c2-5a30-4ed3-a9a6-83ba8a9f98dd",
       "c9fcdff6-6a61-437f-afca-44ebe4e31ff7",
-      "5113209f-7208-5df1-97e9-e70179ea77c7"
+      "5113209f-7208-5df1-97e9-e70179ea77c7",
+      "a1c6d5eb-3d1b-521f-91de-763048a559a3"
     ],
     "next_trade_id": 27,
     "halt_day_utc": null,
@@ -459,7 +420,7 @@
       "ATOM-USDT",
       "DOT-USDT"
     ],
-    "last_tick_utc": "2026-08-30 23:24",
+    "last_tick_utc": "2026-08-30 23:30",
     "last_daily_summary_day": "2026-08-29",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
