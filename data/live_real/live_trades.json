@@ -1262,5 +1262,49 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT26",
+    "sym": "DOT-USDT",
+    "side": "long",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-08-27 00:00",
+    "entryDay": "2026-08-27",
+    "entryTs": 1787788803339,
+    "entry": 0.8743,
+    "qty": 23.7,
+    "exitUtc": "2026-08-30 23:24",
+    "exitDay": "2026-08-30",
+    "exitTs": 1788132242564,
+    "exitPx": 0.8287,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 23.7,
+        "price": 0.8287,
+        "utc": "2026-08-30 23:23",
+        "pnl": -1.08
+      }
+    ],
+    "pnlUsd": -1.13,
+    "rMultiple": -1.07,
+    "riskUsd": 1.06,
+    "fees": 0.04,
+    "funding": 0.01,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; DOT-USDT 4h up; F&G 71",
+      "riskPlan": "вход ~0.8738, стоп 0.8291 (5.28%), TP1 0.9409 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.06",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
