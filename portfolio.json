@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9473.55,
-    "equity_usd":  9517.98,
+    "balance_usd":  9471.73,
+    "equity_usd":  9515.51,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9478.4,
     "day_start_date_utc":  "2026-08-31",
@@ -102,6 +102,49 @@
                                                              "atrCapLong":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T32",
+                               "symbol":  "LINK-USDT",
+                               "side":  "long",
+                               "qty":  290.5097,
+                               "qty_initial":  290.5097,
+                               "entry_price":  11.418424,
+                               "stop":  11.091,
+                               "stop0":  11.091,
+                               "tp1":  11.909561,
+                               "entry_utc":  "2026-08-31 20:01",
+                               "entry_ts":  1788206465845,
+                               "risk_usd":  95.12,
+                               "notional_usd":  3317.16,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  1.8244396917822074,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  11.418424,
+                               "mae_px":  11.418424,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h up; LINK-USDT 4h up; F\u0026G 62",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-08-31 16:00 UTC",
+                                              "indicators":  "RSI 49.6, ATR 1.94% (кэп 3%), фандинг 4E-06/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~11.418424, стоп 11.091 (2.68%), TP1 11.909561 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $95.12",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -112,17 +155,17 @@
                   "total_funding_usd":  20.78,
                   "realized_pnl_usd":  -521.67
               },
-    "last_check_utc":  "2026-08-31 19:58",
+    "last_check_utc":  "2026-08-31 20:01",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1788206220000,
-                 "last_4h_ts":  1788177600000,
+                 "last_1m_ts":  1788206400000,
+                 "last_4h_ts":  1788192000000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
-                 "next_trade_id":  32,
-                 "ticks_since_viz":  1,
+                 "next_trade_id":  33,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-08-30",
-                 "last_tick_utc":  "2026-08-31 19:58"
+                 "last_tick_utc":  "2026-08-31 20:01"
              }
 }
