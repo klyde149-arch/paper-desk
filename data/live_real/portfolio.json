@@ -2,17 +2,57 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 102.47,
+  "equity_usd": 102.46,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 102.46,
   "day_start_date_utc": "2026-08-31",
   "trading_halted": false,
   "entries_halt_reason": "",
-  "open_trades": [],
+  "open_trades": [
+    {
+      "id": "LT27",
+      "symbol": "NEAR-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 18.8,
+      "qty_initial": 18.8,
+      "entry_filled_qty": 0.0,
+      "entry_price": 1.855,
+      "stop": 1.801,
+      "stop0": 1.801,
+      "tp1": 1.936,
+      "tp1_qty": 9.4,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-08-31 16:00",
+      "entry_ts": 1788192002839,
+      "risk_usd": 1.02,
+      "notional_usd": 34.87,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; NEAR-USDT 4h up; F&G 62",
+        "riskPlan": "вход ~1.855, стоп 1.801 (2.92%), TP1 1.936 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.02",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
+    }
+  ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1788163200000,
-    "last_trail_4h_ts": 1788163200000,
+    "last_4h_ts": 1788177600000,
+    "last_trail_4h_ts": 1788177600000,
     "last_exec_ms": 1788133562048,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
@@ -360,7 +400,7 @@
       "a1c6d5eb-3d1b-521f-91de-763048a559a3",
       "20e8717a-6205-5db0-a406-7313110ffaa0"
     ],
-    "next_trade_id": 27,
+    "next_trade_id": 28,
     "halt_day_utc": null,
     "soft_dd": false,
     "consec_api_fail": 0,
@@ -378,9 +418,10 @@
       "ARB-USDT",
       "AVAX-USDT",
       "ATOM-USDT",
-      "DOT-USDT"
+      "DOT-USDT",
+      "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-08-31 15:45",
+    "last_tick_utc": "2026-08-31 16:00",
     "last_daily_summary_day": "2026-08-30",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
