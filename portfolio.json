@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9475.66,
-    "equity_usd":  9486.73,
+    "balance_usd":  9473.55,
+    "equity_usd":  9478.65,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9478.4,
     "day_start_date_utc":  "2026-08-31",
@@ -34,7 +34,7 @@
                                "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
                                "tp1_done":  false,
                                "fees_usd":  2.7354757376023,
-                               "funding_usd":  0,
+                               "funding_usd":  0.23404719908,
                                "legs":  [
 
                                         ],
@@ -59,6 +59,49 @@
                                                              "atrCapLong":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T31",
+                               "symbol":  "ETH-USDT",
+                               "side":  "long",
+                               "qty":  1.379,
+                               "qty_initial":  1.379,
+                               "entry_price":  2469.120514,
+                               "stop":  2400.37,
+                               "stop0":  2400.37,
+                               "tp1":  2572.246285,
+                               "entry_utc":  "2026-08-31 16:01",
+                               "entry_ts":  1788192064105,
+                               "risk_usd":  94.81,
+                               "notional_usd":  3404.92,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  1.8727044538433004,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  2469.120514,
+                               "mae_px":  2469.120514,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h up; ETH-USDT 4h up; F\u0026G 62",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-08-31 12:00 UTC",
+                                              "indicators":  "RSI 52.8, ATR 1.46% (кэп 3%), фандинг 3.9E-05/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~2469.120514, стоп 2400.37 (2.68%), TP1 2572.246285 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $94.81",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -69,17 +112,17 @@
                   "total_funding_usd":  20.78,
                   "realized_pnl_usd":  -521.67
               },
-    "last_check_utc":  "2026-08-31 15:45",
+    "last_check_utc":  "2026-08-31 16:01",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1788191040000,
-                 "last_4h_ts":  1788163200000,
+                 "last_1m_ts":  1788192000000,
+                 "last_4h_ts":  1788177600000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
-                 "next_trade_id":  31,
+                 "next_trade_id":  32,
                  "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-08-30",
-                 "last_tick_utc":  "2026-08-31 15:45"
+                 "last_tick_utc":  "2026-08-31 16:01"
              }
 }
