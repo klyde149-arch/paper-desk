@@ -2472,7 +2472,12 @@ function Invoke-DailyReport([switch]$Preview) {
     $idx++
     $nm = Cap (RfName $c)
     $L.Add("$idx) $nm — $(RuSide $c.side 'past') $([int]$c.lots) $(RuLots ([int]$c.lots)) по $(Fmt-Px ([double]$c.entry_px_pts)), стратегия «$(SleeveRu ([string]$c.sleeve))»")
-    $upnl = if ($pnlMap.ContainsKey([string]$c.id)) { [double]$pnlMap[[string]$c.id] } else { 0.0 }
+    # P&L ЭТОЙ позиции, а не контракта. Брокерский expected_yield (Get-CardPnlMap) считается
+    # по контракту с момента, когда позиция по нему была нулевой: у переоткрытого в тот же день
+    # контракта он включает прибыль уже закрытых сделок, которые ниже в этом же отчёте идут
+    # отдельной секцией - те же рубли уходили в текст дважды (CRU6 27.08: 55 910 вместо 18 177).
+    # Брокерская цифра остаётся доступной через $pnlMap для сверки, но в строку позиции не идёт.
+    $upnl = if ($null -ne $c.upnl_rub) { [double]$c.upnl_rub } else { 0.0 }
     $since = $upnl + [double]$c.realized_rub
     # База процента - ЗАДЕЙСТВОВАННОЕ ГО (решение пользователя 2026-09-01), а не номинал
     # контракта: номинал у фьючерса в разы больше вложенных денег, и процент от него занижал

@@ -128,7 +128,12 @@ function Build-RfPresentationSnapshot($State) {
       # ГО этой позиции: lots * go_per_lot (сумма по карточкам сходится с go.used_rub).
       $goRub = if ($null -ne $p.go_per_lot) { [math]::Round([double]$p.lots * [double]$p.go_per_lot, 0) } else { $null }
       # Процент = доходность на задействованную маржу (решение пользователя 2026-09-01).
-      $pnlPctGo = if ($null -ne $bPnl -and $null -ne $goRub -and $goRub -gt 0) { [math]::Round(100.0 * $bPnl / $goRub, 2) } else { $null }
+      # База - P&L ЭТОЙ позиции (upnl), а НЕ brokerPnl: expected_yield брокера считается по
+      # КОНТРАКТУ с момента, когда позиция по нему была нулевой, и у контракта, переоткрытого
+      # в тот же день без выхода в ноль, включает прибыль уже закрытых сделок. По CRU6 27.08
+      # это давало 55 910 вместо 18 177 -> 23,89% на ГО вместо 7,73%, причём те же рубли
+      # второй раз лежали в «P&L сделок» и в таблице закрытых сделок.
+      $pnlPctGo = if ($null -ne $p.upnl_rub -and $null -ne $goRub -and $goRub -gt 0) { [math]::Round(100.0 * [double]$p.upnl_rub / $goRub, 2) } else { $null }
       $positions += [pscustomobject]@{ id=$p.id; sleeve=$sn; asset=$p.asset; secid=$p.secid; title=(RuName $names 'fut' ([string]$p.asset) ([string]$p.secid)); side=$p.side; lots=$p.lots; entry=$entry; stop=$p.stop_px_pts; tp1=$p.tp1_px_pts; cur=$cur; upnl=$p.upnl_rub; risk=$p.risk_rub; entryDay=$p.entry_day; entryTs=$p.entry_ts; rolls=$p.rolls; rubPerPt=$p.rub_per_pt; notional=[math]::Round([double]$p.lots*$entry*[double]$p.rub_per_pt,0); pctChg=$pct; reconcileStatus=$p.reconcile_status; reconcileSinceTs=$p.reconcile_since_ts
         brokerPnl=$bPnl; goRub=$goRub; pnlPctGo=$pnlPctGo
         brokerVarMargin=$(if ($null -ne $bp) { $bp.var_margin } else { $null })

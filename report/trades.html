@@ -387,7 +387,7 @@
     <div id="frBreakdown" class="card" style="margin-top:12px;padding:12px 16px;font-size:12.5px;color:var(--muted)"></div>
 
     <h2>Открытые позиции</h2>
-    <p class="sec-note">Реальные фьючерсные позиции на счёте Т-Инвестиций. Крупная цифра — <b>P&amp;L по данным брокера</b>: накопленная вариационная маржа по контракту с момента открытия позиции, ровно то число, что показывает приложение Т-Инвестиций. Рядом мельче — наша переоценка <b>сейчас открытых лотов</b> от цены входа; она меньше, если бот уже закрывал лоты внутри того же контракта. Процент считается от задействованного ГО (вложенной маржи), а не от движения цены. Нажмите на строку — раскроются график, сверка с брокером, тейк, стоп и дата захода. Стопы лежат на бирже брокерскими заявками.</p>
+    <p class="sec-note">Реальные фьючерсные позиции на счёте Т-Инвестиций. Крупная цифра — <b>P&amp;L этой позиции</b>: текущая цена против цены входа по открытым сейчас лотам; процент — от задействованного ГО (вложенной маржи), а не от движения цены. Если ниже подписано «<b>по контракту с открытия</b>» — это число из приложения Т-Инвестиций: оно считается по контракту с момента, когда позиция по нему была нулевой, и когда бот переоткрывал контракт в тот же день, включает прибыль уже закрытых сделок (она посчитана в «P&amp;L сделок» и в таблице ниже). Нажмите на строку — раскроются график, сверка с брокером, тейк, стоп и дата захода. Стопы лежат на бирже брокерскими заявками.</p>
     <div id="futRealWrap"></div>
 
     <h2>Сделки — <span class="em">плюсы и минусы</span></h2>
@@ -1759,18 +1759,24 @@
     }
     POS.forEach((p,pi)=>{
       const cur=(p.cur!=null)?+p.cur:null;
-      // Главная цифра — брокерская (expected_yield). Наша переоценка открытых лотов идёт
-      // рядом мельче. Движение цены (pctChg) больше не показываем: рядом с рублями оно
-      // читалось как доходность и врало (Eu показывал +0,13% при +36 680 ₽).
+      // Главная цифра — P&L ЭТОЙ позиции. Брокерский expected_yield сюда не годится: он
+      // считается по КОНТРАКТУ с момента, когда позиция по нему была нулевой, и у контракта,
+      // переоткрытого в тот же день (CRU6/EuU6 27.08), содержит прибыль уже закрытых сделок —
+      // те же рубли второй раз показаны в «P&L сделок» и в таблице закрытых сделок ниже.
+      // Сверено с брокером: lots*(cur_px−avg_px)*₽/пункт по его же ценам сходится с upnl
+      // (CRU6 18 177 против upnl 18 095), а expected_yield давал 55 910.
+      // Движение цены (pctChg) не показываем вовсе: рядом с рублями читалось как доходность.
       const bp=(p.brokerPnl!=null)?+p.brokerPnl:null;
       const up=(p.upnl!=null)?+p.upnl:null;
-      const head1=(bp!=null)?bp:up;
+      const head1=(up!=null)?up:bp;
+      // контрактную цифру показываем, только если она заметно отличается — иначе это шум
+      const showContract=(bp!=null&&up!=null&&Math.abs(bp-up)>=1000);
       const pct=(p.pnlPctGo!=null)?+p.pnlPctGo:null;
       const go=(p.goRub!=null)?+p.goRub:null;
       const row=document.createElement("div"); row.className="card"; row.style.cssText="margin-bottom:10px;padding:0;overflow:hidden";
       const head=document.createElement("div"); head.style.cssText="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;flex-wrap:wrap;cursor:pointer";
       head.innerHTML=`<div style="font-size:13.5px"><b>${p.sleeve==="core"?"ядро":"сетап A"} · ${p.asset}</b> <span style="color:var(--faint)">(${p.secid})</span> <b style="color:${p.side==="long"?"var(--gain)":"var(--loss)"}">${p.side==="long"?"ЛОНГ":"ШОРТ"}</b> · ${p.lots} лот</div>
-        <div style="text-align:right;font-size:13.5px">${head1!=null?`<b class="${head1>=0?"pos":"neg"}" title="${bp!=null?"P&L по данным брокера: накопленная вариационная маржа по контракту с момента открытия позиции — это же число показывает приложение Т-Инвестиций":"переоценка открытых лотов от цены входа"}">${head1>=0?"+":"−"}${Math.round(Math.abs(head1)).toLocaleString("ru-RU")} ₽</b>`:""}${pct!=null?` · <span class="${pct>=0?"pos":"neg"}" title="доходность на задействованное ГО">${pct>=0?"+":"−"}${dec(Math.abs(pct),2)}% на ГО</span>`:""}${go!=null?` <span style="color:var(--faint)">· ГО ${Math.round(go).toLocaleString("ru-RU")} ₽</span>`:""}${(bp!=null&&up!=null)?`<br><span style="color:var(--faint);font-size:11.5px" title="переоценка сейчас открытых лотов от цены входа; лоты, закрытые внутри этого же контракта, сюда не входят">открытые лоты ${up>=0?"+":"−"}${Math.round(Math.abs(up)).toLocaleString("ru-RU")} ₽</span>`:""} <span class="frCaret" style="color:var(--faint)">▾</span></div>`;
+        <div style="text-align:right;font-size:13.5px">${head1!=null?`<b class="${head1>=0?"pos":"neg"}" title="P&L этой позиции: текущая цена против цены входа, по открытым сейчас лотам">${head1>=0?"+":"−"}${Math.round(Math.abs(head1)).toLocaleString("ru-RU")} ₽</b>`:""}${pct!=null?` · <span class="${pct>=0?"pos":"neg"}" title="доходность на задействованное ГО">${pct>=0?"+":"−"}${dec(Math.abs(pct),2)}% на ГО</span>`:""}${go!=null?` <span style="color:var(--faint)">· ГО ${Math.round(go).toLocaleString("ru-RU")} ₽</span>`:""}${showContract?`<br><span style="color:var(--faint);font-size:11.5px" title="накопленная вариационная маржа по КОНТРАКТУ с момента, когда позиция по нему была нулевой. Больше P&L позиции, потому что включает лоты, закрытые внутри этого же контракта — их прибыль уже посчитана в «P&L сделок» и в таблице закрытых сделок">по контракту с открытия ${bp>=0?"+":"−"}${Math.round(Math.abs(bp)).toLocaleString("ru-RU")} ₽</span>`:""} <span class="frCaret" style="color:var(--faint)">▾</span></div>`;
       const body=document.createElement("div"); body.style.cssText="display:none;padding:0 16px 16px";
       row.appendChild(head); row.appendChild(body);
       let built=false;
@@ -1796,10 +1802,10 @@
       <div class="pr"><span>Текущая цена</span><b>${fmtPru(cur)}</b></div>
       <div class="pr"><span>Стоп-лосс</span><b class="neg">${fmtPru(p.stop)}</b></div>
       ${(p.tp1!=null)?`<div class="pr"><span>Тейк-профит</span><b class="pos">${fmtPru(p.tp1)}</b></div>`:""}
-      <div class="pr"><span>P&L открытых лотов (от цены входа)</span><b class="${(p.upnl||0)>=0?"pos":"neg"}">${(p.upnl||0)>=0?"+":"−"}${Math.round(Math.abs(p.upnl||0)).toLocaleString("ru-RU")} ₽</b></div>
+      <div class="pr"><span>P&L позиции (открытые лоты от цены входа)</span><b class="${(p.upnl||0)>=0?"pos":"neg"}">${(p.upnl||0)>=0?"+":"−"}${Math.round(Math.abs(p.upnl||0)).toLocaleString("ru-RU")} ₽</b></div>
       <div class="pr"><span>Риск на сделку</span><b>${Math.round(p.riskRub||0).toLocaleString("ru-RU")} ₽</b></div>
       ${(p.goRub!=null)?`<div class="pr"><span>Задействовано ГО</span><b>${Math.round(p.goRub).toLocaleString("ru-RU")} ₽</b></div>`:""}
-      ${(p.brokerPnl!=null)?`<div class="pr" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>P&L по брокеру (с открытия)</span><b class="${p.brokerPnl>=0?"pos":"neg"}">${p.brokerPnl>=0?"+":"−"}${Math.round(Math.abs(p.brokerPnl)).toLocaleString("ru-RU")} ₽</b></div>`:""}
+      ${(p.brokerPnl!=null)?`<div class="pr" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span title="накопленная вариационная маржа по контракту с момента, когда позиция по нему была нулевой; включает лоты, закрытые внутри этого же контракта">По контракту с открытия (число из приложения)</span><b class="${p.brokerPnl>=0?"pos":"neg"}">${p.brokerPnl>=0?"+":"−"}${Math.round(Math.abs(p.brokerPnl)).toLocaleString("ru-RU")} ₽</b></div>`:""}
       ${(p.brokerVarMargin!=null)?`<div class="pr"><span>в т.ч. вариационка за сегодня</span><b class="${p.brokerVarMargin>=0?"pos":"neg"}">${p.brokerVarMargin>=0?"+":"−"}${Math.round(Math.abs(p.brokerVarMargin)).toLocaleString("ru-RU")} ₽</b></div>`:""}
       ${(p.brokerVarMarginSettled!=null)?`<div class="pr"><span>из них сведено на клиринге</span><b>${p.brokerVarMarginSettled>=0?"+":"−"}${Math.round(Math.abs(p.brokerVarMarginSettled)).toLocaleString("ru-RU")} ₽</b></div>`:""}
       ${(p.brokerAvgPx!=null)?`<div class="pr"><span>Средняя цена у брокера</span><b${(Math.abs(+p.brokerAvgPx-+p.entry)/Math.max(1e-9,Math.abs(+p.entry))>0.005)?' class="neg"':""}>${fmtPru(p.brokerAvgPx)}</b></div>`:""}
