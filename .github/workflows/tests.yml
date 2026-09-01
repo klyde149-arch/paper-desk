@@ -77,46 +77,30 @@ jobs:
       - name: pwsh version
         run: pwsh -NoProfile -Command '$PSVersionTable | Format-List | Out-String'
 
-      # ВРЕМЕННЫЕ ЛЕСА, УДАЛИТЬ ПЕРЕД СДАЧЕЙ. Диагностика запуска дочернего PowerShell.
-      - name: TEMP probe - child PowerShell launch
+      # ВРЕМЕННЫЕ ЛЕСА, УДАЛИТЬ ПЕРЕД СДАЧЕЙ. Воспроизведение сцены commit_state руками.
+      - name: TEMP probe - commit_state scene
         if: matrix.suite == 'tools/test_commit_state.ps1'
         shell: bash
         run: |
-          cat > "$RUNNER_TEMP/probe.ps1" <<'PS1'
-          $ErrorActionPreference = 'Continue'
-          Write-Host ("PSVersion=" + $PSVersionTable.PSVersion + " Edition=" + $PSVersionTable.PSEdition)
-          Write-Host ("IsWindows=[" + $IsWindows + "]")
-          try { Write-Host ("GetProcessPath=[" + (Get-Process -Id $PID).Path + "]") } catch { Write-Host ("GetProcessPath THREW: " + $_.Exception.Message) }
-          try { Write-Host ("MainModule=[" + [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName + "]") } catch { Write-Host ("MainModule THREW: " + $_.Exception.Message) }
-          try { Write-Host ("GetCommandPwsh=[" + (Get-Command pwsh -ErrorAction Stop).Source + "]") } catch { Write-Host "GetCommandPwsh THREW" }
-          $d = Join-Path ([IO.Path]::GetTempPath()) ('probe_' + [guid]::NewGuid().ToString('N').Substring(0,8))
-          New-Item -ItemType Directory -Path $d | Out-Null
-          & git init -q -b main $d 2>&1 | Out-Null
-          $inner = Join-Path $d 'inner.ps1'
-          Set-Content -LiteralPath $inner -Value @(
-            'param([string]$Path, [string]$Label, [switch]$NoDelay)'
-            'Write-Host ("INNER CWD=" + (Get-Location).Path)'
-            'Write-Host ("INNER ENVCWD=" + [Environment]::CurrentDirectory)'
-            'Write-Host ("INNER ARGS Path=" + $Path + " Label=" + $Label + " NoDelay=" + $NoDelay)'
-            '$null = git rev-parse --git-dir 2>&1'
-            'Write-Host ("INNER REVPARSE=" + $LASTEXITCODE)'
-            'exit 42'
-          )
-          $cands = [ordered]@{ getprocess = (Get-Process -Id $PID).Path; byname = 'pwsh' }
-          foreach ($k in $cands.Keys) {
-            $h = $cands[$k]
-            Write-Host ("--- try " + $k + " host=[" + $h + "] ---")
-            $a = @('-NoProfile')
-            Push-Location $d
-            $out = & $h @a -File $inner -Path 'a,b' -Label 'tick' -NoDelay 2>&1
-            $code = $LASTEXITCODE
-            Pop-Location
-            Write-Host ("OUT=[" + (($out | ForEach-Object { $_.ToString() }) -join ' | ') + "]")
-            Write-Host ("CODE=[" + $code + "]")
-          }
-          PS1
-          pwsh -NoProfile -File "$RUNNER_TEMP/probe.ps1" > "$RUNNER_TEMP/probe.log" 2>&1 || true
-          python3 - "$RUNNER_TEMP/probe.log" <<'PY'
+          set +e
+          D="$RUNNER_TEMP/csprobe"
+          rm -rf "$D"; mkdir -p "$D"
+          git init -q --bare -b main "$D/remote.git"
+          git clone -q "$D/remote.git" "$D/work"
+          cd "$D/work"
+          git config user.name seed; git config user.email seed@example.com
+          echo '{"seed":1}' > portfolio.json
+          mkdir data; echo '{"seed":1}' > data/state.json
+          echo seed > journal.md
+          echo '<html>?v=111</html>' > report_chart.html
+          git add -A; git commit -qm seed; git push -q origin main
+          echo '{"tick":1}' > portfolio.json
+          L="$RUNNER_TEMP/cs_probe.log"
+          pwsh -NoProfile -File "$GITHUB_WORKSPACE/tools/commit_state.ps1" -Path portfolio.json,journal.md,data -Label tick -NoDelay > "$L" 2>&1
+          echo "EXITCODE=$?" >> "$L"
+          echo "--- local log ---" >> "$L"; git log --oneline -3 >> "$L" 2>&1
+          echo "--- remote log ---" >> "$L"; git --git-dir="$D/remote.git" log --oneline main >> "$L" 2>&1
+          python3 - "$L" <<'PY'
           import sys
           raw = open(sys.argv[1], encoding='utf-8', errors='replace').read()
           def esc(s):
@@ -151,6 +135,31 @@ jobs:
           chunks = [tail[i:i + 3000] for i in range(0, len(tail), 3000)][:10]
           for i, c in enumerate(chunks):
               print('::error title=part %d of %d::%s' % (i + 1, len(chunks), esc(c)))
+          PY
+
+      # ВРЕМЕННЫЕ ЛЕСА, УДАЛИТЬ ПЕРЕД СДАЧЕЙ. Снимок сцены сценарной матрицы: по дереву сразу
+      # видно, нормализовал ли pwsh обратные слэши в Join-Path, а tick_log показывает, доехал
+      # ли движок до работы вообще.
+      - name: TEMP probe - scenario scene dump
+        if: failure() && matrix.suite == 'tools/test_live_rf.ps1'
+        shell: bash
+        run: |
+          set +e
+          L="$RUNNER_TEMP/scene.log"
+          echo "--- tree ---" > "$L"
+          find "$RUNNER_TEMP/lrf_scenarios" -maxdepth 4 | head -40 >> "$L" 2>&1
+          echo "--- entry-fill tick_log ---" >> "$L"
+          cat "$RUNNER_TEMP/lrf_scenarios/entry-fill/data/live_rf/tick_log.txt" >> "$L" 2>&1 || echo "(no tick_log)" >> "$L"
+          echo "--- entry-fill portfolio.json head ---" >> "$L"
+          head -c 600 "$RUNNER_TEMP/lrf_scenarios/entry-fill/data/live_rf/portfolio.json" >> "$L" 2>&1 || echo "(no portfolio.json)" >> "$L"
+          python3 - "$L" <<'PY'
+          import sys
+          raw = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+          def esc(s):
+              return s.replace('%', '%25').replace(chr(13), '%0D').replace(chr(10), '%0A')
+          chunks = [raw[i:i + 3000] for i in range(0, len(raw), 3000)][:10]
+          for i, c in enumerate(chunks):
+              print('::error title=scene %d of %d::%s' % (i + 1, len(chunks), esc(c)))
           PY
 
   # Наборы на bash и python. Набор telegram-mini-app/server/contracts.test.js сюда
