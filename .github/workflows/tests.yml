@@ -87,7 +87,7 @@ jobs:
           set -o pipefail
           pwsh -NoProfile -File ${{ matrix.suite }} 2>&1 | tee "$RUNNER_TEMP/suite.log"
 
-      # ВРЕМЕННЫЕ ЛЕСА, УДАЛИТЬ ПЕРЕД СДАЧЕЙ. Логи ранов у публичного репо анонимно не
+      # ВРЕМЕННЫЕ ЛЕСА, УДАЛИТЬ ПЕРЕД СДАЧЕЙ. Логи ранов публичного репо анонимно не
       # отдаются (403), а аннотации отдаются - через них вывод упавшего набора и достаётся.
       - name: TEMP scaffolding - failed output as annotations
         if: failure()
@@ -97,8 +97,8 @@ jobs:
           import sys
           raw = open(sys.argv[1], encoding='utf-8', errors='replace').read()
           tail = raw[-27000:]
-          esc = lambda s: s.replace('%', '%25').replace('', '%0D').replace('
-', '%0A')
+          def esc(s):
+              return s.replace('%', '%25').replace(chr(13), '%0D').replace(chr(10), '%0A')
           chunks = [tail[i:i + 3000] for i in range(0, len(tail), 3000)][:10]
           for i, c in enumerate(chunks):
               print('::error title=part %d of %d::%s' % (i + 1, len(chunks), esc(c)))
