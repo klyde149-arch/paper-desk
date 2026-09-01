@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1788300937974,
-  "sourceAtMs": 1788300272683,
+  "generatedAtMs": 1788301838304,
+  "sourceAtMs": 1788301172998,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -16,14 +16,14 @@
     "dayBaseSource": "broker_daily_yield",
     "todayAmt": -19387.0,
     "todayPct": -1.14,
-    "allTimePct": 9.41,
-    "allTimeAmt": 144498.3,
+    "allTimePct": 8.4,
+    "allTimeAmt": 130166.52,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
-    "allTimeSource": "ledger",
+    "allTimeSource": "broker_ops",
     "openPositions": 3,
     "tradesPnl": 106635.21,
     "fees": 8361.64,
-    "feesBrokerRub": null,
+    "feesBrokerRub": 21684.47,
     "openPnlBroker": 108360.0,
     "winRate": 66.7,
     "wins": 12,
@@ -36,7 +36,7 @@
     "lastDailyDay": "2026-09-01"
   },
   "broker": {
-    "captured_ms": 1788300932679,
+    "captured_ms": 1788301833085,
     "totals": {
       "portfolio": 1680235.14,
       "currencies": 1680235.14,
@@ -116,7 +116,7 @@
       }
     ]
   },
-  "capitalCurveJoinTs": null,
+  "capitalCurveJoinTs": 1788301172998,
   "operational": {
     "go": {
       "used_rub": 1070004.33,
@@ -16987,6 +16987,10 @@
     [
       1788300272683,
       804767.54
+    ],
+    [
+      1788301172998,
+      804767.54
     ]
   ],
   "capitalCurve": [
@@ -33325,6 +33329,10 @@
     [
       1788300272683,
       1660128.14
+    ],
+    [
+      1788301172998,
+      1680235.14
     ]
   ]
 }
