@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 103.86,
+  "equity_usd": 103.16,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 103.28,
   "day_start_date_utc": "2026-09-01",
@@ -55,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 1.128
+      "cur_upnl_usd": 1.0246
     },
     {
       "id": "LT28",
@@ -95,54 +95,14 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.2013
-    },
-    {
-      "id": "LT29",
-      "symbol": "SOL-USDT",
-      "side": "long",
-      "status": "open",
-      "qty": 0.4,
-      "qty_initial": 0.4,
-      "entry_filled_qty": 0.4,
-      "entry_price": 103.61999999999999,
-      "stop": 101.48,
-      "stop0": 101.48,
-      "tp1": 106.83,
-      "tp1_qty": 0.2,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": false,
-      "entry_utc": "2026-09-01 04:00",
-      "entry_ts": 1788235202751,
-      "risk_usd": 0.86,
-      "notional_usd": 41.45,
-      "fees_usd": 0.041448,
-      "funding_usd": -0.0011,
-      "legs": [],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h up; SOL-USDT 4h up; F&G 69",
-        "riskPlan": "вход ~103.62, стоп 101.48 (2.04%), TP1 106.83 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.86",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      },
-      "cur_upnl_usd": -0.5476
+      "cur_upnl_usd": -0.0429
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1788249600000,
     "last_trail_4h_ts": 1788249600000,
-    "last_exec_ms": 1788249600000,
+    "last_exec_ms": 1788266211447,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -502,7 +462,8 @@
       "43a4db38-d105-5c0c-af3a-e99fdf5abaad",
       "07631a24-a4d1-4980-b68a-7e1d6c5c8541",
       "33968e86-a55b-4dea-94f7-c0ff6e5e9238",
-      "db084808-a403-49fc-b751-4efcedc17143"
+      "db084808-a403-49fc-b751-4efcedc17143",
+      "6a959107-d44f-5f8d-b8b1-5ef68f48023f"
     ],
     "next_trade_id": 30,
     "halt_day_utc": null,
@@ -525,7 +486,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-01 12:30",
+    "last_tick_utc": "2026-09-01 12:37",
     "last_daily_summary_day": "2026-08-31",
     "fail_since_ms": 0,
     "fail_alert_ms": 0

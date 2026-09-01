@@ -1394,5 +1394,49 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT29",
+    "sym": "SOL-USDT",
+    "side": "long",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-09-01 04:00",
+    "entryDay": "2026-09-01",
+    "entryTs": 1788235202751,
+    "entry": 103.61999999999999,
+    "qty": 0.4,
+    "exitUtc": "2026-09-01 12:37",
+    "exitDay": "2026-09-01",
+    "exitTs": 1788266222785,
+    "exitPx": 101.48,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 0.4,
+        "price": 101.48,
+        "utc": "2026-09-01 12:36",
+        "pnl": -0.86
+      }
+    ],
+    "pnlUsd": -0.94,
+    "rMultiple": -1.09,
+    "riskUsd": 0.86,
+    "fees": 0.08,
+    "funding": -0.0,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; SOL-USDT 4h up; F&G 69",
+      "riskPlan": "вход ~103.62, стоп 101.48 (2.04%), TP1 106.83 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.86",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
