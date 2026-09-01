@@ -163,7 +163,6 @@ function Run-Tick([string]$Root, [string]$MskTime, [string]$Mode = 'prod', [swit
     $env:TINVEST_ACCOUNT_ID = 'acc1'; $env:TINVEST_TOKEN = 'test-token'
     $env:LIVE_RF_DIRECT_SLEEVE_ACCESS = if ($DirectSleeveAccess) { '1' } else { $null }
     $out = & $PSHOST @PSHOST_ARGS -Command ". '$ENGINE' -Root '$Root' -NowMs $nowMs" 2>&1
-    if (-not $script:dbg1) { $script:dbg1 = $true; Write-Host ("TEMPDBG rf rc=" + $LASTEXITCODE + " host=[" + $PSHOST + "] args=[" + ($PSHOST_ARGS -join ',') + "] out=[" + (($out | ForEach-Object { $_.ToString() }) -join ' | ') + "]") }
     return ($out | Out-String)
   } finally {
     $env:TINVEST_MOCK_DIR = $null

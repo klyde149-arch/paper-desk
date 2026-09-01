@@ -118,7 +118,6 @@ function Invoke-CommitState([string]$WorkDir, [string[]]$Paths, [string]$Label, 
     $joined = $Paths -join ','
     $out = & $PSHOST @PSHOST_ARGS -File $Script `
       -Path $joined -Label $Label -NoDelay 2>&1
-    if (-not $script:dbg1) { $script:dbg1 = $true; Write-Host ("TEMPDBG cs rc=" + $LASTEXITCODE + " host=[" + $PSHOST + "] args=[" + ($PSHOST_ARGS -join ',') + "] out=[" + (($out | ForEach-Object { $_.ToString() }) -join ' | ') + "]") }
     return [pscustomobject]@{ Code = $LASTEXITCODE; Text = ($out -join "`n") }
   } finally { Pop-Location }
 }
