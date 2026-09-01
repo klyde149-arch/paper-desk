@@ -15,12 +15,6 @@ name: tests
 on:
   workflow_dispatch:
 
-  # ВРЕМЕННЫЕ ЛЕСА, УДАЛИТЬ ПЕРЕД СДАЧЕЙ. workflow_dispatch у GitHub работает только для
-  # файлов, лежащих в ветке по умолчанию, поэтому обкатать воркфлоу с ci/tests-workflow
-  # иначе нечем. main этот триггер не касается.
-  push:
-    branches: [ci/tests-workflow]
-
   # --- РЕАЛЬНЫЕ ТРИГГЕРЫ: ВЫКЛЮЧЕНЫ, готовы к включению ---
   # push:
   #   branches: [main]
