@@ -1,0 +1,105 @@
+name: tests
+# Регрессионные наборы репозитория. Это НЕ торговый пайплайн: ни одного секрета, ни одного
+# сетевого вызова, ни одной записи в состояние. Все наборы работают на mock-транспорте или
+# на черновых каталогах во временной папке раннера.
+#
+# ЗАЧЕМ. В репозитории восемь тестовых наборов и до сих пор ни один не гонялся в Actions:
+# вся регрессионная защита держалась на том, что кто-то вспомнит запустить их руками.
+#
+# ТРИГГЕРЫ. Пока только ручной запуск. Автоматические лежат ниже закомментированными и
+# включаются как есть, ничего больше не меняя. Порядок сознательный: сначала ~10 стабильных
+# ручных прогонов, и только потом автозапуск. Обязательной проверкой (required check) этот
+# воркфлоу тоже пока не делаем - красный ран на неотлаженном наборе не должен блокировать
+# публикацию состояния боевых контуров.
+
+on:
+  workflow_dispatch:
+
+  # --- РЕАЛЬНЫЕ ТРИГГЕРЫ: ВЫКЛЮЧЕНЫ, готовы к включению ---
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'tools/**'
+  #     - 'assistant/**'
+  #     - 'deploy/**'
+  #     - '.github/workflows/tests.yml'
+  # pull_request:
+  #   paths:
+  #     - 'tools/**'
+  #     - 'assistant/**'
+  #     - 'deploy/**'
+  #     - '.github/workflows/tests.yml'
+
+# Читать - всё что нужно, писать - нечего. Вместе с persist-credentials: false ниже это
+# второй рубеж вокруг одного конкретного факта: tools/test_tick_runners.sh ПРОГОНЯЕТ
+# deploy/live_rf_tick.sh, внутри которого есть `git push origin main`. В самом тесте git
+# подменён заглушкой на PATH, но воркфлоу живёт в боевом репозитории, где коммит в main -
+# это деплой за минуту, и полагаться на одну заглушку тут нельзя.
+permissions:
+  contents: read
+
+# Своя группа. tick занят боевым тиком (его делит с manual-close.yml), tick-pages -
+# публикацией дашборда; тесты не имеют права вставать с ними в одну очередь ни на секунду.
+# cancel-in-progress: false - ран, запущенный руками, не должен молча отменяться следующим.
+concurrency:
+  group: tests
+  cancel-in-progress: false
+
+jobs:
+  # Наборы на PowerShell. Матрица, а не три шага подряд: fail-fast: false даёт ровно то,
+  # ради чего это писалось - один сломанный набор не скрывает результат остальных.
+  # tools/test_live_rf_scenarios.ps1 отдельной строки не имеет сознательно: он не
+  # самостоятельный, его дот-сорсит test_live_rf.ps1 в секции scenarios.
+  powershell:
+    name: pwsh / ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - tools/test_live_rf.ps1
+          - tools/test_commit_state.ps1
+          - tools/test_tinvest_mock_contract.ps1
+    steps:
+      # v5 - та же версия, что в tick.yml (там же и разбор, почему не выше).
+      # persist-credentials: false - см. блок permissions выше.
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: pwsh version
+        run: pwsh -NoProfile -Command '$PSVersionTable | Format-List | Out-String'
+
+      - name: ${{ matrix.suite }}
+        env:
+          # На Linux переменной TEMP нет, а tools/test_live_rf_scenarios.ps1 строит от неё
+          # свой рабочий каталог. Даём её снаружи, чтобы не трогать сам тест.
+          TEMP: ${{ runner.temp }}
+        run: pwsh -NoProfile -File ${{ matrix.suite }}
+
+  # Наборы на bash и python. Набор telegram-mini-app/server/contracts.test.js сюда
+  # СОЗНАТЕЛЬНО не включён: контур Mini App остановлен (все юниты disabled, MINI_APP_URL
+  # убран), гонять тесты инертного кода - шум.
+  shell-python:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: bash / test_git_sync_watch.sh
+            cmd: bash tools/test_git_sync_watch.sh
+          - name: bash / test_tick_runners.sh
+            cmd: bash tools/test_tick_runners.sh
+          - name: python / assistant
+            cmd: python3 assistant/tests/run_all.py
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: ${{ matrix.name }}
+        shell: bash
+        run: ${{ matrix.cmd }}
