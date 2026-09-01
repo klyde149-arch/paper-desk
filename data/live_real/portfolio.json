@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 103.78,
+  "equity_usd": 103.36,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 103.28,
   "day_start_date_utc": "2026-09-01",
@@ -32,7 +32,7 @@
       "risk_usd": 1.02,
       "notional_usd": 34.87,
       "fees_usd": 0.04144423,
-      "funding_usd": 0.0054,
+      "funding_usd": 0.0073,
       "legs": [
         {
           "part": "TP1",
@@ -55,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 1.50682
+      "cur_upnl_usd": 1.316
     },
     {
       "id": "LT28",
@@ -80,7 +80,7 @@
       "risk_usd": 1.01,
       "notional_usd": 37.6,
       "fees_usd": 0.0376002,
-      "funding_usd": 0.005,
+      "funding_usd": 0.0088,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
@@ -95,14 +95,14 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.1056
+      "cur_upnl_usd": -0.1122
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1788264000000,
     "last_trail_4h_ts": 1788264000000,
-    "last_exec_ms": 1788266211447,
+    "last_exec_ms": 1788278400000,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -463,7 +463,9 @@
       "07631a24-a4d1-4980-b68a-7e1d6c5c8541",
       "33968e86-a55b-4dea-94f7-c0ff6e5e9238",
       "db084808-a403-49fc-b751-4efcedc17143",
-      "6a959107-d44f-5f8d-b8b1-5ef68f48023f"
+      "6a959107-d44f-5f8d-b8b1-5ef68f48023f",
+      "7928c66b-4cd1-4533-8aed-98e4ff4b190d",
+      "261865a3-443a-4ac5-9a51-3c23d3b9c7f6"
     ],
     "next_trade_id": 30,
     "halt_day_utc": null,
@@ -486,7 +488,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-01 16:00",
+    "last_tick_utc": "2026-09-01 16:15",
     "last_daily_summary_day": "2026-08-31",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
