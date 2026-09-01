@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 104.3,
+  "equity_usd": 104.36,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 103.28,
   "day_start_date_utc": "2026-09-01",
@@ -55,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.98042
+      "cur_upnl_usd": 1.12988
     },
     {
       "id": "LT28",
@@ -95,13 +95,52 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.198
+      "cur_upnl_usd": 0.1122
+    },
+    {
+      "id": "LT29",
+      "symbol": "SOL-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 0.4,
+      "qty_initial": 0.4,
+      "entry_filled_qty": 0.0,
+      "entry_price": 103.62,
+      "stop": 101.48,
+      "stop0": 101.48,
+      "tp1": 106.83,
+      "tp1_qty": 0.2,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-09-01 04:00",
+      "entry_ts": 1788235202751,
+      "risk_usd": 0.86,
+      "notional_usd": 41.45,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; SOL-USDT 4h up; F&G 69",
+        "riskPlan": "вход ~103.62, стоп 101.48 (2.04%), TP1 106.83 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.86",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
     }
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1788206400000,
-    "last_trail_4h_ts": 1788206400000,
+    "last_4h_ts": 1788220800000,
+    "last_trail_4h_ts": 1788220800000,
     "last_exec_ms": 1788221591178,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
@@ -459,7 +498,7 @@
       "c44e930c-42eb-4479-9e68-801cbe36ae4a",
       "0f0df517-a593-5805-934e-4dc8823299bc"
     ],
-    "next_trade_id": 29,
+    "next_trade_id": 30,
     "halt_day_utc": null,
     "soft_dd": false,
     "consec_api_fail": 0,
@@ -480,7 +519,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-01 03:45",
+    "last_tick_utc": "2026-09-01 04:00",
     "last_daily_summary_day": "2026-08-31",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
