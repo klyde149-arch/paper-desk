@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 104.36,
+  "equity_usd": 104.42,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 103.28,
   "day_start_date_utc": "2026-09-01",
@@ -55,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 1.12988
+      "cur_upnl_usd": 1.18628
     },
     {
       "id": "LT28",
@@ -95,17 +95,17 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.1122
+      "cur_upnl_usd": 0.1353
     },
     {
       "id": "LT29",
       "symbol": "SOL-USDT",
       "side": "long",
-      "status": "pending",
+      "status": "open",
       "qty": 0.4,
       "qty_initial": 0.4,
-      "entry_filled_qty": 0.0,
-      "entry_price": 103.62,
+      "entry_filled_qty": 0.4,
+      "entry_price": 103.61999999999999,
       "stop": 101.48,
       "stop0": 101.48,
       "tp1": 106.83,
@@ -119,7 +119,7 @@
       "entry_ts": 1788235202751,
       "risk_usd": 0.86,
       "notional_usd": 41.45,
-      "fees_usd": 0.0,
+      "fees_usd": 0.041448,
       "funding_usd": 0.0,
       "legs": [],
       "thesis": {
@@ -134,14 +134,15 @@
           "funding": true,
           "fearGreed": true
         }
-      }
+      },
+      "cur_upnl_usd": 0.016
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1788220800000,
     "last_trail_4h_ts": 1788220800000,
-    "last_exec_ms": 1788221591178,
+    "last_exec_ms": 1788235228019,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -496,7 +497,9 @@
       "f72008b3-6609-5926-816d-82bd420de596",
       "0bfc2007-0820-4cac-bf21-f919ea656321",
       "c44e930c-42eb-4479-9e68-801cbe36ae4a",
-      "0f0df517-a593-5805-934e-4dc8823299bc"
+      "0f0df517-a593-5805-934e-4dc8823299bc",
+      "0a5bd082-e7a4-5bdd-a6e4-2d7c27f2b38a",
+      "43a4db38-d105-5c0c-af3a-e99fdf5abaad"
     ],
     "next_trade_id": 30,
     "halt_day_utc": null,
@@ -519,7 +522,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-01 04:00",
+    "last_tick_utc": "2026-09-01 04:01",
     "last_daily_summary_day": "2026-08-31",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
