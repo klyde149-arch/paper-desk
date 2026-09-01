@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 103.28,
+  "equity_usd": 103.71,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 103.28,
   "day_start_date_utc": "2026-09-01",
@@ -14,26 +14,34 @@
       "symbol": "NEAR-USDT",
       "side": "long",
       "status": "open",
-      "qty": 18.8,
+      "qty": 9.4,
       "qty_initial": 18.8,
       "entry_filled_qty": 18.8,
       "entry_price": 1.856,
-      "stop": 1.801,
+      "stop": 1.856,
       "stop0": 1.801,
       "tp1": 1.936,
       "tp1_qty": 9.4,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
+      "tp1_filled_qty": 9.4,
+      "tp1_done": true,
+      "be_done": true,
       "close_reason": null,
       "sl_exec": false,
       "entry_utc": "2026-08-31 16:00",
       "entry_ts": 1788192002839,
       "risk_usd": 1.02,
       "notional_usd": 34.87,
-      "fees_usd": 0.0348928,
+      "fees_usd": 0.04144423,
       "funding_usd": 0.0036,
-      "legs": [],
+      "legs": [
+        {
+          "part": "TP1",
+          "qty": 9.4,
+          "price": 1.936,
+          "utc": "2026-09-01 00:13",
+          "pnl": 0.75
+        }
+      ],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
         "regime": "BTC 4h up; NEAR-USDT 4h up; F&G 62",
@@ -47,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 1.1656
+      "cur_upnl_usd": 0.7614
     },
     {
       "id": "LT28",
@@ -72,7 +80,7 @@
       "risk_usd": 1.01,
       "notional_usd": 37.6,
       "fees_usd": 0.0376002,
-      "funding_usd": 0.0,
+      "funding_usd": 0.0012,
       "legs": [],
       "thesis": {
         "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
@@ -87,14 +95,14 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": -0.2673
+      "cur_upnl_usd": -0.1848
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1788206400000,
     "last_trail_4h_ts": 1788206400000,
-    "last_exec_ms": 1788220800000,
+    "last_exec_ms": 1788221591178,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -447,7 +455,9 @@
       "9b7ac9ee-260d-5652-8859-ca5c8a96225c",
       "06ed9de6-1383-553d-93cf-7c5803074f9b",
       "f72008b3-6609-5926-816d-82bd420de596",
-      "0bfc2007-0820-4cac-bf21-f919ea656321"
+      "0bfc2007-0820-4cac-bf21-f919ea656321",
+      "c44e930c-42eb-4479-9e68-801cbe36ae4a",
+      "0f0df517-a593-5805-934e-4dc8823299bc"
     ],
     "next_trade_id": 29,
     "halt_day_utc": null,
@@ -470,7 +480,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-01 00:00",
+    "last_tick_utc": "2026-09-01 00:14",
     "last_daily_summary_day": "2026-08-31",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
