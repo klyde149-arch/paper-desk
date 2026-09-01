@@ -1581,8 +1581,10 @@ function Scn-BrokerBlockPersisted {
   # класс регрессии, из-за которого леджер съедал GetOperations у adopt (см. Scn-AdoptOpsFail).
   $pfCalls = Get-Calls $r 'GetPortfolio'
   Check 'broker: бюджет тика на GetPortfolio не вырос (preflight + reconcile = 2)' (@($pfCalls | Where-Object { $null -ne $_ }).Count -eq 2)
-  $opsCalls = Get-Calls $r 'GetOperations'
-  Check 'broker: леджер НЕ дёргает операции в торговые часы' (@($opsCalls | Where-Object { $null -ne $_ }).Count -eq 0)
+  # Тайминг леджера (разовый бэкфилл сразу, регулярное обновление вечером) и то, что он не
+  # ходит к брокеру повторно, проверяет Scn-BrokerLedgerWindow. А то, что отчётность не
+  # перехватывает ответы у state machine, - Scn-AdoptOpsFail: там очередь держит GetOperations
+  # для adopt, и леджер, стоящий раньше по тику, съедал бы его.
 }
 
 # --- битый снимок портфеля: блок брокера НЕСЁТСЯ, а не обнуляется (инцидент 2026-07-23)
@@ -1634,15 +1636,31 @@ function Scn-BrokerLedgerFees {
   Check 'ledger: повторный тик не удвоил комиссии' ([double]$lg2.fees_rub -eq -2000.0)
 }
 
-# --- утренний тик леджер НЕ трогает: отчётность не должна тратить вызовы раньше state machine
-function Scn-BrokerLedgerNotInTradingHours {
-  $r = New-Scenario 'broker-ledger-hours'
+# --- окно леджера: разовый бэкфилл идёт сразу, регулярное обновление ждёт вечера
+function Scn-BrokerLedgerWindow {
+  $r = New-Scenario 'broker-ledger-window'
   Write-Json (Join-Path $r 'data\live_rf\portfolio.json') (New-BaseState $r)
+  $ops = [pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='b1'; operation_type='OPERATION_TYPE_ACCRUING_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='7000'; nano=0; currency='rub' } }) }
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') $ops
   Set-Queue $r @([pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' })
+  # утро: леджера ещё нет -> разовый бэкфилл ДОЛЖЕН отработать, ждать вечера незачем
   [void](Run-Tick $r '2026-07-15 10:05')
   $st = Get-State $r
-  Check 'ledger-hours: в торговые часы леджер не считался' (-not $st.PSObject.Properties['broker_ledger'])
-  Check 'ledger-hours: вотермарка не выставлена' ([string]$st.watermarks.broker_ledger_day -ne '2026-07-15')
+  Check 'ledger-window: бэкфилл отработал сразу, не дожидаясь вечера' ($null -ne $st.broker_ledger -and [double]$st.broker_ledger.varmargin_rub -eq 7000.0)
+  # ...но суточную вотермарку днём НЕ ставит, иначе съел бы сегодняшний вечерний прогон
+  Check 'ledger-window: днём суточная вотермарка не ставится' ([string]$st.watermarks.broker_ledger_day -ne '2026-07-15')
+  # следующий дневной тик: леджер уже есть -> в торговые часы к брокеру не ходим
+  $before = @((Get-Calls $r 'GetOperations') | Where-Object { $null -ne $_ }).Count
+  [void](Run-Tick $r '2026-07-15 12:00')
+  $after = @((Get-Calls $r 'GetOperations') | Where-Object { $null -ne $_ }).Count
+  Check 'ledger-window: повторно днём операции не запрашиваются' ($after -eq $before)
+  # вечер: регулярное обновление идёт и ставит вотермарку
+  [void](Run-Tick $r '2026-07-15 23:10')
+  $st2 = Get-State $r
+  Check 'ledger-window: вечером обновление отработало' ([string]$st2.watermarks.broker_ledger_day -eq '2026-07-15')
+  Check 'ledger-window: дедуп не удвоил вариационку' ([double]$st2.broker_ledger.varmargin_rub -eq 7000.0)
 }
 
 # ================= запуск =================
@@ -1671,6 +1689,6 @@ $scenarios = @(
   ${function:Scn-LongOnlyEveningShort},
   ${function:Scn-CapitalNoVarMarginDoubleCount}, ${function:Scn-CapitalUserAssetsNeverNegative},
   ${function:Scn-BrokerBlockPersisted}, ${function:Scn-BrokerBlockSurvivesEmptySnapshot},
-  ${function:Scn-BrokerLedgerFees}, ${function:Scn-BrokerLedgerNotInTradingHours}
+  ${function:Scn-BrokerLedgerFees}, ${function:Scn-BrokerLedgerWindow}
 )
 foreach ($fn in $scenarios) { & $fn }

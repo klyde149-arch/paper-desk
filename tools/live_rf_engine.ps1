@@ -918,12 +918,16 @@ function Get-OpsWindowed([long]$FromMs, [long]$ToMs) {
 
 function Invoke-BrokerLedger {
   if ($mode -eq 'dryrun') { return }
-  # Вечернее окно: до клиринга сводить нечего, а лишний вызов в торговые часы не нужен.
-  if ($mskHHmm -lt $script:BROKER_LEDGER_FROM) { return }
-  # Раз в календарный день МСК (в т.ч. для разового бэкфилла - иначе он бы шёл каждый тик).
-  if ([string]$st.watermarks.broker_ledger_day -eq $mskToday) { return }
   $lg = if ($st.PSObject.Properties['broker_ledger']) { $st.broker_ledger } else { $null }
   $full = ($null -eq $lg -or [string]$lg.backfill_id -ne $script:BROKER_LEDGER_ID)
+  $inWindow = ([string]$mskHHmm -ge $script:BROKER_LEDGER_FROM)
+  # РАЗОВЫЙ бэкфилл идёт при первом же тике после деплоя, в любое время: история операций
+  # уже закрыта, ждать вечернего клиринга нечего, а до него отчётность 20+ часов показывала бы
+  # фолбэк вместо реального итога бота и фактических комиссий.
+  # РЕГУЛЯРНОЕ обновление - только в вечернем окне (после клиринга) и раз в календарный день.
+  if (-not $full -and -not $inWindow) { return }
+  if ($inWindow -and [string]$st.watermarks.broker_ledger_day -eq $mskToday) { return }
+  if (-not $full) { $full = $false }
   $fromMs = 0L
   if ($full) {
     # с запуска контура минус неделя запаса; при нечитаемой дате - фиксированный старт
@@ -972,7 +976,10 @@ function Invoke-BrokerLedger {
     fees_other_rub = [math]::Round($feeOther, 2)
     fees_by_type = $byType; op_ids = (ToArr $keep); updated_ms = $NowMs
   }) -Force
-  $st.watermarks | Add-Member -NotePropertyName broker_ledger_day -NotePropertyValue $mskToday -Force
+  # Вотермарку суток ставим ТОЛЬКО когда отработали в вечернем окне. Иначе бэкфилл, сделанный
+  # днём, закрыл бы сегодняшний вечерний прогон, и в итог бота не попало бы сведение этого
+  # клиринга (а текущая несведённая вариационка к тому моменту уже обнулится).
+  if ($inWindow) { $st.watermarks | Add-Member -NotePropertyName broker_ledger_day -NotePropertyValue $mskToday -Force }
   if ($full) { Write-LiveLog "broker-ledger: бэкфилл, операций учтено $added, вариационка $([math]::Round($vm,2)), комиссии $([math]::Round($fee,2))" }
   elseif ($added) { Write-LiveLog "broker-ledger: +$added операций, вариационка $([math]::Round($vm,2)), комиссии $([math]::Round($fee,2))" }
 }
