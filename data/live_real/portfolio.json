@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 101.48,
+  "equity_usd": 101.39,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 103.28,
   "day_start_date_utc": "2026-09-01",
@@ -55,54 +55,14 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.31584
-    },
-    {
-      "id": "LT28",
-      "symbol": "LINK-USDT",
-      "side": "long",
-      "status": "open",
-      "qty": 3.3000000000000003,
-      "qty_initial": 3.3000000000000003,
-      "entry_filled_qty": 3.3000000000000003,
-      "entry_price": 11.394,
-      "stop": 11.088,
-      "stop0": 11.088,
-      "tp1": 11.851,
-      "tp1_qty": 1.6,
-      "tp1_filled_qty": 0.0,
-      "tp1_done": false,
-      "be_done": false,
-      "close_reason": null,
-      "sl_exec": false,
-      "entry_utc": "2026-08-31 20:00",
-      "entry_ts": 1788206402791,
-      "risk_usd": 1.01,
-      "notional_usd": 37.6,
-      "fees_usd": 0.0376002,
-      "funding_usd": 0.0088,
-      "legs": [],
-      "thesis": {
-        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
-        "regime": "BTC 4h up; LINK-USDT 4h up; F&G 62",
-        "riskPlan": "вход ~11.393, стоп 11.088 (2.69%), TP1 11.851 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.01",
-        "checks": {
-          "setupA": true,
-          "btcFilter": true,
-          "flatMode": true,
-          "atrCap": true,
-          "funding": true,
-          "fearGreed": true
-        }
-      },
-      "cur_upnl_usd": -0.9702
+      "cur_upnl_usd": 0.2914
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1788264000000,
     "last_trail_4h_ts": 1788264000000,
-    "last_exec_ms": 1788278400000,
+    "last_exec_ms": 1788288335016,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -465,7 +425,8 @@
       "db084808-a403-49fc-b751-4efcedc17143",
       "6a959107-d44f-5f8d-b8b1-5ef68f48023f",
       "7928c66b-4cd1-4533-8aed-98e4ff4b190d",
-      "261865a3-443a-4ac5-9a51-3c23d3b9c7f6"
+      "261865a3-443a-4ac5-9a51-3c23d3b9c7f6",
+      "bdfb1115-0e45-56fc-9ce3-5a5dec22a38e"
     ],
     "next_trade_id": 30,
     "halt_day_utc": null,
@@ -488,7 +449,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-01 18:45",
+    "last_tick_utc": "2026-09-01 18:46",
     "last_daily_summary_day": "2026-08-31",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
