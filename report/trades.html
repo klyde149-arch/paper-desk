@@ -377,17 +377,17 @@
     <h2>Реальный счёт — <span class="em">Т-Инвестиции · C3b</span></h2>
     <div id="futRealStatus" class="callout" style="border-left-color:#d9a441"></div>
     <div class="kpis" id="futRealKpis" style="margin-top:14px;grid-template-columns:repeat(6,1fr)">
-      <div class="kpi"><p class="l">Капитал бота</p><div class="v num" id="frCap">—</div><p class="s" id="frCapS">рубли+USD+серебро+фьючерсы</p></div>
+      <div class="kpi"><p class="l">Капитал бота</p><div class="v num" id="frCap">—</div><p class="s" id="frCapS">весь счёт у брокера</p></div>
       <div class="kpi"><p class="l">P&L сделок</p><div class="v num" id="frPnl">—</div><p class="s" id="frPnlS">реализованный</p></div>
-      <div class="kpi"><p class="l">Общий P&L</p><div class="v num" id="frTot">—</div><p class="s" id="frTotS">реализованный + плавающий</p></div>
-      <div class="kpi"><p class="l">P&L сегодня</p><div class="v num" id="frDay">—</div><p class="s" id="frDayS">МСК-день</p></div>
+      <div class="kpi"><p class="l">Результат бота</p><div class="v num" id="frTot">—</div><p class="s" id="frTotS">с запуска, по данным брокера</p></div>
+      <div class="kpi"><p class="l">P&L сегодня</p><div class="v num" id="frDay">—</div><p class="s" id="frDayS">данные брокера</p></div>
       <div class="kpi"><p class="l">Открытых позиций</p><div class="v num" id="frPos">—</div><p class="s" id="frPosS">ГО —</p></div>
       <div class="kpi"><p class="l">От максимума</p><div class="v num" id="frDd">—</div><p class="s" id="frDdS">исторический пик</p></div>
     </div>
     <div id="frBreakdown" class="card" style="margin-top:12px;padding:12px 16px;font-size:12.5px;color:var(--muted)"></div>
 
     <h2>Открытые позиции</h2>
-    <p class="sec-note">Реальные фьючерсные позиции на счёте Т-Инвестиций. Нажмите на строку — раскроются график (свечи T-Инвест), сумма, тейк, стоп и дата захода. Стопы лежат на бирже брокерскими заявками.</p>
+    <p class="sec-note">Реальные фьючерсные позиции на счёте Т-Инвестиций. Крупная цифра — <b>P&amp;L по данным брокера</b>: накопленная вариационная маржа по контракту с момента открытия позиции, ровно то число, что показывает приложение Т-Инвестиций. Рядом мельче — наша переоценка <b>сейчас открытых лотов</b> от цены входа; она меньше, если бот уже закрывал лоты внутри того же контракта. Процент считается от задействованного ГО (вложенной маржи), а не от движения цены. Нажмите на строку — раскроются график, сверка с брокером, тейк, стоп и дата захода. Стопы лежат на бирже брокерскими заявками.</p>
     <div id="futRealWrap"></div>
 
     <h2>Сделки — <span class="em">плюсы и минусы</span></h2>
@@ -1672,21 +1672,38 @@
     stEl.innerHTML=`<b>РЕАЛЬНЫЕ ДЕНЬГИ · Т-Инвестиции (контур C3b).</b> ${RFR.mode!=="prod"?`<b style="color:var(--accent)">[${RFR.mode}]</b> `:""}Бот торгует фьючерсами на живом счёте (VPS, тик по расписанию МСК; стопы лежат на бирже). Последний дневной проход: <b class="num">${RFR.lastDailyDay||"—"}</b>.`+(RFR.entriesHalt?`<br><b style="color:var(--loss)">ВХОДЫ ОСТАНОВЛЕНЫ:</b> ${RFR.haltReason||"см. журнал"}`:"");
     const cap=+RFR.capitalNow||0, S=RFR.stats||{};
     const real=(S.realized_rub!=null)?+S.realized_rub:0;
+    // Капитал = счёт у брокера. Раньше сюда шла сумма «валюты + вариационка + акции», где
+    // вариационка уже сидела внутри валют — счёт завышался на неё (на 01.09 на 96 972 ₽).
     $("frCap").textContent=fmtRub(cap);
-    $("frCapS").textContent="весь счёт: "+(RFR.accountLiquid!=null?fmtRub(RFR.accountLiquid):"—");
+    const accTot=(RFR.accountTotal!=null)?+RFR.accountTotal:((RFR.accountLiquid!=null)?+RFR.accountLiquid:null);
+    $("frCapS").textContent=(accTot!=null&&Math.abs(accTot-cap)>=1)?("весь счёт: "+fmtRub(accTot)):"весь счёт у брокера";
     const pe=$("frPnl"); pe.textContent=sgnRub(real); pe.className="v num "+(real>=0?"pos":"neg");
-    $("frPnlS").textContent="комиссии "+fmtRub(S.fees_rub||0);
+    // Комиссии: факт из операций брокера, если он уже посчитан; иначе честно говорим, что оценка.
+    const feeFact=(RFR.feesBrokerRub!=null)?+RFR.feesBrokerRub:null;
+    $("frPnlS").textContent=(feeFact!=null)?("комиссии брокера "+fmtRub(feeFact)):("комиссии ≈"+fmtRub(S.fees_rub||0)+" (оценка)");
+    // «Результат бота» приходит готовым из снапшота: сведённая вариационка + текущая
+    // несведённая − фактические комиссии. Складывать здесь «закрытые + открытые по брокеру»
+    // НЕЛЬЗЯ: expected_yield брокера копится по контракту и у переоткрытого контракта уже
+    // содержит P&L закрытых сделок — те же деньги посчитались бы дважды.
     const flt=arr(RFR.positions).filter(p=>!p.reconcileStatus).reduce((t,p)=>t+(+p.upnl||0),0);
-    const tot=real+flt, te=$("frTot");
+    const fltB=arr(RFR.positions).filter(p=>!p.reconcileStatus).reduce((t,p)=>t+((p.brokerPnl!=null)?+p.brokerPnl:(+p.upnl||0)),0);
+    // allTimeAmt берём ТОЛЬКО из нового снапшота (его метит allTimeSource): в старом это
+    // Pct(profile_eq, base_rub) - бумажная блендовая модель, к этому счёту не относящаяся.
+    const totOk=(RFR.allTimeSource==="broker_ops"||RFR.allTimeSource==="ledger");
+    const tot=(totOk&&RFR.allTimeAmt!=null)?+RFR.allTimeAmt:(real+flt), te=$("frTot");
     if(te){ te.textContent=sgnRub(tot); te.className="v num "+(tot>=0?"pos":"neg");
-      $("frTotS").textContent="закрытые "+sgnRub(real)+" · открытые "+sgnRub(flt); }
+      $("frTotS").textContent=(RFR.allTimeSource==="broker_ops")
+        ? "с запуска, по операциям брокера"
+        : "закрытые "+sgnRub(real)+" · открытые "+sgnRub(flt); }
     const cc=arr(RFR.capitalCurve), de=$("frDay"), deS=$("frDayS");
     // Приоритет — число самого бота (dayBase = закрытие предыдущего дня), та же цифра, что
     // в вечернем отчёте. Клиентский пересчёт брал первую точку после полуночи МСК, а при
     // ОТСУТСТВИИ точек за сегодня (выходной, молчащий VPS) откатывался на cc[0] — самую
     // первую точку истории, и «P&L сегодня» показывал доход за всё время.
     let dv=null, dsrc="МСК-день";
-    if(RFR.todayAmt!=null){ dv=+RFR.todayAmt; if(RFR.dayBaseSource==="prev_day_close") dsrc="от закрытия прошлого дня"; }
+    if(RFR.todayAmt!=null){ dv=+RFR.todayAmt;
+      if(RFR.dayBaseSource==="broker_daily_yield") dsrc="данные брокера";
+      else if(RFR.dayBaseSource==="prev_day_close") dsrc="от закрытия прошлого дня"; }
     else if(cc.length){ const d0=mskDayStartUtcMs(), first=cc.find(p=>p[0]>=d0); if(first) dv=cap-first[1]; }
     if(dv!=null){ de.textContent=sgnRub(dv); de.className="v num "+(dv>=0?"pos":"neg");
       if(deS) deS.textContent=dsrc+((RFR.todayPct!=null)?" · "+(RFR.todayPct>=0?"+":"−")+dec(Math.abs(RFR.todayPct),2)+"%":""); }
@@ -1694,23 +1711,33 @@
     $("frPos").textContent=String(arr(RFR.positions).filter(p=>!p.reconcileStatus).length);
     const dd=$("frDd"), peak=+RFR.capitalPeak||0;
     if(dd){
-      const ddPct=(RFR.drawdownPct!=null)?+RFR.drawdownPct:(peak>0?100*(cap-peak)/peak:null);
+      // Пик копился на старой шкале капитала (с вариационкой сверху), поэтому просадка от
+      // него к новому капиталу — арифметика двух разных линеек. Пока пик не пересчитан,
+      // показываем прочерк: заведомо неверное число хуже отсутствующего.
+      const ddPct=(RFR.drawdownPct!=null)?+RFR.drawdownPct:(RFR.peakStale?null:(peak>0?100*(cap-peak)/peak:null));
       if(ddPct!=null){ dd.textContent=(ddPct>=-0.05?"0,0%":dec(ddPct,1)+"%"); dd.className="v num "+(ddPct>=-0.05?"":"neg"); $("frDdS").textContent=peak>0?("пик "+fmtRub(peak)):"исторический пик"; }
-      else { dd.textContent="—"; dd.className="v num"; }
+      else { dd.textContent="—"; dd.className="v num"; $("frDdS").textContent=RFR.peakStale?"пик пересчитывается":"исторический пик"; }
     }
     const goPct=RFR.goBudget>0?Math.round(100*RFR.goUsed/RFR.goBudget):0;
     $("frPosS").textContent="ГО "+goPct+"% · сделок "+(S.trades||0)+" ("+(S.wins||0)+"W/"+(S.losses||0)+"L)";
     const b=RFR.capitalBreakdown;
     if(b){
-      // Строка «фьючерсы» — это ВАРИАЦИОННАЯ МАРЖА (несведённый P&L), а не стоимость позиций:
-      // брокер не кладёт номинал фьючерса в total_amount_portfolio (инцидент 2026-07-21).
-      // Поэтому user_assets из движка (total − currencies − futures − mom) вбирает в себя
-      // −futures: на счёте без чужих бумаг он равен 12 618 ₽ и подписывался как «ваши акции
-      // и облигации», которых нет. Считаем чужое без маржи: total − currencies − mom.
-      const other=Math.round((+b.portfolio_total||0)-(+b.currencies||0)-(+b.mom_shares||0));
-      const fut=+b.futures||0;
-      $("frBreakdown").innerHTML=`<b style="color:var(--ink)">Состав капитала бота:</b> деньги+валюты+серебро <b>${fmtRub(b.currencies)}</b> · вариационная маржа по фьючерсам <b class="${fut>=0?"pos":"neg"}">${sgnRub(fut)}</b> · momentum-акции <b>${fmtRub(b.mom_shares)}</b> = <b style="color:var(--ink)">${fmtRub(cap)}</b>.<br><span style="color:var(--faint)">${Math.abs(other)>=1000?`Ваши акции и облигации ${fmtRub(other)} — вне капитала бота. `:`Чужих бумаг на счёте нет. `}Весь счёт у брокера: ${fmtRub(b.portfolio_total)}. Номинал позиций в капитал не входит — фьючерс даёт только маржу.</span>`;
-    } else { $("frBreakdown").innerHTML=`Капитал бота = деньги+валюты+серебро + вариационная маржа по фьючерсам + momentum-акции бота. Ваши акции/облигации исключены.`; }
+      // Тождество, которое обязано сходиться: деньги+валюты + акции бота + ваши бумаги = счёт.
+      // Вариационка сюда НЕ прибавляется — она уже внутри денег на счёте; показываем её
+      // отдельной справочной строкой. Прежний расчёт вычитал её из «ваших бумаг» и получал
+      // структурно отрицательный остаток, который приходилось прятать на стороне фронта.
+      const money=+b.currencies||0, momv=+b.mom_shares||0, total=+b.portfolio_total||0;
+      // Новый движок метит разбивку моделью и держит тождество; у старого user_assets
+      // структурно отрицательный (в нём вычтена вариационка) — там считаем остаток сами
+      // и не показываем предупреждение: это известное состояние, а не расхождение данных.
+      const fresh=(b.model!=null);
+      const other=(fresh&&b.user_assets!=null)?Math.round(+b.user_assets):Math.round(total-money-momv);
+      const fut=+b.futures||0, off=fresh?Math.abs(money+momv+other-total):0;
+      const parts=(momv?1:0)+(other>=1000?1:0);
+      $("frBreakdown").innerHTML=`<b style="color:var(--ink)">Состав счёта:</b> деньги, валюты и серебро <b>${fmtRub(money)}</b>${momv?` · momentum-акции бота <b>${fmtRub(momv)}</b>`:""}${other>=1000?` · ваши бумаги <b>${fmtRub(other)}</b>`:""}${parts?` = <b style="color:var(--ink)">${fmtRub(total)}</b>`:""}.`+
+        `<br><span style="color:var(--faint)">Справочно: вариационная маржа по фьючерсам за сегодня <b class="${fut>=0?"pos":"neg"}">${sgnRub(fut)}</b> — она уже внутри денег на счёте и отдельно к капиталу не прибавляется. Номинал позиций (${(RFR.broker&&RFR.broker.totals&&RFR.broker.totals.futures_nominal!=null)?fmtRub(RFR.broker.totals.futures_nominal):"—"}) в капитал не входит: фьючерс требует только ГО.${other<1000?" Ваших акций и облигаций на счёте сейчас нет.":""}</span>`+
+        (off>1?`<br><b class="neg">Разбивка не сходится на ${fmtRub(off)} — данные счёта стоит перепроверить.</b>`:"");
+    } else { $("frBreakdown").innerHTML=`Капитал бота = весь счёт у брокера: деньги, валюты и серебро + momentum-акции бота. Ваши акции и облигации показаны отдельной строкой.`; }
     buildFutRealPositions();
     buildFutRealClosed();
     drawFutRealEq();
@@ -1732,12 +1759,18 @@
     }
     POS.forEach((p,pi)=>{
       const cur=(p.cur!=null)?+p.cur:null;
-      const pct=(p.pctChg!=null)?+p.pctChg:((cur!=null&&p.entry)?(cur/p.entry-1)*100:null);
+      // Главная цифра — брокерская (expected_yield). Наша переоценка открытых лотов идёт
+      // рядом мельче. Движение цены (pctChg) больше не показываем: рядом с рублями оно
+      // читалось как доходность и врало (Eu показывал +0,13% при +36 680 ₽).
+      const bp=(p.brokerPnl!=null)?+p.brokerPnl:null;
       const up=(p.upnl!=null)?+p.upnl:null;
+      const head1=(bp!=null)?bp:up;
+      const pct=(p.pnlPctGo!=null)?+p.pnlPctGo:null;
+      const go=(p.goRub!=null)?+p.goRub:null;
       const row=document.createElement("div"); row.className="card"; row.style.cssText="margin-bottom:10px;padding:0;overflow:hidden";
       const head=document.createElement("div"); head.style.cssText="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;flex-wrap:wrap;cursor:pointer";
       head.innerHTML=`<div style="font-size:13.5px"><b>${p.sleeve==="core"?"ядро":"сетап A"} · ${p.asset}</b> <span style="color:var(--faint)">(${p.secid})</span> <b style="color:${p.side==="long"?"var(--gain)":"var(--loss)"}">${p.side==="long"?"ЛОНГ":"ШОРТ"}</b> · ${p.lots} лот</div>
-        <div style="text-align:right;font-size:13.5px"><b>${Math.round(p.notional||0).toLocaleString("ru-RU")} ₽</b>${pct!=null?` · <span class="${pct>=0?"pos":"neg"}">${pct>=0?"+":""}${pct.toFixed(2)}%</span>`:""}${up!=null?` · <span class="${up>=0?"pos":"neg"}">${up>=0?"+":"−"}${Math.round(Math.abs(up)).toLocaleString("ru-RU")} ₽</span>`:""} <span class="frCaret" style="color:var(--faint)">▾</span></div>`;
+        <div style="text-align:right;font-size:13.5px">${head1!=null?`<b class="${head1>=0?"pos":"neg"}" title="${bp!=null?"P&L по данным брокера: накопленная вариационная маржа по контракту с момента открытия позиции — это же число показывает приложение Т-Инвестиций":"переоценка открытых лотов от цены входа"}">${head1>=0?"+":"−"}${Math.round(Math.abs(head1)).toLocaleString("ru-RU")} ₽</b>`:""}${pct!=null?` · <span class="${pct>=0?"pos":"neg"}" title="доходность на задействованное ГО">${pct>=0?"+":"−"}${dec(Math.abs(pct),2)}% на ГО</span>`:""}${go!=null?` <span style="color:var(--faint)">· ГО ${Math.round(go).toLocaleString("ru-RU")} ₽</span>`:""}${(bp!=null&&up!=null)?`<br><span style="color:var(--faint);font-size:11.5px" title="переоценка сейчас открытых лотов от цены входа; лоты, закрытые внутри этого же контракта, сюда не входят">открытые лоты ${up>=0?"+":"−"}${Math.round(Math.abs(up)).toLocaleString("ru-RU")} ₽</span>`:""} <span class="frCaret" style="color:var(--faint)">▾</span></div>`;
       const body=document.createElement("div"); body.style.cssText="display:none;padding:0 16px 16px";
       row.appendChild(head); row.appendChild(body);
       let built=false;
@@ -1763,8 +1796,14 @@
       <div class="pr"><span>Текущая цена</span><b>${fmtPru(cur)}</b></div>
       <div class="pr"><span>Стоп-лосс</span><b class="neg">${fmtPru(p.stop)}</b></div>
       ${(p.tp1!=null)?`<div class="pr"><span>Тейк-профит</span><b class="pos">${fmtPru(p.tp1)}</b></div>`:""}
-      <div class="pr"><span>Плавающий P&L</span><b class="${(p.upnl||0)>=0?"pos":"neg"}">${(p.upnl||0)>=0?"+":"−"}${Math.round(Math.abs(p.upnl||0)).toLocaleString("ru-RU")} ₽</b></div>
+      <div class="pr"><span>P&L открытых лотов (от цены входа)</span><b class="${(p.upnl||0)>=0?"pos":"neg"}">${(p.upnl||0)>=0?"+":"−"}${Math.round(Math.abs(p.upnl||0)).toLocaleString("ru-RU")} ₽</b></div>
       <div class="pr"><span>Риск на сделку</span><b>${Math.round(p.riskRub||0).toLocaleString("ru-RU")} ₽</b></div>
+      ${(p.goRub!=null)?`<div class="pr"><span>Задействовано ГО</span><b>${Math.round(p.goRub).toLocaleString("ru-RU")} ₽</b></div>`:""}
+      ${(p.brokerPnl!=null)?`<div class="pr" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>P&L по брокеру (с открытия)</span><b class="${p.brokerPnl>=0?"pos":"neg"}">${p.brokerPnl>=0?"+":"−"}${Math.round(Math.abs(p.brokerPnl)).toLocaleString("ru-RU")} ₽</b></div>`:""}
+      ${(p.brokerVarMargin!=null)?`<div class="pr"><span>в т.ч. вариационка за сегодня</span><b class="${p.brokerVarMargin>=0?"pos":"neg"}">${p.brokerVarMargin>=0?"+":"−"}${Math.round(Math.abs(p.brokerVarMargin)).toLocaleString("ru-RU")} ₽</b></div>`:""}
+      ${(p.brokerVarMarginSettled!=null)?`<div class="pr"><span>из них сведено на клиринге</span><b>${p.brokerVarMarginSettled>=0?"+":"−"}${Math.round(Math.abs(p.brokerVarMarginSettled)).toLocaleString("ru-RU")} ₽</b></div>`:""}
+      ${(p.brokerAvgPx!=null)?`<div class="pr"><span>Средняя цена у брокера</span><b${(Math.abs(+p.brokerAvgPx-+p.entry)/Math.max(1e-9,Math.abs(+p.entry))>0.005)?' class="neg"':""}>${fmtPru(p.brokerAvgPx)}</b></div>`:""}
+      ${(p.brokerLots!=null)?`<div class="pr"><span>Лотов у брокера</span><b${(Math.round(+p.brokerLots)!==Math.round(+p.lots))?' class="neg"':""}>${Math.round(+p.brokerLots)}</b></div>`:""}
       <div style="margin-top:10px"><a href="chart.html#${p.asset}/1h" style="display:inline-block;padding:7px 14px;border-radius:8px;background:var(--accent-soft);color:var(--accent);text-decoration:none;font-size:13px;font-weight:600">📊 Открыть на графике</a></div>`;
     if(k.length){
       const grid=document.createElement("div"); grid.className="live-grid";
@@ -1786,7 +1825,13 @@
     const cc=RFR?arr(RFR.capitalCurve):[], hint=$("futRealEqHint");
     if(cc.length<2){ const {ctx,w,h}=setupCanvas(cv); ctx.clearRect(0,0,w,h); ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("кривая появится после нескольких тиков бота",20,40); if(hint)hint.textContent=""; return; }
     drawEqOn("futRealEqCurve", cc, {cur:"rub"});
-    if(hint) hint.textContent=`Точный капитал бота (деньги+валюты+серебро + фьючерсы + акции бота), точка раз в 15 минут. Точек: ${cc.length}.`;
+    if(hint){
+      const j=(RFR&&RFR.capitalCurveJoinTs!=null)?+RFR.capitalCurveJoinTs:null;
+      const jd=j?new Date(j+3*36e5).toISOString().slice(0,10):null;
+      hint.innerHTML=`Деньги под управлением — весь счёт у брокера, точка раз в 15 минут. Точек: ${cc.length}.`+
+        `<br><b>Это не кривая доходности бота:</b> счёт пополнялся не деньгами, а переводом ваших собственных бумаг в рубли (≈1,2 млн ₽ за июль–август), и этот рост здесь виден как рост капитала. Результат самого бота — в плитке «Результат бота».`+
+        (jd?`<br><span style="color:var(--faint)">С ${jd} точки считаются по счёту брокера; до этой даты в них была лишний раз добавлена вариационная маржа того тика.</span>`:"");
+    }
   }
   function buildFutRealClosed(){
     const wrap=$("futRealClosed"); if(!wrap) return;
@@ -1808,7 +1853,7 @@
       <div class="kpi"><p class="l">Плюсы</p><div class="v num pos">${W.length}</div><p class="s">${sgnRub(gW)} · лучшая ${nm(best)} ${sgnRub(best.pnl)}</p></div>
       <div class="kpi"><p class="l">Минусы</p><div class="v num neg">${L.length}</div><p class="s">${sgnRub(-gL)} · худшая ${nm(worst)} ${sgnRub(worst.pnl)}</p></div>
       <div class="kpi"><p class="l">Винрейт</p><div class="v num">${dec(wr,1)}%</div><p class="s">средний плюс ${W.length?sgnRub(gW/W.length):"—"} · минус ${L.length?sgnRub(-gL/L.length):"—"}</p></div>
-      <div class="kpi"><p class="l">Профит-фактор</p><div class="v num ${pf!=null&&pf>=1?"pos":(pf!=null?"neg":"")}">${pf!=null?dec(pf,2):"—"}</div><p class="s">итог ${sgnRub(net)} · комиссии ${fmtRub(feeAll)} уже учтены</p></div>
+      <div class="kpi"><p class="l">Профит-фактор</p><div class="v num ${pf!=null&&pf>=1?"pos":(pf!=null?"neg":"")}">${pf!=null?dec(pf,2):"—"}</div><p class="s">итог ${sgnRub(net)} · комиссии ${fmtRub(feeAll)} учтены${(RFR&&RFR.feesBrokerRub!=null)?` (оценка по тарифу; факт по счёту ${fmtRub(RFR.feesBrokerRub)})`:" (оценка по тарифу)"}</p></div>
     </div>`;
     const many=R.length>15;
     t+=`<div class="card"><h3 style="font-family:var(--serif);margin:0 0 8px;font-size:16px">Закрытые сделки (${R.length})${many?` <span style="font-family:var(--jak);font-size:12px;font-weight:400;color:var(--faint)">· список прокручивается</span>`:""}</h3>`;

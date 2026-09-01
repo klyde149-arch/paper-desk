@@ -10,11 +10,18 @@ import { dashboardV2, portfoliosV2 } from './api-v2.js';
 import { mskDay, utcDay } from './util.js';
 
 const dashboardKeys = ['candleTf', 'closedTrades', 'currency', 'equity', 'equityBase', 'positions', 'summary'];
+// ЯДРО контракта - обязано совпадать у обоих контуров: на нём держится общий фронт кабинета.
 const summaryKeys = ['allTimeAmt', 'allTimeNote', 'allTimePct', 'capital', 'dataAgeMin', 'dayBase', 'dayBaseSource',
   'drawdownPct', 'entriesHalt', 'extraStat', 'fees', 'haltReason', 'losses', 'mode', 'openPositions', 'peak',
   'todayAmt', 'todayPct', 'tradesPnl', 'winRate', 'wins'];
 const positionKeys = ['asset', 'cur', 'entry', 'entryDay', 'entryTs', 'id', 'lots', 'notional', 'pctChg',
   'risk', 'secid', 'side', 'sleeve', 'stop', 'title', 'tp1', 'upnl'];
+// Поля СВЕРХ ядра, специфичные для контура. Перечислены явно, чтобы новое поле нельзя было
+// добавить молча: набор ключей по-прежнему сверяется точно, просто своим для каждого контура.
+// У RF это числа, приходящие от брокера дословно (см. tools/live_rf_engine.ps1 Set-BotCapital).
+const rfSummaryExtra = ['accountTotal', 'allTimeSource', 'capitalModel', 'feesBrokerRub', 'openPnlBroker',
+  'peakStale', 'userAssets'];
+const rfPositionExtra = ['brokerPnl', 'brokerVarMargin', 'goRub', 'pnlPctGo'];
 const tradeKeys = ['asset', 'entry', 'entryDay', 'exitDay', 'exitPx', 'exitReason', 'fees', 'id', 'pnl', 'rMultiple',
   'secid', 'side', 'title'];
 const v2SummaryKeys = ['allTimeAmt', 'allTimeNote', 'allTimePct', 'capital', 'dataAgeMin', 'dayBase', 'entriesHalt',
@@ -27,14 +34,15 @@ function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value), 'utf8');
 }
 
-function assertDashboardContract(dashboard, currency, candleTf) {
+function assertDashboardContract(dashboard, currency, candleTf, extra = {}) {
+  const { summary = [], position = [] } = extra;
   assert.deepEqual(Object.keys(dashboard).sort(), dashboardKeys);
   assert.equal(dashboard.currency, currency);
   assert.equal(dashboard.candleTf, candleTf);
-  assert.deepEqual(Object.keys(dashboard.summary).sort(), summaryKeys);
+  assert.deepEqual(Object.keys(dashboard.summary).sort(), [...summaryKeys, ...summary].sort());
   assert.equal(dashboard.positions.length, 1);
   assert.equal(dashboard.closedTrades.length, 1);
-  assert.deepEqual(Object.keys(dashboard.positions[0]).sort(), positionKeys);
+  assert.deepEqual(Object.keys(dashboard.positions[0]).sort(), [...positionKeys, ...position].sort());
   assert.deepEqual(Object.keys(dashboard.closedTrades[0]).sort(), tradeKeys);
   assert.equal(typeof dashboard.summary.dataAgeMin, 'number');
 }
@@ -74,7 +82,7 @@ test('RF dashboard fixture preserves the common DTO contract', (t) => {
 
   const dashboard = readRfDashboard({ dataDir, namesPath, currency: 'RUB' });
   const overview = readRfOverview({ dataDir, currency: 'RUB' });
-  assertDashboardContract(dashboard, 'RUB', '1ч');
+  assertDashboardContract(dashboard, 'RUB', '1ч', { summary: rfSummaryExtra, position: rfPositionExtra });
   assert.deepEqual(overview, overviewProjection(dashboard));
   assert.equal(dashboard.summary.capital, 105000);
   assert.equal(dashboard.summary.todayAmt, 5000);
@@ -112,6 +120,75 @@ test('RF presentation snapshot is preferred and keeps its stale source timestamp
   assert.equal(dashboard.summary.dayBaseSource, 'prev_day_close');
   assert.ok(dashboard.summary.dataAgeMin >= 46);
   assert.equal(dashboard.positions[0].candles, undefined);
+});
+
+test('RF snapshot with a broker block surfaces broker numbers verbatim', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-rf-broker-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dataDir = path.join(root, 'live_rf');
+  // Числа взяты с боевого счёта 2154036525 (2026-09-01 16:41 UTC) - если адаптер начнёт
+  // что-то пересчитывать сам, тест это поймает: сверять кабинет можно только с приложением.
+  writeJson(path.join(root, 'rf_presentation_snapshot.json'), {
+    schema: 1, sourceAtMs: Date.now(),
+    summary: { capital: 1568657.14, accountTotal: 1568657.14, userAssets: 0, capitalModel: 'legacy',
+      peakStale: true, peak: 1723067.14, drawdownPct: null,
+      dayBase: 1468093.14, dayBaseSource: 'broker_daily_yield', todayAmt: 100564, todayPct: 6.84,
+      allTimePct: 9.69, allTimeAmt: 138539.52, allTimeNote: 'note', allTimeSource: 'broker_ops',
+      openPositions: 1, tradesPnl: 106635.21, fees: 8361.64, feesBrokerRub: 21684.47, openPnlBroker: 116733,
+      winRate: 66.7, wins: 12, losses: 6, mode: 'prod', entriesHalt: false, haltReason: '', goUsed: 10, goBudget: 20 },
+    broker: { totals: { portfolio: 1568657.14 }, daily_yield_rub: 100564, positions: [] },
+    operational: { go: {}, drift: {}, stats: {}, capitalBreakdown: {}, active: {}, consecFail: 0 },
+    sleeves: { core: { equity: 0, dayPct: 0 }, setA: { equity: 0, dayPct: 0 }, mom: { equity: 0, dayPct: 0 } },
+    positions: [{ id: 'L00045', sleeve: 'core', asset: 'Eu', secid: 'EuU6', title: 'евро', side: 'long',
+      lots: 28, entry: 100570.36, stop: 98196, cur: 100753, upnl: 3574, risk: 75220, notional: 2815970,
+      pctChg: 0.13, brokerPnl: 36680, goRub: 422230, pnlPctGo: 8.69, brokerVarMargin: 29316,
+      entryDay: '2026-08-27', entryTs: 1 }],
+    holdings: [], closedTrades: [], equity: [[1, 100]], capitalCurve: [[1, 100]]
+  });
+  const d = readRfDashboard({ dataDir, namesPath: path.join(root, 'unused.json'), currency: 'RUB' });
+  assert.equal(d.summary.capital, 1568657.14);
+  assert.equal(d.summary.todayAmt, 100564);
+  assert.equal(d.summary.todayPct, 6.84);
+  assert.equal(d.summary.dayBaseSource, 'broker_daily_yield');
+  assert.equal(d.summary.allTimeAmt, 138539.52);
+  assert.equal(d.summary.allTimeSource, 'broker_ops');
+  assert.equal(d.summary.feesBrokerRub, 21684.47);
+  assert.equal(d.summary.userAssets, 0);
+  assert.equal(d.summary.peakStale, true);
+  assert.equal(d.summary.drawdownPct, null);
+  // главная цифра позиции - брокерская, процент - на ГО, а не движение цены
+  assert.equal(d.positions[0].brokerPnl, 36680);
+  assert.equal(d.positions[0].upnl, 3574);
+  assert.equal(d.positions[0].goRub, 422230);
+  assert.equal(d.positions[0].pnlPctGo, 8.69);
+});
+
+test('RF snapshot without a broker block degrades without crashing', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-rf-nobroker-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const dataDir = path.join(root, 'live_rf');
+  // Снапшот со СТАРОГО движка: во время деплоя VPS и Actions какое-то время рассинхронны.
+  writeJson(path.join(root, 'rf_presentation_snapshot.json'), {
+    schema: 1, sourceAtMs: Date.now(),
+    summary: { capital: 123, peak: 130, drawdownPct: -5.38, dayBase: 120, dayBaseSource: 'prev_day_close',
+      todayAmt: 3, todayPct: 2.5, allTimePct: 4, allTimeAmt: 5, allTimeNote: 'note', openPositions: 1,
+      tradesPnl: 2, fees: 1, winRate: 100, wins: 1, losses: 0, mode: 'prod', entriesHalt: false, haltReason: '' },
+    operational: { go: {}, drift: {}, stats: {}, capitalBreakdown: {}, active: {}, consecFail: 0 },
+    sleeves: { core: { equity: 0, dayPct: 0 }, setA: { equity: 0, dayPct: 0 }, mom: { equity: 0, dayPct: 0 } },
+    positions: [{ id: 'p1', sleeve: 'core', asset: 'NG', secid: 'NG', title: 'Gas', side: 'long', lots: 1,
+      entry: 2, stop: 1, cur: 2.1, upnl: 3, risk: 1, entryDay: '2026-01-01', entryTs: 1 }],
+    holdings: [], closedTrades: [], equity: [[1, 100]], capitalCurve: [[1, 100]]
+  });
+  const d = readRfDashboard({ dataDir, namesPath: path.join(root, 'unused.json'), currency: 'RUB' });
+  // ключи на месте (фронт их читает безусловно), значения - null, а не выдуманные нули
+  assert.deepEqual(Object.keys(d.summary).sort(), [...summaryKeys, ...rfSummaryExtra].sort());
+  assert.deepEqual(Object.keys(d.positions[0]).sort(), [...positionKeys, ...rfPositionExtra].sort());
+  assert.equal(d.summary.accountTotal, null);
+  assert.equal(d.summary.feesBrokerRub, null);
+  assert.equal(d.summary.peakStale, false);
+  assert.equal(d.positions[0].brokerPnl, null);
+  assert.equal(d.positions[0].pnlPctGo, null);
+  assert.equal(d.summary.capital, 123);
 });
 
 test('crypto dashboard fixture preserves the common DTO contract', (t) => {

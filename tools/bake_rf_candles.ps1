@@ -50,36 +50,139 @@ function Build-RfPresentationSnapshot($State) {
   $trPath = Join-Path $lrfDir 'trades.json'
   if (Test-Path $trPath) { try { $trades = @((Get-Content $trPath -Raw -Encoding UTF8 | ConvertFrom-Json) | Where-Object { $null -ne $_ }) } catch { throw "trades.json: $($_.Exception.Message)" } }
 
-  $capCurve = @($eqRows | Where-Object { $_.PSObject.Properties['bot_capital'] -and $_.PSObject.Properties['account_liquid'] -and $null -ne $_.bot_capital -and [double]$_.account_liquid -gt 0 } | ForEach-Object { ,@([long]$_.ts, [double]$_.bot_capital) })
-  $curve = @($eqRows | Where-Object { $_.PSObject.Properties['total'] -and $null -ne $_.total -and [double]$_.total -gt 0 } | ForEach-Object { ,@([long]$_.ts, [double]$_.total) })
-  $capital = if ($State.go.PSObject.Properties['bot_capital_rub'] -and $null -ne $State.go.bot_capital_rub) { [double]$State.go.bot_capital_rub } else { [double]$State.profile_eq }
-  $peak = if ($State.go.PSObject.Properties['capital_peak_rub'] -and $null -ne $State.go.capital_peak_rub) { [double]$State.go.capital_peak_rub } else { [double]$State.peak_eq }
-  $today = (Get-Date).ToUniversalTime().AddHours(3).ToString('yyyy-MM-dd')
-  $dayBase = $null; $daySource = 'day_start_eq_stale'
-  if ([string]$State.day_start_date -eq $today -and [double]$State.day_start_eq -gt 0) { $dayBase = [double]$State.day_start_eq; $daySource = 'day_start_eq' }
-  else {
-    $start = [datetimeoffset]::Parse("${today}T00:00:00+03:00").ToUnixTimeMilliseconds()
-    $before = @($capCurve | Where-Object { [long]$_[0] -lt $start })
-    if ($before.Count) { $dayBase = [double]$before[-1][1]; $daySource = 'prev_day_close' }
-    elseif ([double]$State.day_start_eq -gt 0) { $dayBase = [double]$State.day_start_eq }
+  # Кривая капитала. Точка берётся по модели «счёт брокера» (bot_capital_account), как только
+  # эта колонка появилась в строке; до неё - историческая bot_capital, завышенная на вариационку
+  # того тика. Иначе последняя точка кривой разошлась бы с плиткой «Капитал бота», которая уже
+  # показывает число брокера. Стык помечаем явно ($capJoinTs) - подпись под графиком объясняет
+  # его пользователю, а не делает вид, что ряд однороден.
+  $capRows = @($eqRows | Where-Object { $_.PSObject.Properties['bot_capital'] -and $_.PSObject.Properties['account_liquid'] -and $null -ne $_.bot_capital -and [double]$_.account_liquid -gt 0 })
+  $capJoinTs = $null
+  foreach ($r in $capRows) {
+    if ($r.PSObject.Properties['bot_capital_account'] -and $null -ne $r.bot_capital_account) { $capJoinTs = [long]$r.ts; break }
   }
+  $capCurve = @($capRows | ForEach-Object {
+    $v = if ($_.PSObject.Properties['bot_capital_account'] -and $null -ne $_.bot_capital_account) { [double]$_.bot_capital_account } else { [double]$_.bot_capital }
+    ,@([long]$_.ts, $v)
+  })
+  $curve = @($eqRows | Where-Object { $_.PSObject.Properties['total'] -and $null -ne $_.total -and [double]$_.total -gt 0 } | ForEach-Object { ,@([long]$_.ts, [double]$_.total) })
+  $brk = if ($State.PSObject.Properties['broker']) { $State.broker } else { $null }
+  # КАПИТАЛ = счёт у брокера (total_amount_portfolio), решение пользователя 2026-09-01.
+  # Приоритет: bot_capital_account_rub (Set-BotCapital, без двойного счёта вариационки) ->
+  # исторический bot_capital_rub -> paper-модель. Прямое чтение broker.totals.portfolio НЕ
+  # берём: bot_capital_account_rub уже вычитает то, что брокер держит, но бот не считает своим.
+  $capital = if ($State.go.PSObject.Properties['bot_capital_account_rub'] -and $null -ne $State.go.bot_capital_account_rub) { [double]$State.go.bot_capital_account_rub }
+             elseif ($State.go.PSObject.Properties['bot_capital_rub'] -and $null -ne $State.go.bot_capital_rub) { [double]$State.go.bot_capital_rub }
+             else { [double]$State.profile_eq }
+  $peak = if ($State.go.PSObject.Properties['capital_peak_rub'] -and $null -ne $State.go.capital_peak_rub) { [double]$State.go.capital_peak_rub } else { [double]$State.peak_eq }
+  $capModel = if ($null -ne $State.capital_breakdown -and $State.capital_breakdown.PSObject.Properties['model']) { [string]$State.capital_breakdown.model } else { 'legacy' }
+  # Пик копился на СТАРОЙ шкале (капитал + вариационка), поэтому просадка от него к новому
+  # капиталу - арифметика двух разных линеек. Пока модели не совпали, просадку не показываем
+  # вовсе: заведомо неверное число хуже прочерка. Ребейз пика - отдельный этап.
+  $peakStale = ($capModel -eq 'legacy' -and $State.go.PSObject.Properties['bot_capital_account_rub'] -and $null -ne $State.go.bot_capital_account_rub)
+  $ddPct = if ($peakStale) { $null } else { Pct $capital $peak }
+  $today = (Get-Date).ToUniversalTime().AddHours(3).ToString('yyyy-MM-dd')
+  $dayBase = $null; $daySource = 'day_start_eq_stale'; $todayAmt = $null; $todayPct = $null
+  # «Сегодня» - число САМОГО брокера (daily_yield / daily_yield_relative), то же, что видно в
+  # приложении. Наш прежний расчёт (капитал - база дня) брал базу из day_start_eq либо из
+  # закрытия прошлого дня и на 2026-09-01 давал +89 829 / +5,65% против брокерских
+  # +100 564 / +6,84%: он наследовал завышение капитала и терял переоценку валют.
+  if ($null -ne $brk -and $null -ne $brk.daily_yield_rub) {
+    $todayAmt = [double]$brk.daily_yield_rub
+    $todayPct = if ($null -ne $brk.daily_yield_rel_pct) { [math]::Round([double]$brk.daily_yield_rel_pct, 2) } else { $null }
+    $dayBase = [math]::Round($capital - $todayAmt, 2)
+    $daySource = 'broker_daily_yield'
+  }
+  else {
+    if ([string]$State.day_start_date -eq $today -and [double]$State.day_start_eq -gt 0) { $dayBase = [double]$State.day_start_eq; $daySource = 'day_start_eq' }
+    else {
+      $start = [datetimeoffset]::Parse("${today}T00:00:00+03:00").ToUnixTimeMilliseconds()
+      $before = @($capCurve | Where-Object { [long]$_[0] -lt $start })
+      if ($before.Count) { $dayBase = [double]$before[-1][1]; $daySource = 'prev_day_close' }
+      elseif ([double]$State.day_start_eq -gt 0) { $dayBase = [double]$State.day_start_eq }
+    }
+    if ($null -ne $dayBase) { $todayAmt = [math]::Round($capital - $dayBase, 2); $todayPct = (Pct $capital $dayBase) }
+  }
+  # Брокерский P&L по карточкам пишет движок (Invoke-Mtm) - здесь только чтение.
+  $cardPnl = @{}
+  if ($State.PSObject.Properties['broker_pnl_by_card'] -and $null -ne $State.broker_pnl_by_card) {
+    foreach ($pr in $State.broker_pnl_by_card.PSObject.Properties) { $cardPnl[$pr.Name] = [double]$pr.Value }
+  }
+  $brkByUid = @{}
+  if ($null -ne $brk) { foreach ($bp in @($brk.positions)) { if ($null -ne $bp -and $bp.uid) { $brkByUid[[string]$bp.uid] = $bp } } }
   $names = Get-RuNames $Root
   $positions = @()
   foreach ($sn in 'core','setA') {
     foreach ($p in @($State.sleeves.$sn.positions | Where-Object { $null -ne $_ })) {
       $entry = [double]$p.entry_px_pts; $cur = if ($null -ne $p.cur_px) { [double]$p.cur_px } else { $null }
+      # pctChg - движение ЦЕНЫ, не доходность. Оставлен в payload ради контракта Mini App,
+      # но дашборд его больше не рисует: рядом с рублями он читался как доходность и врал
+      # (Eu показывал +0,13% при +36 680 ₽). Замена - pnlPctGo, см. ниже. DEPRECATED.
       $ratio = if ($p.side -eq 'short' -and $null -ne $cur -and $cur -ne 0) { $entry / $cur } else { if ($null -ne $cur -and $entry -ne 0) { $cur / $entry } else { $null } }
       $pct = if ($null -ne $ratio) { [math]::Round((($ratio - 1) * 100), 2) } else { $null }
-      $positions += [pscustomobject]@{ id=$p.id; sleeve=$sn; asset=$p.asset; secid=$p.secid; title=(RuName $names 'fut' ([string]$p.asset) ([string]$p.secid)); side=$p.side; lots=$p.lots; entry=$entry; stop=$p.stop_px_pts; tp1=$p.tp1_px_pts; cur=$cur; upnl=$p.upnl_rub; risk=$p.risk_rub; entryDay=$p.entry_day; entryTs=$p.entry_ts; rolls=$p.rolls; rubPerPt=$p.rub_per_pt; notional=[math]::Round([double]$p.lots*$entry*[double]$p.rub_per_pt,0); pctChg=$pct; reconcileStatus=$p.reconcile_status; reconcileSinceTs=$p.reconcile_since_ts }
+      # Главная цифра P&L позиции - БРОКЕРСКАЯ (expected_yield: накопленная вариационка по
+      # контракту с момента открытия). Именно её показывает приложение Т-Инвестиций, и именно
+      # её берёт вечерний отчёт. Наш upnl_rub (переоценка открытых лотов от цены входа)
+      # остаётся рядом как второе, подписанное число - он отвечает на другой вопрос.
+      $bPnl = if ($cardPnl.ContainsKey([string]$p.id)) { [math]::Round([double]$cardPnl[[string]$p.id], 2) } else { $null }
+      $bp = if ($p.uid -and $brkByUid.ContainsKey([string]$p.uid)) { $brkByUid[[string]$p.uid] } else { $null }
+      # ГО этой позиции: lots * go_per_lot (сумма по карточкам сходится с go.used_rub).
+      $goRub = if ($null -ne $p.go_per_lot) { [math]::Round([double]$p.lots * [double]$p.go_per_lot, 0) } else { $null }
+      # Процент = доходность на задействованную маржу (решение пользователя 2026-09-01).
+      $pnlPctGo = if ($null -ne $bPnl -and $null -ne $goRub -and $goRub -gt 0) { [math]::Round(100.0 * $bPnl / $goRub, 2) } else { $null }
+      $positions += [pscustomobject]@{ id=$p.id; sleeve=$sn; asset=$p.asset; secid=$p.secid; title=(RuName $names 'fut' ([string]$p.asset) ([string]$p.secid)); side=$p.side; lots=$p.lots; entry=$entry; stop=$p.stop_px_pts; tp1=$p.tp1_px_pts; cur=$cur; upnl=$p.upnl_rub; risk=$p.risk_rub; entryDay=$p.entry_day; entryTs=$p.entry_ts; rolls=$p.rolls; rubPerPt=$p.rub_per_pt; notional=[math]::Round([double]$p.lots*$entry*[double]$p.rub_per_pt,0); pctChg=$pct; reconcileStatus=$p.reconcile_status; reconcileSinceTs=$p.reconcile_since_ts
+        brokerPnl=$bPnl; goRub=$goRub; pnlPctGo=$pnlPctGo
+        brokerVarMargin=$(if ($null -ne $bp) { $bp.var_margin } else { $null })
+        brokerVarMarginSettled=$(if ($null -ne $bp) { $bp.var_margin_settled } else { $null })
+        brokerAvgPx=$(if ($null -ne $bp) { $bp.avg_px } else { $null })
+        brokerCurPx=$(if ($null -ne $bp) { $bp.cur_px } else { $null })
+        brokerLots=$(if ($null -ne $bp) { $bp.lots } else { $null }) }
     }
   }
   # sleeve/lots нужны дашборду (колонка «Рукав» в «Закрытых сделках»); Mini App лишние поля игнорирует.
   $closed = @($trades | ForEach-Object { [pscustomobject]@{ id=$_.id; sleeve=$_.sleeve; asset=$_.asset; secid=$_.secid; title=(RuName $names 'fut' ([string]$_.asset) ([string]$_.secid)); side=$_.side; lots=$_.lots; entryDay=$_.entryDay; entry=$_.entry; exitDay=$_.exitDay; exitPx=$_.exitPx; exitReason=$_.exitReason; pnl=$_.pnlRub; rMultiple=$_.rMultiple; fees=$_.feesRub } })
   $wins = @($closed | Where-Object { [double]$_.pnl -gt 0 }).Count
   $holdings = @($State.sleeves.mom.holdings | Where-Object { $null -ne $_ } | ForEach-Object { [pscustomobject]@{ sym=$_.sym; lots=$_.lots; lotSize=$_.lot_size; avg=$_.avg_px; last=$_.last_px } })
+  $realizedPnl = [math]::Round(($closed | Measure-Object pnl -Sum).Sum, 2)
+  $feesEst = [math]::Round(($closed | Measure-Object fees -Sum).Sum, 2)
+  # Плавающий P&L открытых позиций - по брокеру (строки в сверке не считаем: их у брокера нет).
+  $openPnl = 0.0
+  foreach ($op in $positions) {
+    if ($op.reconcileStatus) { continue }
+    if ($null -ne $op.brokerPnl) { $openPnl += [double]$op.brokerPnl }
+    elseif ($null -ne $op.upnl) { $openPnl += [double]$op.upnl }
+  }
+  $openPnl = [math]::Round($openPnl, 2)
+  # РЕЗУЛЬТАТ БОТА с запуска. Источник - брокерский леджер (Invoke-BrokerLedger): сведённая на
+  # клирингах вариационка + текущая несведённая - фактические комиссии. Сверено 2026-09-01:
+  # 60 379,99 + 99 844,00 - 21 684,47 = 138 539,52 ₽.
+  # НЕЛЬЗЯ считать как «закрытые + открытые по брокеру»: expected_yield копится по КОНТРАКТУ с
+  # момента, когда позиция по нему была нулевой, и у переоткрытого внутри дня контракта
+  # (CRU6/EuU6 27.08) включает P&L сделок, которые уже лежат в trades.json - те же 84 тыс.
+  # пришли бы дважды. Фолбэк без леджера - наш собственный, внутренне согласованный набор
+  # (закрытые + переоценка открытых лотов), он тоже не двоит.
+  $lg = if ($State.PSObject.Properties['broker_ledger']) { $State.broker_ledger } else { $null }
+  $curVm = if ($null -ne $State.capital_breakdown -and $null -ne $State.capital_breakdown.futures) { [double]$State.capital_breakdown.futures } else { 0.0 }
+  $feesFact = $null; $netSince = $null; $netSource = 'ledger'
+  if ($null -ne $lg -and $null -ne $lg.varmargin_rub) {
+    $feesFact = [math]::Abs([math]::Round([double]$lg.fees_rub, 2))
+    $netSince = [math]::Round([double]$lg.varmargin_rub + $curVm + [double]$lg.fees_rub, 2)
+    $netSource = 'broker_ops'
+  } else {
+    $ownOpen = 0.0
+    foreach ($op in $positions) { if (-not $op.reconcileStatus -and $null -ne $op.upnl) { $ownOpen += [double]$op.upnl } }
+    $netSince = [math]::Round($realizedPnl + $ownOpen, 2)
+  }
+  # Процента «за период» у этого счёта честного нет: пополнений деньгами не было, счёт вырос
+  # переводом собственных бумаг пользователя в рубли. Даём оценку от базы «капитал минус сам
+  # результат» и подписываем, что это оценка, а не доходность за период.
+  $netBase = $capital - $netSince
+  $netPct = if ($netBase -gt 0) { [math]::Round(100.0 * $netSince / $netBase, 2) } else { $null }
+  $accTotal = if ($null -ne $State.capital_breakdown -and $null -ne $State.capital_breakdown.portfolio_total) { [double]$State.capital_breakdown.portfolio_total } elseif ($null -ne $brk -and $null -ne $brk.totals) { $brk.totals.portfolio } else { $null }
+  $userAssets = if ($null -ne $State.capital_breakdown -and $null -ne $State.capital_breakdown.user_assets) { [double]$State.capital_breakdown.user_assets } else { $null }
   return [ordered]@{
     schema=1; generatedAtMs=(UtcNowMs); sourceAtMs=$State.watermarks.last_eq_snap
-    summary=[ordered]@{ mode=$State.mode; accountId=$State.account_id; capital=$capital; peak=$peak; drawdownPct=(Pct $capital $peak); dayBase=$dayBase; dayBaseSource=$daySource; todayAmt=$(if($null -ne $dayBase){[math]::Round($capital-$dayBase,2)}else{$null}); todayPct=(Pct $capital $dayBase); allTimePct=(Pct $State.profile_eq $State.meta.base_rub); allTimeAmt=[math]::Round([double]$State.profile_eq-[double]$State.meta.base_rub,2); allTimeNote='пополнения счёта не учтены'; openPositions=$positions.Count; tradesPnl=[math]::Round(($closed | Measure-Object pnl -Sum).Sum,2); fees=[math]::Round(($closed | Measure-Object fees -Sum).Sum,2); winRate=$(if($closed.Count){[math]::Round(100*$wins/$closed.Count,1)}else{$null}); wins=$wins; losses=$closed.Count-$wins; entriesHalt=[bool]$State.entries_halt.active; haltReason=$State.entries_halt.reason; goUsed=$State.go.used_rub; goBudget=$State.go.budget_rub; accountLiquid=$State.go.account_liquid_rub; lastDailyDay=$State.watermarks.last_daily_day }
+    summary=[ordered]@{ mode=$State.mode; accountId=$State.account_id; capital=$capital; peak=$peak; drawdownPct=$ddPct; peakStale=[bool]$peakStale; capitalModel=$capModel; accountTotal=$accTotal; userAssets=$userAssets; dayBase=$dayBase; dayBaseSource=$daySource; todayAmt=$todayAmt; todayPct=$todayPct; allTimePct=$netPct; allTimeAmt=$netSince; allTimeNote='результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный'; allTimeSource=$netSource; openPositions=$positions.Count; tradesPnl=$realizedPnl; fees=$feesEst; feesBrokerRub=$feesFact; openPnlBroker=$openPnl; winRate=$(if($closed.Count){[math]::Round(100*$wins/$closed.Count,1)}else{$null}); wins=$wins; losses=$closed.Count-$wins; entriesHalt=[bool]$State.entries_halt.active; haltReason=$State.entries_halt.reason; goUsed=$State.go.used_rub; goBudget=$State.go.budget_rub; accountLiquid=$State.go.account_liquid_rub; lastDailyDay=$State.watermarks.last_daily_day }
+    broker=$brk; capitalCurveJoinTs=$capJoinTs
     operational=[ordered]@{ go=$State.go; drift=$State.drift; stats=$State.stats; capitalBreakdown=$State.capital_breakdown; active=$State.active; consecFail=$State.consec_fail }
     sleeves=[ordered]@{ core=[ordered]@{equity=$State.sleeves.core.equity_mtm; dayPct=(Pct $State.sleeves.core.equity_mtm $State.sleeves.core.day_start_eq)}; setA=[ordered]@{equity=$State.sleeves.setA.equity_mtm; dayPct=(Pct $State.sleeves.setA.equity_mtm $State.sleeves.setA.day_start_eq)}; mom=[ordered]@{equity=$State.sleeves.mom.equity_mtm; dayPct=(Pct $State.sleeves.mom.equity_mtm $State.sleeves.mom.day_start_eq)} }
     positions=$positions; holdings=$holdings; closedTrades=$closed; equity=$curve; capitalCurve=$capCurve

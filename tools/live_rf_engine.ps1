@@ -783,25 +783,59 @@ function Set-BotCapital($Pf) {
   # «вырастал» на номинал при каждом входе; сам брокер в total_amount_portfolio номинал не считает).
   # Приоритет: var_margin позиций (боевой факт: несведённая вариационка) -> Σ upnl карточек (sandbox/mock).
   $gotVm = $false
-  # брокерский P&L по инструменту (expected_yield, с момента открытия позиции) - заменяет наш
-  # внутренний upnl_rub (зависит от entry_px_pts и потенциально повторяем той же категории
-  # багов, что и L00008/протектив-полоса 2026-08-04) везде, где отчёт/дашборд показывают P&L
-  # конкретной позиции. Ключ - instrument_uid: если один инструмент одновременно держат оба
-  # рукава (редкий кейс, MAXPOS=3 на счёт), делить пропорционально лотам - делает вызывающий код.
+  # ---- ДОСЛОВНЫЙ снимок брокера (без единой арифметической операции) ----
+  # ЗАЧЕМ: каждое число, которое мы пересчитываем сами, - это ещё один шанс разойтись с
+  # приложением Т-Инвестиций, и такие расхождения уже стоили инцидентов (L00008 2026-07-21,
+  # двойной счёт вариационки 2026-09-01). Что брокер прислал - то и кладём; отчётные
+  # поверхности (дашборд, Mini App, вечерний отчёт) показывают ИМЕННО это, а не наш пересчёт.
+  # Новых вызовов API нет: $Pf уже получен preflight-ом главного цикла.
   $brokerPnl = [pscustomobject]@{}
+  $brkPos = New-Object System.Collections.Generic.List[object]
   foreach ($p in @($Pf.positions)) {
     if ($null -eq $p) { continue }
     $itype = [string](Get-TiField $p 'instrument_type')
+    $puid = [string](Get-TiField $p 'instrument_uid')
+    # строка снимка пишется по ВСЕМ типам инструментов, не только по фьючерсам: серебро
+    # (funding-пул) приходит как currency и нужно для сверки состава капитала.
+    $brkPos.Add([pscustomobject]@{
+      uid = $puid; type = $itype
+      ticker = [string](Get-TiField $p 'ticker'); figi = [string](Get-TiField $p 'figi')
+      lots = (TiNum $p 'quantity_lots' 4); qty = (TiNum $p 'quantity' 4)
+      avg_px = (TiNum $p 'average_position_price' 6); cur_px = (TiNum $p 'current_price' 6)
+      expected_yield = (TiNum $p 'expected_yield' 2)
+      var_margin = (TiNum $p 'var_margin' 2); var_margin_settled = (TiNum $p 'var_margin_settled' 2)
+    })
     if ($itype -ne 'futures') { continue }
     $vm = Get-TiField $p 'var_margin'
     if ($null -ne $vm) { $futRub += [double](M2D $vm).value; $gotVm = $true }
-    $puid = [string](Get-TiField $p 'instrument_uid')
+    # брокерский P&L по инструменту (expected_yield = накопленная вариационка с момента, когда
+    # позиция по контракту была нулевой; включает уже закрытые внутри контракта лоты - сверено
+    # по childOperations варьмаржи 2026-09-01) - заменяет наш внутренний upnl_rub везде, где
+    # отчёт/дашборд показывают P&L конкретной позиции. Ключ - instrument_uid: если инструмент
+    # держат оба рукава (редкий кейс, MAXPOS=3), делить по лотам - Get-CardPnlMap.
     $ey = Get-TiField $p 'expected_yield'
     if ($puid -and $null -ne $ey) {
       $brokerPnl | Add-Member -NotePropertyName $puid -NotePropertyValue ([math]::Round([double](M2D $ey).value, 2)) -Force
     }
   }
   $st | Add-Member -NotePropertyName broker_pnl_by_uid -NotePropertyValue $brokerPnl -Force
+  $st | Add-Member -NotePropertyName broker -NotePropertyValue ([pscustomobject]@{
+    captured_ms = $NowMs
+    totals = [pscustomobject]@{
+      portfolio  = (TiNum $Pf 'total_amount_portfolio' 2)
+      currencies = (TiNum $Pf 'total_amount_currencies' 2)
+      shares     = (TiNum $Pf 'total_amount_shares' 2)
+      bonds      = (TiNum $Pf 'total_amount_bonds' 2)
+      etf        = (TiNum $Pf 'total_amount_etf' 2)
+      # НОМИНАЛ позиций, а не деньги: брокер сам не кладёт его в total_amount_portfolio.
+      # Хранится только как memo для сверки (инцидент 2026-07-21).
+      futures_nominal = (TiNum $Pf 'total_amount_futures' 2)
+    }
+    expected_yield_pct  = (TiNum $Pf 'expected_yield' 4)
+    daily_yield_rub     = (TiNum $Pf 'daily_yield' 2)
+    daily_yield_rel_pct = (TiNum $Pf 'daily_yield_relative' 4)
+    positions = (ToArr $brkPos)
+  }) -Force
   if (-not $gotVm) {
     foreach ($sn in 'core','setA') {
       foreach ($cc in @($st.sleeves.$sn.positions)) {
@@ -813,7 +847,24 @@ function Set-BotCapital($Pf) {
   foreach ($h in @($st.sleeves.mom.holdings)) { $momRub += [double]$h.lots * [double]$h.lot_size * [double]$h.last_px }
   $cap = [math]::Round($curRub + $futRub + $momRub, 2)
   if ($cap -le 0 -and $totRub -gt 0) { $cap = [math]::Round($totRub, 2) }   # sandbox/фолбэк: нет разбивки -> весь портфель
-  $userRub = [math]::Round($totRub - $curRub - $futRub - $momRub, 2)         # чужие акции+облигации (для сверки)
+  # ТЕНЕВОЙ капитал по модели «счёт брокера»: валюты + акции бота, БЕЗ вариационки.
+  # Вариационка уже ВНУТРИ total_amount_currencies - сверено на боевом счёте 2026-09-01:
+  # рубли 1 249 607,14 + серебро 319 050,00 = 1 568 657,14 = total_amount_currencies =
+  # total_amount_portfolio (места для маржи нет), а daily_yield счёта = Σ var_margin позиций
+  # + переоценка валют. Прибавляя её сверху, $cap завышал капитал на всю вариационку.
+  # Пока это число НЕ участвует в торговле (ГО-бюджет и губернаторы по-прежнему на $cap) -
+  # только отчётность; переключение модели - отдельный этап с ребейзом пика и day_start_eq.
+  $capAcct = [math]::Round($curRub + $momRub, 2)
+  if ($capAcct -le 0 -and $totRub -gt 0) { $capAcct = [math]::Round($totRub, 2) }
+  $st.go | Add-Member -NotePropertyName bot_capital_account_rub -NotePropertyValue $capAcct -Force
+  # чужие бумаги = тотал - валюты - акции бота. Вариационку НЕ вычитаем: её нет в тотале
+  # отдельной строкой, и вычитание давало структурно отрицательный остаток (боевой факт до
+  # 2026-09-01: user_assets = -96 972, дашборд обходил это костылём на своей стороне).
+  $userRub = [math]::Round($totRub - $curRub - $momRub, 2)
+  if ($userRub -lt 0) {
+    Write-LiveLog "Set-BotCapital: user_assets=$userRub < 0 (акции бота больше акций на счёте?) - зажато в 0"
+    $userRub = 0.0
+  }
   $st.go | Add-Member -NotePropertyName bot_capital_rub -NotePropertyValue $cap -Force
   if (-not $st.go.PSObject.Properties['capital_peak_rub']) {
     $seed = Get-CapitalPeakSeed
@@ -822,11 +873,110 @@ function Set-BotCapital($Pf) {
   } elseif ($cap -gt [double]$st.go.capital_peak_rub) {
     $st.go.capital_peak_rub = $cap
   }
+  # futures здесь - MEMO (вариационная маржа за сегодня), а НЕ слагаемое капитала: она уже
+  # внутри currencies. Тождество, которое обязано сходиться:
+  # currencies + mom_shares + user_assets = portfolio_total.
   $st | Add-Member -NotePropertyName capital_breakdown -NotePropertyValue ([pscustomobject]@{
     currencies = [math]::Round($curRub, 2); futures = [math]::Round($futRub, 2)
     mom_shares = [math]::Round($momRub, 2); user_assets = $userRub; portfolio_total = [math]::Round($totRub, 2)
+    capital_account = $capAcct; capital_legacy = $cap; model = 'legacy'
   }) -Force
 }
+# ================= брокерский леджер: реальные комиссии и вариационка =================
+# ЗАЧЕМ. Два числа в отчётности были нашими оценками, а не фактом:
+#  1) комиссии - леджер списывает LIVE.fee_est = 0,025%/сторону, факт по счёту ~0,043%
+#     (21 684 ₽ против 8 362 ₽ за 17.07-01.09) - и реализованный P&L завышен на разницу;
+#  2) «результат за всё время» считался от profile_eq (бумажная блендовая модель) и к этому
+#     счёту отношения не имел вовсе.
+# ЧТО СЧИТАЕМ. Итог бота = накопленная СВЕДЁННАЯ вариационка (операции клиринга) + текущая
+# несведённая (var_margin позиций) - комиссии. Сверено поштучно на боевом счёте 2026-09-01:
+# 60 379,99 + 99 844,00 - 21 684,47 = 138 539,52 ₽.
+# ПОЧЕМУ НЕ «realized + brokerPnl открытых»: expected_yield брокера накапливается по КОНТРАКТУ
+# с момента, когда позиция по нему была нулевой, поэтому у контракта, который бот переоткрывал
+# внутри дня (CRU6/EuU6 27.08), он включает P&L уже закрытых сделок - те же деньги во второй
+# раз пришли бы из trades.json (+84 тыс. лишних).
+# Комиссии на СВОИ бумаги пользователя (продажи ПЛЗЛ/Сбера/облигаций/USD) в fees_rub не идут -
+# бот их не платил; они лежат отдельно в fees_other_rub, чтобы ничего не терялось молча.
+$script:BROKER_LEDGER_ID = 'v1-2026-09'
+$script:BROKER_LEDGER_FROM = '23:00'   # после вечернего клиринга FORTS, до отчёта в 23:55
+$script:FEE_OPS = @('OPERATION_TYPE_BROKER_FEE','OPERATION_TYPE_EXCHANGE_FEE',
+  'OPERATION_TYPE_SERVICE_FEE','OPERATION_TYPE_MARGIN_FEE')
+
+function Get-OpsWindowed([long]$FromMs, [long]$ToMs) {
+  # GetOperations ограничивает длину диапазона - идём окнами по 31 дню.
+  $out = New-Object System.Collections.Generic.List[object]
+  $step = 31L * 24 * 3600 * 1000
+  $a = $FromMs
+  while ($a -lt $ToMs) {
+    $b = [math]::Min($a + $step, $ToMs)
+    $ops = Get-TiOperations ([string]$st.account_id) ((MsToUtc $a).ToString('yyyy-MM-ddTHH:mm:ssZ')) ((MsToUtc $b).ToString('yyyy-MM-ddTHH:mm:ssZ'))
+    foreach ($o in @($ops)) { if ($null -ne $o) { $out.Add($o) } }
+    $a = $b
+  }
+  return $out
+}
+
+function Invoke-BrokerLedger {
+  if ($mode -eq 'dryrun') { return }
+  # Вечернее окно: до клиринга сводить нечего, а лишний вызов в торговые часы не нужен.
+  if ($mskHHmm -lt $script:BROKER_LEDGER_FROM) { return }
+  # Раз в календарный день МСК (в т.ч. для разового бэкфилла - иначе он бы шёл каждый тик).
+  if ([string]$st.watermarks.broker_ledger_day -eq $mskToday) { return }
+  $lg = if ($st.PSObject.Properties['broker_ledger']) { $st.broker_ledger } else { $null }
+  $full = ($null -eq $lg -or [string]$lg.backfill_id -ne $script:BROKER_LEDGER_ID)
+  $fromMs = 0L
+  if ($full) {
+    # с запуска контура минус неделя запаса; при нечитаемой дате - фиксированный старт
+    try { $fromMs = ([datetimeoffset]::new([datetime]::ParseExact([string]$st.meta.created, 'yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture), [timespan]::Zero)).ToUnixTimeMilliseconds() - 7L*24*3600*1000 }
+    catch { $fromMs = ([datetimeoffset]::Parse('2026-07-01T00:00:00Z')).ToUnixTimeMilliseconds() }
+  } else {
+    # инкремент с перекрытием в 2 суток - дедуп по id операции защищает от повтора
+    $fromMs = [long]$lg.until_ms - 2L*24*3600*1000
+  }
+  $ops = $null
+  try { $ops = Get-OpsWindowed $fromMs $NowMs }
+  catch { Write-LiveLog "broker-ledger: операции недоступны: $($_.Exception.Message)"; return }
+
+  $seen = New-Object System.Collections.Generic.List[string]
+  $vm = 0.0; $fee = 0.0; $feeOther = 0.0
+  $byType = [pscustomobject]@{}
+  if (-not $full) {
+    $vm = [double]$lg.varmargin_rub; $fee = [double]$lg.fees_rub; $feeOther = [double]$lg.fees_other_rub
+    if ($lg.PSObject.Properties['fees_by_type'] -and $null -ne $lg.fees_by_type) { $byType = $lg.fees_by_type }
+    foreach ($id in @($lg.op_ids)) { if ($id) { $seen.Add([string]$id) } }
+  }
+  $added = 0
+  foreach ($o in $ops) {
+    $oid = [string](Get-TiField $o 'id')
+    if ($oid -and $seen.Contains($oid)) { continue }
+    $t = [string](Get-TiField $o 'operation_type')
+    $pay = [double](M2D (Get-TiField $o 'payment')).value
+    $itype = [string](Get-TiField $o 'instrument_type')
+    if ($t -like '*VARMARGIN*') { $vm += $pay }
+    elseif ($script:FEE_OPS -contains $t) {
+      # комиссия бота = фьючерсы (его эксклюзив) + обслуживание счёта без инструмента
+      if ($itype -eq 'futures' -or -not $itype) { $fee += $pay } else { $feeOther += $pay }
+      $prev = if ($byType.PSObject.Properties[$t]) { [double]$byType.$t } else { 0.0 }
+      $byType | Add-Member -NotePropertyName $t -NotePropertyValue ([math]::Round($prev + $pay, 2)) -Force
+    }
+    else { continue }
+    if ($oid) { $seen.Add($oid) }
+    $added++
+  }
+  # кольцо id: хватает на окно перекрытия с большим запасом
+  $keep = if ($seen.Count -gt 800) { @($seen)[($seen.Count - 800)..($seen.Count - 1)] } else { @($seen) }
+  $st | Add-Member -NotePropertyName broker_ledger -NotePropertyValue ([pscustomobject]@{
+    backfill_id = $script:BROKER_LEDGER_ID; first_ms = $fromMs; until_ms = $NowMs
+    varmargin_rub = [math]::Round($vm, 2)      # сведённая на клирингах, знак как у брокера
+    fees_rub = [math]::Round($fee, 2)          # отрицательные: это списания
+    fees_other_rub = [math]::Round($feeOther, 2)
+    fees_by_type = $byType; op_ids = (ToArr $keep); updated_ms = $NowMs
+  }) -Force
+  $st.watermarks | Add-Member -NotePropertyName broker_ledger_day -NotePropertyValue $mskToday -Force
+  if ($full) { Write-LiveLog "broker-ledger: бэкфилл, операций учтено $added, вариационка $([math]::Round($vm,2)), комиссии $([math]::Round($fee,2))" }
+  elseif ($added) { Write-LiveLog "broker-ledger: +$added операций, вариационка $([math]::Round($vm,2)), комиссии $([math]::Round($fee,2))" }
+}
+
 # Общий хелпер ребейза виртуального леджера рукава на новую базу капитала (ручной и авто- пути).
 # ЗАЧЕМ: eq_rub рукава растёт только на СВОЁМ P&L, а реальный капитал счёта - ещё и на пополнениях,
 # поэтому со временем леджер отстаёт и заложенный риск размывается (к 2026-08-12 core рисковал 3.4%
@@ -2064,6 +2214,18 @@ function Invoke-Mtm {
   $rM = ([double]$m.equity_mtm / [double]$m.month_start_eq) - 1
   $st.profile_eq = [math]::Round([double]$st.profile_month_start * (1 + $rC + $rA + [double]$LIVE.mom_weight * $rM), 2)
   if ([double]$st.profile_eq -gt [double]$st.peak_eq) { $st.peak_eq = [double]$st.profile_eq }
+  # Брокерский P&L в разрезе КАРТОЧЕК - единственный писатель этой раскладки.
+  # Почему здесь, а не в Set-BotCapital: к шагу 6 главного цикла карточки уже прошли сверку,
+  # TP1 и закрытия, поэтому лоты актуальны на момент сохранения состояния. Снапшот и
+  # build_vizdata читают готовую карту вместо собственных копий того же деления (до
+  # 2026-09-01 логика жила в трёх местах и давала на одну позицию три разных числа).
+  $openAll = New-Object System.Collections.Generic.List[object]
+  foreach ($sn in 'core','setA') { foreach ($c in @($st.sleeves.$sn.positions)) { if ($null -ne $c) { $openAll.Add($c) } } }
+  $bpc = [pscustomobject]@{}
+  foreach ($kv in (Get-CardPnlMap $openAll).GetEnumerator()) {
+    $bpc | Add-Member -NotePropertyName ([string]$kv.Key) -NotePropertyValue ([math]::Round([double]$kv.Value, 2)) -Force
+  }
+  $st | Add-Member -NotePropertyName broker_pnl_by_card -NotePropertyValue $bpc -Force
 }
 
 function Invoke-Governors {
@@ -2140,10 +2302,16 @@ function Save-EquitySnapshot {
   foreach ($h in @($st.sleeves.mom.holdings)) { $stockVal += [double]$h.lots * [double]$h.lot_size * [double]$h.last_px }
   $liq = if ($st.go.PSObject.Properties['account_liquid_rub']) { [double]$st.go.account_liquid_rub } else { $null }
   $cap = if ($st.go.PSObject.Properties['bot_capital_rub']) { [double]$st.go.bot_capital_rub } else { $null }
+  # Обе модели капитала в одной строке: bot_capital - историческая (с вариационкой сверху),
+  # bot_capital_account - по счёту брокера. Плюс сама вариационка за тик. Благодаря этим двум
+  # колонкам точка перехода на новую модель будет опознаваема прямо в данных, а старые строки
+  # (где колонок нет) остаются читаемыми - все потребители переносят их отсутствие.
+  $capAcct = if ($st.go.PSObject.Properties['bot_capital_account_rub']) { [double]$st.go.bot_capital_account_rub } else { $null }
+  $vmRub = if ($st.PSObject.Properties['capital_breakdown'] -and $null -ne $st.capital_breakdown.futures) { [double]$st.capital_breakdown.futures } else { $null }
   $eq.Add([pscustomobject]@{ utc = (MsToUtcStr $NowMs); ts = $NowMs
     total = [double]$st.profile_eq; core = [double]$st.sleeves.core.equity_mtm; setA = [double]$st.sleeves.setA.equity_mtm
     mom = [double]$st.sleeves.mom.equity_mtm; go_used = [double]$st.go.used_rub; stock_val = [math]::Round($stockVal, 0)
-    account_liquid = $liq; bot_capital = $cap })
+    account_liquid = $liq; bot_capital = $cap; bot_capital_account = $capAcct; var_margin = $vmRub })
   Write-JsonAtomic $eqPath (ToArr $eq) 4
 }
 
@@ -2192,6 +2360,10 @@ $script:REPORT_VERIFY_PROMPT = @'
 1. peak_rub >= capital_rub (иначе просадка не может быть отрицательной - формат сломан).
 2. Сумма positions[].day_pnl (по всем открытым позициям) + сумма closed[].pnl примерно равна
    capital_day_delta (допуск на комиссии/округление - до нескольких тысяч рублей, не больше).
+   ИСКЛЮЧЕНИЕ: если capital_day_source = "broker" - это дневная доходность ВСЕГО счёта от
+   брокера, в неё входит ещё и переоценка валют и металлов, которой нет в positions[].
+   В этом случае расхождение ожидаемо и ошибкой НЕ считается: проверь только, что знак
+   совпадает с суммой позиций либо что разница объяснима переоценкой валютного остатка.
 3. Все числовые поля из фактов присутствуют в тексте и не NaN/пустые/null.
 4. В тексте есть все секции: капитал, открытые позиции, закрытые сделки, по стратегиям, ГО, статус входов.
 5. Ненулевые drift (D2/D4/D5/D6) - это ожидаемое, штатно отображаемое состояние, а НЕ ошибка отчёта
@@ -2238,8 +2410,16 @@ function Invoke-DailyReport([switch]$Preview) {
 
   # реальный, сверенный с брокером капитал (Set-BotCapital); profile_eq/peak_eq остаются
   # НЕТРОНУТЫМИ и продолжают питать Invoke-Governors - тут только то, что видит пользователь.
-  $capNow = if ($st.go.PSObject.Properties['bot_capital_rub']) { [double]$st.go.bot_capital_rub } else { [double]$st.profile_eq }
+  # Капитал = счёт у брокера (bot_capital_account_rub, без двойного счёта вариационки).
+  # Дашборд и Mini App показывают то же число - одна цифра на всех поверхностях.
+  $capNow = if ($st.go.PSObject.Properties['bot_capital_account_rub'] -and $null -ne $st.go.bot_capital_account_rub) { [double]$st.go.bot_capital_account_rub }
+            elseif ($st.go.PSObject.Properties['bot_capital_rub']) { [double]$st.go.bot_capital_rub }
+            else { [double]$st.profile_eq }
   $peakNow = if ($st.go.PSObject.Properties['capital_peak_rub']) { [double]$st.go.capital_peak_rub } else { $capNow }
+  # Пик копился на СТАРОЙ шкале (капитал + вариационка), поэтому просадка от него к новому
+  # капиталу - арифметика двух разных линеек; до ребейза пика её не печатаем.
+  $peakStale = ($st.go.PSObject.Properties['bot_capital_account_rub'] -and $null -ne $st.go.bot_capital_account_rub -and
+    $null -ne $st.capital_breakdown -and [string]$st.capital_breakdown.model -eq 'legacy')
 
   $baseTs = if ($st.PSObject.Properties['report_base'] -and $st.report_base.PSObject.Properties['ts']) { [long]$st.report_base.ts } else { 0 }
   $baseCap = if ($baseTs -gt 0 -and $st.report_base.PSObject.Properties['bot_capital_rub']) { [double]$st.report_base.bot_capital_rub } else { $capNow }
@@ -2249,11 +2429,28 @@ function Invoke-DailyReport([switch]$Preview) {
   $L.Add("Фьючерсы — вечерний отчёт за $((MsToUtc $mskNowMs).ToString('dd.MM.yyyy'))")
   $L.Add('')
   $L.Add("Капитал бота: $(Fmt-Money $capNow '₽' 0)")
-  $dpl = $capNow - $baseCap
-  $dplPct = if ($baseCap -gt 0) { 100.0 * $dpl / $baseCap } else { 0 }
   $hoursTail = if ($baseTs -gt 0 -and ($NowMs - $baseTs) -gt 26 * 3600000) { " (за последние $([math]::Round(($NowMs - $baseTs)/3600000.0)) ч — прошлый отчёт не отправлялся)" } else { '' }
-  $L.Add("За сутки: $(Fmt-Money $dpl '₽' 0 -Sign) ($(Fmt-Pct $dplPct)$hoursTail)")
-  $L.Add("От максимума капитала: $(Fmt-DdFromPeak $peakNow $capNow)")
+  # «За сутки» - число САМОГО брокера (daily_yield), то же, что в приложении и на дашборде.
+  # Свой расчёт «капитал минус база отчёта» оставлен фолбэком: он сидит на report_base, который
+  # штамповался в старой шкале капитала, и после перехода на счёт брокера дал бы фантомный скачок.
+  $brk = if ($st.PSObject.Properties['broker']) { $st.broker } else { $null }
+  $dayFromBroker = ($null -ne $brk -and $null -ne $brk.daily_yield_rub)
+  if ($dayFromBroker) {
+    $dpl = [double]$brk.daily_yield_rub
+    $dplPct = if ($null -ne $brk.daily_yield_rel_pct) { [double]$brk.daily_yield_rel_pct } else { 0 }
+    $L.Add("За сутки: $(Fmt-Money $dpl '₽' 0 -Sign) ($(Fmt-Pct $dplPct)) — по данным брокера")
+  } else {
+    $dpl = $capNow - $baseCap
+    $dplPct = if ($baseCap -gt 0) { 100.0 * $dpl / $baseCap } else { 0 }
+    $L.Add("За сутки: $(Fmt-Money $dpl '₽' 0 -Sign) ($(Fmt-Pct $dplPct)$hoursTail)")
+  }
+  if ($peakStale) { $L.Add('От максимума капитала: пик пересчитывается под новую модель капитала.') }
+  else { $L.Add("От максимума капитала: $(Fmt-DdFromPeak $peakNow $capNow)") }
+  # Фактические комиссии брокера рядом с оценкой в леджере: тариф в сделках занижен (0,025%
+  # за сторону против ~0,043% по факту), и без этой строки реализованный P&L выглядит лучше.
+  if ($st.PSObject.Properties['broker_ledger'] -and $null -ne $st.broker_ledger -and $null -ne $st.broker_ledger.fees_rub) {
+    $L.Add("Комиссии брокера с запуска: $(Fmt-Money ([math]::Abs([double]$st.broker_ledger.fees_rub)) '₽' 0) (в сделках учтена оценка $(Fmt-Money ([double]$st.stats.fees_rub) '₽' 0))")
+  }
   if (Test-Weekend) { $L.Add('Биржа закрыта (выходной) — позиции без изменений.') }
   $L.Add('')
 
@@ -2270,14 +2467,20 @@ function Invoke-DailyReport([switch]$Preview) {
     $L.Add("$idx) $nm — $(RuSide $c.side 'past') $([int]$c.lots) $(RuLots ([int]$c.lots)) по $(Fmt-Px ([double]$c.entry_px_pts)), стратегия «$(SleeveRu ([string]$c.sleeve))»")
     $upnl = if ($pnlMap.ContainsKey([string]$c.id)) { [double]$pnlMap[[string]$c.id] } else { 0.0 }
     $since = $upnl + [double]$c.realized_rub
-    $notional = [int]$c.lots_initial * [double]$c.entry_px_pts * [double]$c.rub_per_pt
-    $soPct = if ($notional -gt 0) { 100.0 * $since / $notional } else { 0 }
+    # База процента - ЗАДЕЙСТВОВАННОЕ ГО (решение пользователя 2026-09-01), а не номинал
+    # контракта: номинал у фьючерса в разы больше вложенных денег, и процент от него занижал
+    # результат до нечитаемых долей (+0,13% рядом с +36 680 ₽). Дашборд считает так же.
+    # Фолбэк на номинал - для карточек без go_per_lot: лучше процент по старой базе, чем 0%
+    # вместо результата (в PS без StrictMode отсутствующее поле дало бы тихий ноль).
+    $goPos = if ($null -ne $c.go_per_lot) { [int]$c.lots * [double]$c.go_per_lot } else { 0.0 }
+    $pctBase = if ($goPos -gt 0) { $goPos } else { [int]$c.lots_initial * [double]$c.entry_px_pts * [double]$c.rub_per_pt }
+    $soPct = if ($pctBase -gt 0) { 100.0 * $since / $pctBase } else { 0 }
     $openTag = if ([string]$c.entry_day -eq $mskToday) { 'сегодня' } else { [datetime]::ParseExact([string]$c.entry_day, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture).ToString('dd.MM') }
     $dayVal = $since
     if (& $hasPosBase ([string]$c.id)) {
       $day = $since - [double]$st.report_base.positions.([string]$c.id)
       $dayVal = $day
-      $dayPct = if ($notional -gt 0) { 100.0 * $day / $notional } else { 0 }
+      $dayPct = if ($pctBase -gt 0) { 100.0 * $day / $pctBase } else { 0 }
       $L.Add("   за сутки: $(Fmt-Money $day '₽' 0 -Sign) ($(Fmt-Pct $dayPct)$hoursTail) · с открытия ($openTag): $(Fmt-Money $since '₽' 0 -Sign) ($(Fmt-Pct $soPct))")
     } else {
       $L.Add("   с открытия ($openTag): $(Fmt-Money $since '₽' 0 -Sign) ($(Fmt-Pct $soPct))")
@@ -2339,7 +2542,7 @@ function Invoke-DailyReport([switch]$Preview) {
   [void]$opsIdx.Add($L.Count - 1)
   if ($st.entries_halt.active) { $L.Add("Новые входы остановлены: $([string]$st.entries_halt.reason)") }
   else { $L.Add('Входы разрешены, торговля идёт штатно.') }
-  if ($open.Count -gt 0) { $L.Add('Проценты по позициям — от объёма позиции при входе.') }
+  if ($open.Count -gt 0) { $L.Add('Проценты по позициям — от задействованного ГО (вложенной маржи), P&L — по данным брокера.') }
 
   $txt = ($L -join "`n")
   # Клиентская версия - тот же отчёт без служебных строк ($opsIdx). Деньги (капитал, P&L,
@@ -2354,6 +2557,7 @@ function Invoke-DailyReport([switch]$Preview) {
   # и не задерживает сам отчёт (см. Invoke-ReportVerify - fail-open по конструкции).
   $facts = [pscustomobject]@{
     capital_rub = $capNow; peak_rub = $peakNow; capital_day_delta = $dpl
+    capital_day_source = $(if ($dayFromBroker) { 'broker' } else { 'report_base' })
     positions = $factPositions; closed = $factClosed
     drift = $st.drift
   }
@@ -2590,6 +2794,16 @@ try {
   # 6. MTM + governors
   Invoke-Mtm
   Invoke-Governors
+
+  # 6b. брокерский леджер (реальные комиссии + сведённая вариационка) - ПОСЛЕ всей торговой
+  # логики и только в вечернем окне.
+  # ПОЧЕМУ так поздно: это отчётность, и она не имеет права тратить вызовы к брокеру раньше
+  # state machine. Стоял в preflight - и на сценарии adopt-ops-fail съедал тот самый
+  # GetOperations, который движок держит для adopt: LOST-интент «усыновлялся» по чужому
+  # ответу вместо того, чтобы остаться LOST (риск двойного филла). Отчётность идёт последней.
+  # ПОЧЕМУ вечером: вариационка сводится на вечернем клиринге (~19:00-21:00 MSK), раньше
+  # читать нечего; к 23:55 вечерний отчёт получает уже свежие числа.
+  Invoke-BrokerLedger
 
   # 7. расписание (MSK), всё идемпотентно через вотермарки
   if (-not $weekendLight) {

@@ -1490,6 +1490,161 @@ function Scn-LongOnlyEveningShort {
   Check 'long-only вечер: причина в логе (@evening)' ([string]$log -match 'SKIP long-only \[core\] VTBR short @evening')
 }
 
+# --- брокерская правда в отчётности (2026-09-01) -------------------------------------------
+# Контекст: на дашборде «Фьючерсы·Реал» врали ВСЕ числа. Капитал завышался на вариационную
+# маржу (она уже внутри total_amount_currencies, а Set-BotCapital прибавлял её ещё раз:
+# 1 665 629 вместо 1 568 657), «за сегодня» считалось от своей базы вместо daily_yield брокера,
+# комиссии показывались оценкой по тарифу (8 362 против фактических 21 684), а «за всё время»
+# бралось от profile_eq - бумажной модели, к счёту отношения не имеющей.
+# Подпись бага лежала в самом состоянии: user_assets = -96 972, отрицательные чужие активы.
+
+# Портфель брокера для моков. varMargin ЕСТЬ в позиции, но в тотал он НЕ добавляется отдельной
+# строкой - ровно как на боевом счёте (рубли + серебро = total_amount_currencies = total).
+function New-PfResponse([double]$Currencies, [double]$Total, [double]$VarMargin, [double]$ExpYield = 0.0, [double]$DailyYield = 0.0) {
+  $money = { param($v) [pscustomobject]@{ units = ([long][math]::Truncate($v)).ToString(); nano = [int](($v - [math]::Truncate($v)) * 1e9); currency = 'rub' } }
+  [pscustomobject]@{
+    total_amount_currencies = (& $money $Currencies)
+    total_amount_portfolio  = (& $money $Total)
+    total_amount_shares     = (& $money ($Total - $Currencies))
+    total_amount_futures    = (& $money 8444542.0)
+    daily_yield             = (& $money $DailyYield)
+    daily_yield_relative    = [pscustomobject]@{ units = '6'; nano = 840000000 }
+    expected_yield          = [pscustomobject]@{ units = '2'; nano = 910000000 }
+    positions = @([pscustomobject]@{
+      instrument_type = 'futures'; instrument_uid = 'uid-NGQ6'; figi = 'FUTNG'; ticker = 'NGQ6'
+      quantity = [pscustomobject]@{ units = '3'; nano = 0 }; quantity_lots = [pscustomobject]@{ units = '3'; nano = 0 }
+      average_position_price = [pscustomobject]@{ units = '2'; nano = 905000000; currency = 'pt.' }
+      current_price = [pscustomobject]@{ units = '3'; nano = 0; currency = 'pt.' }
+      expected_yield = (& $money $ExpYield)
+      var_margin = (& $money $VarMargin)
+      var_margin_settled = (& $money ($VarMargin / 2))
+    })
+  }
+}
+
+# --- капитал НЕ двоит вариационку: bot_capital_account = валюты + акции бота, без var_margin
+function Scn-CapitalNoVarMarginDoubleCount {
+  $r = New-Scenario 'capital-no-double-count'
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') (New-BaseState $r)
+  Set-Queue $r @(
+    [pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' },
+    [pscustomobject]@{ service='OperationsService'; method='GetPortfolio'; response=(New-PfResponse 1000000.0 1000000.0 100000.0 12345.0 100564.0) })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $cb = $st.capital_breakdown
+  Check 'capital: bot_capital_account = валюты (без вариационки)' ([double]$st.go.bot_capital_account_rub -eq 1000000.0)
+  Check 'capital: старая модель по-прежнему пишется (переключение - отдельный этап)' ([double]$st.go.bot_capital_rub -eq 1100000.0)
+  Check 'capital: user_assets НЕ отрицательный' ([double]$cb.user_assets -ge 0)
+  Check 'capital: user_assets = 0 (чужих бумаг нет)' ([double]$cb.user_assets -eq 0.0)
+  Check 'capital: тождество currencies+mom+user = portfolio_total' (
+    [math]::Abs(([double]$cb.currencies + [double]$cb.mom_shares + [double]$cb.user_assets) - [double]$cb.portfolio_total) -lt 0.01)
+  Check 'capital: futures - это memo вариационки, а не слагаемое' ([double]$cb.futures -eq 100000.0)
+  Check 'capital: обе модели в разбивке' ([double]$cb.capital_account -eq 1000000.0 -and [double]$cb.capital_legacy -eq 1100000.0)
+}
+
+# --- чужие бумаги считаются БЕЗ вычета вариационки (иначе остаток структурно отрицательный)
+function Scn-CapitalUserAssetsNeverNegative {
+  $r = New-Scenario 'capital-user-assets'
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') (New-BaseState $r)
+  Set-Queue $r @(
+    [pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' },
+    [pscustomobject]@{ service='OperationsService'; method='GetPortfolio'; response=(New-PfResponse 1000000.0 1200000.0 150000.0 0.0 0.0) })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $cb = (Get-State $r).capital_breakdown
+  Check 'user-assets: 200 000 (акции пользователя), вариационка не вычитается' ([double]$cb.user_assets -eq 200000.0)
+  Check 'user-assets: тождество сходится' (
+    [math]::Abs(([double]$cb.currencies + [double]$cb.mom_shares + [double]$cb.user_assets) - [double]$cb.portfolio_total) -lt 0.01)
+}
+
+# --- блок брокера пишется ДОСЛОВНО и БЕЗ единого лишнего вызова к API
+function Scn-BrokerBlockPersisted {
+  $r = New-Scenario 'broker-block'
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') (New-BaseState $r)
+  Set-Queue $r @(
+    [pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' },
+    [pscustomobject]@{ service='OperationsService'; method='GetPortfolio'; response=(New-PfResponse 1000000.0 1000000.0 100000.0 12345.0 100564.0) })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $b = $st.broker
+  Check 'broker: блок записан' ($null -ne $b)
+  Check 'broker: тоталы дословно' ([double]$b.totals.portfolio -eq 1000000.0 -and [double]$b.totals.currencies -eq 1000000.0)
+  Check 'broker: номинал фьючерсов - отдельным memo' ([double]$b.totals.futures_nominal -eq 8444542.0)
+  Check 'broker: дневная доходность дословно' ([double]$b.daily_yield_rub -eq 100564.0 -and [double]$b.daily_yield_rel_pct -eq 6.84)
+  $bp = @($b.positions)
+  Check 'broker: позиция записана' ($bp.Count -eq 1 -and [string]$bp[0].ticker -eq 'NGQ6')
+  Check 'broker: expected_yield и var_margin дословно' ([double]$bp[0].expected_yield -eq 12345.0 -and [double]$bp[0].var_margin -eq 100000.0)
+  Check 'broker: сведённая вариационка записана' ([double]$bp[0].var_margin_settled -eq 50000.0)
+  # ГЛАВНОЕ: снимок собирается из УЖЕ полученного ответа и не стоит ни одного вызова.
+  # Бюджет тика на GetPortfolio = 2, оба вызова были и до правки: preflight (маржа отключена ->
+  # фолбэк на портфель, оттуда же считается капитал) и Invoke-Reconcile (сверка позиций).
+  # Если число вырастет - значит отчётность начала ходить к брокеру сама, а это ровно тот
+  # класс регрессии, из-за которого леджер съедал GetOperations у adopt (см. Scn-AdoptOpsFail).
+  $pfCalls = Get-Calls $r 'GetPortfolio'
+  Check 'broker: бюджет тика на GetPortfolio не вырос (preflight + reconcile = 2)' (@($pfCalls | Where-Object { $null -ne $_ }).Count -eq 2)
+  $opsCalls = Get-Calls $r 'GetOperations'
+  Check 'broker: леджер НЕ дёргает операции в торговые часы' (@($opsCalls | Where-Object { $null -ne $_ }).Count -eq 0)
+}
+
+# --- битый снимок портфеля: блок брокера НЕСЁТСЯ, а не обнуляется (инцидент 2026-07-23)
+function Scn-BrokerBlockSurvivesEmptySnapshot {
+  $r = New-Scenario 'broker-block-empty'
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') (New-BaseState $r)
+  Set-Queue $r @(
+    [pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' },
+    [pscustomobject]@{ service='OperationsService'; method='GetPortfolio'; response=(New-PfResponse 1000000.0 1000000.0 100000.0 12345.0 100564.0) })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  Check 'broker-empty: первый тик записал блок' ($null -ne (Get-State $r).broker)
+  # второй тик: маржа 400 + ПУСТОЙ портфель из дефолтной фикстуры (positions=@(), тоталов нет)
+  Set-Queue $r @([pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' })
+  [void](Run-Tick $r '2026-07-15 11:20')
+  $st = Get-State $r
+  Check 'broker-empty: блок НЕ обнулён (несёт прошлый)' ([double]$st.broker.totals.portfolio -eq 1000000.0)
+  Check 'broker-empty: дневная доходность тоже несётся' ([double]$st.broker.daily_yield_rub -eq 100564.0)
+  Check 'broker-empty: bot_capital_account не затёрт' ([double]$st.go.bot_capital_account_rub -eq 1000000.0)
+}
+
+# --- брокерский леджер: реальные комиссии и сведённая вариационка, без двойного счёта
+function Scn-BrokerLedgerFees {
+  $r = New-Scenario 'broker-ledger'
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') (New-BaseState $r)
+  $ops = [pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='op1'; operation_type='OPERATION_TYPE_ACCRUING_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='40000'; nano=0; currency='rub' } },
+    [pscustomobject]@{ id='op2'; operation_type='OPERATION_TYPE_WRITING_OFF_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='-10000'; nano=0; currency='rub' } },
+    [pscustomobject]@{ id='op3'; operation_type='OPERATION_TYPE_BROKER_FEE'; instrument_type='futures'
+      payment=[pscustomobject]@{ units='-2000'; nano=0; currency='rub' } },
+    # комиссия по СВОИМ бумагам пользователя: бот её не платил -> в fees_other, не в fees
+    [pscustomobject]@{ id='op4'; operation_type='OPERATION_TYPE_BROKER_FEE'; instrument_type='share'
+      payment=[pscustomobject]@{ units='-500'; nano=0; currency='rub' } }) }
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') $ops
+  Set-Queue $r @([pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' })
+  # вечернее окно: вариационка сводится на вечернем клиринге, раньше читать нечего
+  [void](Run-Tick $r '2026-07-15 23:10')
+  $lg = (Get-State $r).broker_ledger
+  Check 'ledger: блок записан' ($null -ne $lg)
+  Check 'ledger: сведённая вариационка 30 000' ([double]$lg.varmargin_rub -eq 30000.0)
+  Check 'ledger: комиссии бота -2 000 (только фьючерсы)' ([double]$lg.fees_rub -eq -2000.0)
+  Check 'ledger: чужие комиссии отдельно, не потеряны' ([double]$lg.fees_other_rub -eq -500.0)
+  Check 'ledger: суточная вотермарка выставлена' ([string](Get-State $r).watermarks.broker_ledger_day -eq '2026-07-15')
+  # повторный тик в тот же день: НЕ удваиваем
+  [void](Run-Tick $r '2026-07-15 23:40')
+  $lg2 = (Get-State $r).broker_ledger
+  Check 'ledger: повторный тик не удвоил вариационку' ([double]$lg2.varmargin_rub -eq 30000.0)
+  Check 'ledger: повторный тик не удвоил комиссии' ([double]$lg2.fees_rub -eq -2000.0)
+}
+
+# --- утренний тик леджер НЕ трогает: отчётность не должна тратить вызовы раньше state machine
+function Scn-BrokerLedgerNotInTradingHours {
+  $r = New-Scenario 'broker-ledger-hours'
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') (New-BaseState $r)
+  Set-Queue $r @([pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'ledger-hours: в торговые часы леджер не считался' (-not $st.PSObject.Properties['broker_ledger'])
+  Check 'ledger-hours: вотермарка не выставлена' ([string]$st.watermarks.broker_ledger_day -ne '2026-07-15')
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -1513,6 +1668,9 @@ $scenarios = @(
   ${function:Scn-AutoRebaseClamp}, ${function:Scn-AutoRebaseIdempotent},
   ${function:Scn-MarginDisabled}, ${function:Scn-MarginEnabledDefault},
   ${function:Scn-LongOnlyShortBlocked}, ${function:Scn-LongOnlyLongPasses}, ${function:Scn-LongOnlyExitAllowed},
-  ${function:Scn-LongOnlyEveningShort}
+  ${function:Scn-LongOnlyEveningShort},
+  ${function:Scn-CapitalNoVarMarginDoubleCount}, ${function:Scn-CapitalUserAssetsNeverNegative},
+  ${function:Scn-BrokerBlockPersisted}, ${function:Scn-BrokerBlockSurvivesEmptySnapshot},
+  ${function:Scn-BrokerLedgerFees}, ${function:Scn-BrokerLedgerNotInTradingHours}
 )
 foreach ($fn in $scenarios) { & $fn }

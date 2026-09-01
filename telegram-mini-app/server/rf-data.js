@@ -31,6 +31,16 @@ function presentationSummary(snapshot) {
     allTimePct: round(s.allTimePct),
     allTimeAmt: round(s.allTimeAmt),
     allTimeNote: s.allTimeNote ?? '',
+    allTimeSource: s.allTimeSource ?? '',
+    // Числа брокера, которые снапшот отдаёт дословно. capital с 2026-09 — это весь счёт
+    // (total_amount_portfolio); accountTotal держим отдельно, чтобы расхождение между
+    // «капитал бота» и «весь счёт» было видно, а не молча схлопывалось в одно число.
+    accountTotal: round(s.accountTotal),
+    userAssets: round(s.userAssets),
+    capitalModel: s.capitalModel ?? '',
+    peakStale: Boolean(s.peakStale),
+    feesBrokerRub: round(s.feesBrokerRub),
+    openPnlBroker: round(s.openPnlBroker),
     openPositions: Number(s.openPositions ?? 0),
     tradesPnl: round(s.tradesPnl),
     fees: round(s.fees),
@@ -106,8 +116,15 @@ function positionsOf(portfolio, names, dataDir) {
         pctChg: entry && cur ? round(((p.side === 'short' ? entry / cur : cur / entry) - 1) * 100) : null,
         risk: round(p.risk_rub, 0),
         entryDay: p.entry_day,
-        entryTs: num(p.entry_ts)
+        entryTs: num(p.entry_ts),
+        // Раскладку брокерского P&L по карточкам пишет движок (Invoke-Mtm); здесь только чтение.
+        brokerPnl: round(portfolio?.broker_pnl_by_card?.[p.id]),
+        goRub: num(p.go_per_lot) !== null ? round(num(p.lots) * num(p.go_per_lot), 0) : null,
+        pnlPctGo: null,
+        brokerVarMargin: null
       });
+      const last = out[out.length - 1];
+      if (last.brokerPnl !== null && last.goRub > 0) last.pnlPctGo = round((last.brokerPnl / last.goRub) * 100);
     }
   }
   return out;
@@ -196,7 +213,12 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
         id: p.id, sleeve: p.sleeve, asset: p.asset, secid: p.secid, title: p.title ?? p.asset,
         side: p.side, lots: num(p.lots), entry: num(p.entry), stop: num(p.stop), tp1: num(p.tp1),
         cur: num(p.cur), notional: round(p.notional, 0), upnl: round(p.upnl), pctChg: round(p.pctChg),
-        risk: round(p.risk, 0), entryDay: p.entryDay, entryTs: num(p.entryTs)
+        risk: round(p.risk, 0), entryDay: p.entryDay, entryTs: num(p.entryTs),
+        // brokerPnl — то же число, что в приложении Т-Инвестиций (накопленная вариационка по
+        // контракту); upnl — наша переоценка открытых лотов. Процент считаем от ГО, а не от
+        // движения цены: pctChg оставлен только ради обратной совместимости DTO.
+        brokerPnl: round(p.brokerPnl), goRub: round(p.goRub, 0), pnlPctGo: round(p.pnlPctGo),
+        brokerVarMargin: round(p.brokerVarMargin)
       })),
       closedTrades: (snapshot.closedTrades ?? []).map((t) => ({
         id: t.id, asset: t.asset, secid: t.secid, title: t.title ?? t.asset, side: t.side,
@@ -233,6 +255,12 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
   const positions = positionsOf(portfolio, names, dataDir);
   const goUsed = num(portfolio.go?.used_rub);
   const goBudget = num(portfolio.go?.budget_rub);
+  const accountTotal = num(portfolio.capital_breakdown?.portfolio_total) ?? num(portfolio.go?.account_liquid_rub);
+  const ledger = portfolio.broker_ledger ?? null;
+  const curVm = num(portfolio.capital_breakdown?.futures) ?? 0;
+  const allTimeAmt = ledger !== null && num(ledger.varmargin_rub) !== null
+    ? num(ledger.varmargin_rub) + curVm + (num(ledger.fees_rub) ?? 0)
+    : null;
 
   return {
     currency,
@@ -247,9 +275,26 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
       dayBase: round(dayBase),
       dayBaseSource,
 
-      allTimePct: round(pct(profileEq, baseAmt)),
-      allTimeAmt: profileEq !== null && baseAmt !== null ? round(profileEq - baseAmt) : null,
-      allTimeNote: 'пополнения счёта не учтены',
+      // Результат бота из брокерского леджера (Invoke-BrokerLedger): сведённая вариационка +
+      // текущая несведённая − фактические комиссии. Фолбэк — profile_eq, но это БУМАЖНАЯ
+      // блендовая модель, к реальному счёту отношения не имеющая, поэтому она помечена.
+      allTimePct: round(allTimeAmt !== null && capital !== null && capital - allTimeAmt > 0
+        ? (allTimeAmt / (capital - allTimeAmt)) * 100
+        : pct(profileEq, baseAmt)),
+      allTimeAmt: allTimeAmt !== null ? round(allTimeAmt)
+        : (profileEq !== null && baseAmt !== null ? round(profileEq - baseAmt) : null),
+      allTimeNote: allTimeAmt !== null
+        ? 'результат бота с запуска по данным брокера; пополнений деньгами не было'
+        : 'бумажная модель профиля, не сверено со счётом',
+      allTimeSource: allTimeAmt !== null ? 'broker_ops' : 'profile_eq',
+
+      accountTotal: round(accountTotal),
+      userAssets: round(portfolio.capital_breakdown?.user_assets),
+      capitalModel: portfolio.capital_breakdown?.model ?? '',
+      peakStale: Boolean(num(portfolio.go?.bot_capital_account_rub) !== null
+        && (portfolio.capital_breakdown?.model ?? 'legacy') === 'legacy'),
+      feesBrokerRub: ledger !== null ? round(Math.abs(num(ledger.fees_rub) ?? 0)) : null,
+      openPnlBroker: round(positions.reduce((sum, x) => sum + (num(x.brokerPnl) ?? num(x.upnl) ?? 0), 0)),
 
       openPositions: positions.length,
       tradesPnl: round(closedTrades.reduce((sum, t) => sum + (num(t.pnl) ?? 0), 0)),

@@ -269,7 +269,9 @@ if ($rfPresentation -and [int]$rfPresentation.schema -eq 1) {
   $lrPos = [object[]]@(@($rfPresentation.positions) | ForEach-Object {
     $c1h = [object[]]@(); $cf = Join-Path $lrCandDir ("{0}_1h.json" -f $_.asset)
     if (Test-Path $cf) { try { $c1h = [object[]]@((Get-Content $cf -Raw -Encoding UTF8 | ConvertFrom-Json)) } catch {} }
-    [ordered]@{ id=$_.id; sleeve=$_.sleeve; asset=$_.asset; secid=$_.secid; side=$_.side; lots=$_.lots; entry=$_.entry; stop=$_.stop; tp1=$_.tp1; cur=$_.cur; upnl=$_.upnl; riskRub=$_.risk; entryDay=$_.entryDay; entryTs=$_.entryTs; rolls=$_.rolls; rubPerPt=$_.rubPerPt; notional=$_.notional; pctChg=$_.pctChg; candles1h=$c1h; reconcileStatus=$_.reconcileStatus; reconcileSinceTs=$_.reconcileSinceTs }
+    [ordered]@{ id=$_.id; sleeve=$_.sleeve; asset=$_.asset; secid=$_.secid; side=$_.side; lots=$_.lots; entry=$_.entry; stop=$_.stop; tp1=$_.tp1; cur=$_.cur; upnl=$_.upnl; riskRub=$_.risk; entryDay=$_.entryDay; entryTs=$_.entryTs; rolls=$_.rolls; rubPerPt=$_.rubPerPt; notional=$_.notional; pctChg=$_.pctChg; candles1h=$c1h; reconcileStatus=$_.reconcileStatus; reconcileSinceTs=$_.reconcileSinceTs
+      brokerPnl=$_.brokerPnl; goRub=$_.goRub; pnlPctGo=$_.pnlPctGo; brokerVarMargin=$_.brokerVarMargin
+      brokerVarMarginSettled=$_.brokerVarMarginSettled; brokerAvgPx=$_.brokerAvgPx; brokerCurPx=$_.brokerCurPx; brokerLots=$_.brokerLots }
   })
   $s = $rfPresentation.summary; $op = $rfPresentation.operational
   # Снапшот отдаёт сделки в DTO Mini App (pnl/fees) - фронт дашборда читает pnlRub/feesRub/sleeve,
@@ -279,7 +281,11 @@ if ($rfPresentation -and [int]$rfPresentation.schema -eq 1) {
       entryDay=$_.entryDay; entry=$_.entry; exitDay=$_.exitDay; exitPx=$_.exitPx; exitReason=$_.exitReason
       pnlRub=$_.pnl; feesRub=$_.fees; rMultiple=$_.rMultiple }
   })
-  $rfReal = [ordered]@{ mode=$s.mode; entriesHalt=[bool]$s.entriesHalt; haltReason=$s.haltReason; goUsed=$s.goUsed; goBudget=$s.goBudget; accountLiquid=$s.accountLiquid; capitalNow=$s.capital; capitalPeak=$s.peak; drawdownPct=$s.drawdownPct; dayBase=$s.dayBase; dayBaseSource=[string]$s.dayBaseSource; todayAmt=$s.todayAmt; todayPct=$s.todayPct; winRate=$s.winRate; capitalBreakdown=$op.capitalBreakdown; drift=$op.drift; sleeves=[ordered]@{ core=$rfPresentation.sleeves.core.equity; setA=$rfPresentation.sleeves.setA.equity; mom=$rfPresentation.sleeves.mom.equity }; positions=$lrPos; holdings=@($rfPresentation.holdings); closed=$lrClosed; curve=@($rfPresentation.equity); capitalCurve=@($rfPresentation.capitalCurve); lastDailyDay=[string]$rfPresentation.summary.lastDailyDay; stats=$op.stats }
+  $rfReal = [ordered]@{ mode=$s.mode; entriesHalt=[bool]$s.entriesHalt; haltReason=$s.haltReason; goUsed=$s.goUsed; goBudget=$s.goBudget; accountLiquid=$s.accountLiquid; capitalNow=$s.capital; capitalPeak=$s.peak; drawdownPct=$s.drawdownPct; dayBase=$s.dayBase; dayBaseSource=[string]$s.dayBaseSource; todayAmt=$s.todayAmt; todayPct=$s.todayPct; winRate=$s.winRate; capitalBreakdown=$op.capitalBreakdown; drift=$op.drift; sleeves=[ordered]@{ core=$rfPresentation.sleeves.core.equity; setA=$rfPresentation.sleeves.setA.equity; mom=$rfPresentation.sleeves.mom.equity }; positions=$lrPos; holdings=@($rfPresentation.holdings); closed=$lrClosed; curve=@($rfPresentation.equity); capitalCurve=@($rfPresentation.capitalCurve); lastDailyDay=[string]$rfPresentation.summary.lastDailyDay; stats=$op.stats
+    accountTotal=$s.accountTotal; userAssets=$s.userAssets; capitalModel=[string]$s.capitalModel; peakStale=[bool]$s.peakStale
+    feesBrokerRub=$s.feesBrokerRub; openPnlBroker=$s.openPnlBroker
+    allTimeAmt=$s.allTimeAmt; allTimePct=$s.allTimePct; allTimeNote=[string]$s.allTimeNote; allTimeSource=[string]$s.allTimeSource
+    broker=$rfPresentation.broker; capitalCurveJoinTs=$rfPresentation.capitalCurveJoinTs }
 }
 elseif (Test-Path $lrPf) {
   $lp = Get-Content $lrPf -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -300,25 +306,12 @@ elseif (Test-Path $lrPf) {
     $lrClosed = [object[]]@((Get-Content (Join-Path $lrDir 'trades.json') -Raw -Encoding UTF8 | ConvertFrom-Json) | Where-Object { $null -ne $_ })
   }
   $lrCandDir = Join-Path $lrDir 'candles'
-  # брокерский P&L (expected_yield по uid, см. Set-BotCapital) вместо внутреннего upnl_rub - тот
-  # же источник, что уходит в вечерний TG-отчёт (tools/live_rf_engine.ps1: Get-CardPnlMap).
-  # Пропорционально по лотам, если один инструмент держат оба рукава одновременно (редкий кейс).
+  # Брокерский P&L по карточкам считает и пишет ДВИЖОК (Invoke-Mtm -> broker_pnl_by_card) -
+  # здесь только чтение. Раньше то же деление по лотам жило ещё и тут, и в Get-CardPnlMap:
+  # три копии одной логики давали на одну позицию три разных числа (исправлено 2026-09-01).
   $lrCardPnl = @{}
-  if ($lp.PSObject.Properties['broker_pnl_by_uid']) {
-    $lrAllPos = @()
-    foreach ($snName in 'core','setA') { $lrAllPos += @($lp.sleeves.$snName.positions | Where-Object { $null -ne $_ }) }
-    $lrByUid = @{}
-    foreach ($p in $lrAllPos) { $u = [string]$p.uid; if (-not $lrByUid.ContainsKey($u)) { $lrByUid[$u] = @() }; $lrByUid[$u] += $p }
-    foreach ($u in $lrByUid.Keys) {
-      $prop = $lp.broker_pnl_by_uid.PSObject.Properties[$u]
-      if ($null -eq $prop) { continue }
-      $total = [double]$prop.Value; $cards = $lrByUid[$u]
-      $lotsSum = ($cards | Measure-Object -Property lots -Sum).Sum
-      foreach ($p in $cards) {
-        $share = if ($lotsSum -gt 0) { [double]$p.lots / [double]$lotsSum } else { 1.0 / $cards.Count }
-        $lrCardPnl[[string]$p.id] = $total * $share
-      }
-    }
+  if ($lp.PSObject.Properties['broker_pnl_by_card'] -and $null -ne $lp.broker_pnl_by_card) {
+    foreach ($pr in $lp.broker_pnl_by_card.PSObject.Properties) { $lrCardPnl[$pr.Name] = [double]$pr.Value }
   }
   $lrPos = [object[]]@()
   foreach ($snName in 'core','setA') {

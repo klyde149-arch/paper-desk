@@ -237,6 +237,14 @@ function Get-TiField($Obj, [string]$Snake) {
   if ($Obj.PSObject.Properties[$camel]) { return $Obj.$camel }
   return $null
 }
+# Число из поля ответа (MoneyValue или Quotation - у обоих units/nano) с округлением.
+# $null для ОТСУТСТВУЮЩЕГО поля - принципиально: «брокер не прислал» не должно превращаться
+# в 0, иначе ноль уедет в отчётность как факт, а не как пропуск (и замаскирует битый снимок).
+function TiNum($Obj, [string]$Snake, [int]$Digits = 2) {
+  $v = Get-TiField $Obj $Snake
+  if ($null -eq $v) { return $null }
+  return [math]::Round([double](Q2D $v), $Digits)
+}
 # рублей за 1 пункт цены фьючерса: min_price_increment_amount / min_price_increment
 # КРИТИЧНО для сайзинга (боевой нюанс №1: цены фьючерсов в пунктах, НЕ в рублях)
 function Get-RubPerPoint($futInfo) {
