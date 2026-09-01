@@ -10,6 +10,15 @@ New-Item -ItemType Directory -Force $WORK | Out-Null
 $ENGINE = Join-Path $PSScriptRoot 'live_rf_engine.ps1'
 $MSKOFF = [long]10800000
 
+# The child engine runs on the SAME PowerShell host as this test. Hardcoding 'powershell'
+# pinned the whole scenario matrix to Windows: on Linux - both the VPS where the RF engine
+# actually trades and the CI runner - no such executable exists, and -ExecutionPolicy is a
+# Windows-only switch. On Windows this still resolves to powershell.exe, so nothing changes
+# for a local run.
+$IsWinHost = ($null -eq $IsWindows) -or $IsWindows
+$PSHOST = (Get-Process -Id $PID).Path
+$PSHOST_ARGS = if ($IsWinHost) { @('-NoProfile', '-ExecutionPolicy', 'Bypass') } else { @('-NoProfile') }
+
 function MskToNowMs([string]$MskStr) { (UtcStrToMs $MskStr) - $MSKOFF }
 
 function Write-Json([string]$Path, $Obj) {
@@ -153,7 +162,7 @@ function Run-Tick([string]$Root, [string]$MskTime, [string]$Mode = 'prod', [swit
     $env:TINVEST_MODE = $Mode; $env:TINVEST_MOCK_DIR = Join-Path $Root 'mock'
     $env:TINVEST_ACCOUNT_ID = 'acc1'; $env:TINVEST_TOKEN = 'test-token'
     $env:LIVE_RF_DIRECT_SLEEVE_ACCESS = if ($DirectSleeveAccess) { '1' } else { $null }
-    $out = & powershell -NoProfile -ExecutionPolicy Bypass -Command ". '$ENGINE' -Root '$Root' -NowMs $nowMs" 2>&1
+    $out = & $PSHOST @PSHOST_ARGS -Command ". '$ENGINE' -Root '$Root' -NowMs $nowMs" 2>&1
     return ($out | Out-String)
   } finally {
     $env:TINVEST_MOCK_DIR = $null

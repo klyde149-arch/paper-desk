@@ -5,7 +5,7 @@
 # ждать её, чтобы проверить фикс, нельзя. Здесь гонка ставится руками: второй клон пушит
 # первым, наш клон получает отказ.
 #
-# КЛЮЧЕВАЯ ДЕТАЛЬ: скрипт вызывается ДОЧЕРНИМ процессом `powershell.exe -File`, ровно как
+# КЛЮЧЕВАЯ ДЕТАЛЬ: скрипт вызывается ДОЧЕРНИМ процессом `$PSHOST -File`, ровно как
 # в воркфлоу, и проверяется именно $LASTEXITCODE. Иначе тест не поймал бы исходный баг -
 # он был не в логике, а в коде возврата шага.
 
@@ -20,6 +20,14 @@ param(
 # `git clone` роняет весь тест.
 $ErrorActionPreference = 'Continue'
 $Script = if ($ScriptUnderTest) { $ScriptUnderTest } else { Join-Path $PSScriptRoot 'commit_state.ps1' }
+
+# The script under test runs on the SAME PowerShell host as this test. 'powershell.exe' does
+# not exist on Linux and -ExecutionPolicy is a Windows-only switch, so hardcoding them pinned
+# this suite to Windows. On Windows $PSHOST is still powershell.exe, i.e. the production shape
+# from tick.yml / manual-close.yml is preserved exactly where it matters.
+$IsWinHost = ($null -eq $IsWindows) -or $IsWindows
+$PSHOST = (Get-Process -Id $PID).Path
+$PSHOST_ARGS = if ($IsWinHost) { @('-NoProfile', '-ExecutionPolicy', 'Bypass') } else { @('-NoProfile') }
 
 $script:pass = 0; $script:fail = 0; $script:failed = @()
 function Check([string]$Name, [bool]$Cond) {
@@ -100,7 +108,7 @@ function Invoke-OtherWriter([string]$OtherDir, [string]$RelPath, [string]$Conten
   } finally { Pop-Location }
 }
 
-# Вызов ровно как в Actions: дочерний powershell.exe -File, наружу отдаём его код.
+# Вызов ровно как в Actions: дочерний `$PSHOST -File`, наружу отдаём его код.
 function Invoke-CommitState([string]$WorkDir, [string[]]$Paths, [string]$Label, [switch]$SkipSceneCheck) {
   Push-Location $WorkDir -ErrorAction Stop
   try {
@@ -108,7 +116,7 @@ function Invoke-CommitState([string]$WorkDir, [string[]]$Paths, [string]$Label, 
     # rev-parse обязан провалиться, и это как раз проверяемое поведение.
     if (-not $SkipSceneCheck) { Assert-InScene $WorkDir }
     $joined = $Paths -join ','
-    $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Script `
+    $out = & $PSHOST @PSHOST_ARGS -File $Script `
       -Path $joined -Label $Label -NoDelay 2>&1
     return [pscustomobject]@{ Code = $LASTEXITCODE; Text = ($out -join "`n") }
   } finally { Pop-Location }
@@ -124,6 +132,9 @@ function Set-RejectHook([string]$Remote, [string]$Message) {
   # LF и без BOM: это shell-скрипт, git запускает его через sh даже на Windows.
   $body = "#!/bin/sh`necho '$Message' >&2`nexit 1`n"
   [IO.File]::WriteAllText($hook, $body, (New-Object System.Text.UTF8Encoding($false)))
+  # Linux git silently ignores a hook without the execute bit: the push would then SUCCEED and
+  # the scenario would prove nothing instead of failing loudly. No-op on Windows.
+  if (-not $IsWinHost) { & chmod '+x' $hook | Out-Null }
   return $hook
 }
 
