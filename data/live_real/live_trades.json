@@ -1482,5 +1482,63 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT27",
+    "sym": "NEAR-USDT",
+    "side": "long",
+    "live": true,
+    "result": "win",
+    "entryUtc": "2026-08-31 16:00",
+    "entryDay": "2026-08-31",
+    "entryTs": 1788192002839,
+    "entry": 1.856,
+    "qty": 18.8,
+    "exitUtc": "2026-09-01 20:01",
+    "exitDay": "2026-09-01",
+    "exitTs": 1788292862671,
+    "exitPx": 1.9185,
+    "exitReason": "trail-ema20",
+    "legs": [
+      {
+        "part": "TP1",
+        "qty": 9.4,
+        "price": 1.936,
+        "utc": "2026-09-01 00:13",
+        "pnl": 0.75
+      },
+      {
+        "part": "runner",
+        "qty": 2.1,
+        "price": 1.901,
+        "utc": "2026-09-01 20:00",
+        "pnl": 0.09
+      },
+      {
+        "part": "runner",
+        "qty": 7.3,
+        "price": 1.901,
+        "utc": "2026-09-01 20:00",
+        "pnl": 0.33
+      }
+    ],
+    "pnlUsd": 1.1,
+    "rMultiple": 1.08,
+    "riskUsd": 1.02,
+    "fees": 0.06,
+    "funding": 0.01,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; NEAR-USDT 4h up; F&G 62",
+      "riskPlan": "вход ~1.855, стоп 1.801 (2.92%), TP1 1.936 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $1.02",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
