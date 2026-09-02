@@ -92,8 +92,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-01",
     "last_hour_ts": 1788386400000,
-    "ops_since": "2026-09-02T20:00:33Z",
-    "last_eq_snap": 1788382292768,
+    "ops_since": "2026-09-02T20:15:32Z",
+    "last_eq_snap": 1788383193004,
     "last_report_day": "2026-09-02",
     "orders_day": "2026-09-02",
     "orders_day_n": 1,
@@ -224,12 +224,12 @@
   },
   "go": {
     "used_rub": 347376.48,
-    "budget_rub": 1626321.29,
+    "budget_rub": 1651546.24,
     "peak_day_rub": 1070004.33,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1689853.93,
     "bot_capital_account_rub": 1689853.93,
-    "bot_capital_rub": 1689018.77
+    "bot_capital_rub": 1701546.24
   },
   "drift": {
     "D2": 0,
@@ -389,21 +389,21 @@
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {
-    "7326ae99-d9f1-4df1-8e3a-d85390686038": -835.16
+    "7326ae99-d9f1-4df1-8e3a-d85390686038": -835.21
   },
   "broker": {
-    "captured_ms": 1788382833005,
+    "captured_ms": 1788383732859,
     "totals": {
       "portfolio": 1689853.93,
       "currencies": 1689853.93,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 1250076.0
+      "futures_nominal": 1253581.87
     },
     "expected_yield_pct": -4.12,
-    "daily_yield_rub": -475.16,
-    "daily_yield_rel_pct": -0.02,
+    "daily_yield_rub": 12052.31,
+    "daily_yield_rel_pct": 0.71,
     "positions": [
       {
         "uid": "7326ae99-d9f1-4df1-8e3a-d85390686038",
@@ -414,9 +414,9 @@
         "qty": 48.0,
         "avg_px": 3.005,
         "cur_px": 3.002,
-        "expected_yield": -835.16,
-        "var_margin": -835.16,
-        "var_margin_settled": -12527.47
+        "expected_yield": -835.21,
+        "var_margin": 11692.31,
+        "var_margin_settled": 11692.31
       },
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -448,15 +448,15 @@
   },
   "capital_breakdown": {
     "currencies": 1689853.93,
-    "futures": -835.16,
+    "futures": 11692.31,
     "mom_shares": 0.0,
     "user_assets": 0.0,
     "portfolio_total": 1689853.93,
     "capital_account": 1689853.93,
-    "capital_legacy": 1689018.77,
+    "capital_legacy": 1701546.24,
     "model": "legacy"
   },
   "broker_pnl_by_card": {
-    "L00046": -835.16
+    "L00046": -835.21
   }
 }
