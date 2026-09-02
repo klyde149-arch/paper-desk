@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "generatedAtMs": 1788381038354,
-  "sourceAtMs": 1788380432921,
+  "generatedAtMs": 1788381937778,
+  "sourceAtMs": 1788381333390,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1677531.85,
+    "capital": 1677156.45,
     "peak": 1771706.14,
     "drawdownPct": null,
     "peakStale": true,
     "capitalModel": "legacy",
-    "accountTotal": 1677531.85,
+    "accountTotal": 1677156.45,
     "userAssets": 0.0,
-    "dayBase": 1677171.85,
+    "dayBase": 1676796.45,
     "dayBaseSource": "broker_daily_yield",
     "todayAmt": 360.0,
     "todayPct": 0.02,
@@ -20,7 +20,7 @@
     "allTimeAmt": 147210.23,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
-    "openPositions": 0,
+    "openPositions": 1,
     "tradesPnl": 188308.48,
     "fees": 12582.33,
     "feesBrokerRub": 24747.76,
@@ -30,32 +30,45 @@
     "losses": 6,
     "entriesHalt": false,
     "haltReason": "",
-    "goUsed": 0.0,
-    "goBudget": 1627531.85,
-    "accountLiquid": 1677531.85,
+    "goUsed": 347376.48,
+    "goBudget": 1627574.03,
+    "accountLiquid": 1677156.45,
     "lastDailyDay": "2026-09-01"
   },
   "broker": {
-    "captured_ms": 1788381033074,
+    "captured_ms": 1788381932839,
     "totals": {
-      "portfolio": 1677531.85,
-      "currencies": 1677531.85,
+      "portfolio": 1677156.45,
+      "currencies": 1677156.45,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 0.0
+      "futures_nominal": 1251325.25
     },
     "expected_yield_pct": -4.1,
     "daily_yield_rub": 360.0,
     "daily_yield_rel_pct": 0.02,
     "positions": [
       {
+        "uid": "7326ae99-d9f1-4df1-8e3a-d85390686038",
+        "type": "futures",
+        "ticker": "NGU6",
+        "figi": "FNG092600000",
+        "lots": 48.0,
+        "qty": 48.0,
+        "avg_px": 3.005,
+        "cur_px": 3.005,
+        "expected_yield": 0.0,
+        "var_margin": 0.0,
+        "var_margin_settled": -12527.47
+      },
+      {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
         "type": "currency",
         "ticker": "RUB000UTSTOM",
         "figi": "RUB000UTSTOM",
-        "lots": 1358121.85,
-        "qty": 1358121.85,
+        "lots": 1357746.45,
+        "qty": 1357746.45,
         "avg_px": 1.0,
         "cur_px": 1.0,
         "expected_yield": 0.0,
@@ -80,13 +93,13 @@
   "capitalCurveJoinTs": 1788301172998,
   "operational": {
     "go": {
-      "used_rub": 0.0,
-      "budget_rub": 1627531.85,
+      "used_rub": 347376.48,
+      "budget_rub": 1627574.03,
       "peak_day_rub": 1070004.33,
       "capital_peak_rub": 1771706.14,
-      "account_liquid_rub": 1677531.85,
-      "bot_capital_account_rub": 1677531.85,
-      "bot_capital_rub": 1677531.85
+      "account_liquid_rub": 1677156.45,
+      "bot_capital_account_rub": 1677156.45,
+      "bot_capital_rub": 1677156.45
     },
     "drift": {
       "D2": 0,
@@ -98,8 +111,8 @@
     },
     "stats": {
       "trades": 21,
-      "orders_posted": 28,
-      "fills": 42,
+      "orders_posted": 29,
+      "fills": 43,
       "wins": 15,
       "losses": 6,
       "fees_rub": 12582.32,
@@ -108,13 +121,13 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1677531.85,
+      "currencies": 1677156.45,
       "futures": 0.0,
       "mom_shares": 0.0,
       "user_assets": 0.0,
-      "portfolio_total": 1677531.85,
-      "capital_account": 1677531.85,
-      "capital_legacy": 1677531.85,
+      "portfolio_total": 1677156.45,
+      "capital_account": 1677156.45,
+      "capital_legacy": 1677156.45,
       "model": "legacy"
     },
     "active": {
@@ -136,8 +149,8 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1678881.85,
-      "dayPct": 5.43
+      "equity": 1678569.02,
+      "dayPct": 5.41
     },
     "setA": {
       "equity": 1678881.85,
@@ -148,7 +161,39 @@
       "dayPct": null
     }
   },
-  "positions": [],
+  "positions": [
+    {
+      "id": "L00046",
+      "sleeve": "core",
+      "asset": "NG",
+      "secid": "NGU6",
+      "title": "природный газ (NGU6)",
+      "side": "long",
+      "lots": 48,
+      "entry": 3.005,
+      "stop": 2.813495,
+      "tp1": null,
+      "cur": 3.005,
+      "upnl": 0.0,
+      "risk": 83944.09,
+      "entryDay": "2026-09-02",
+      "entryTs": 1788381333390,
+      "rolls": 0,
+      "rubPerPt": 8675.3,
+      "notional": 1251325.0,
+      "pctChg": 0.0,
+      "reconcileStatus": null,
+      "reconcileSinceTs": null,
+      "brokerPnl": 0.0,
+      "goRub": 347376.0,
+      "pnlPctGo": 0.0,
+      "brokerVarMargin": 0.0,
+      "brokerVarMarginSettled": -12527.47,
+      "brokerAvgPx": 3.005,
+      "brokerCurPx": 3.005,
+      "brokerLots": 48.0
+    }
+  ],
   "holdings": [],
   "closedTrades": [
     {
@@ -17249,6 +17294,10 @@
     [
       1788380432921,
       827638.23
+    ],
+    [
+      1788381333390,
+      827638.23
     ]
   ],
   "capitalCurve": [
@@ -33930,6 +33979,10 @@
     ],
     [
       1788380432921,
+      1677531.85
+    ],
+    [
+      1788381333390,
       1677531.85
     ]
   ]
