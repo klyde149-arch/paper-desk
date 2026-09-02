@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1678569.017646,
       "month_start_eq": 1632488.16,
-      "day_start_eq": 1592392.26,
+      "day_start_eq": 1678569.017646,
       "halt_day": null,
       "positions": [
         {
@@ -37,7 +37,7 @@
           "tp1_order_id": "",
           "tp1_done": false,
           "be_moved": false,
-          "mfe_pts": 3.005,
+          "mfe_pts": 3.008,
           "atr_entry": 0.100753,
           "risk_rub": 83944.09,
           "rub_per_pt": 8675.3,
@@ -86,14 +86,14 @@
   "profile_eq": 826868.17,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1660128.14,
-  "day_start_date": "2026-09-01",
+  "day_start_eq": 1701546.24,
+  "day_start_date": "2026-09-02",
   "peak_eq": 836296.18,
   "watermarks": {
-    "last_daily_day": "2026-09-01",
-    "last_hour_ts": 1788386400000,
-    "ops_since": "2026-09-02T20:15:32Z",
-    "last_eq_snap": 1788383193004,
+    "last_daily_day": "2026-09-02",
+    "last_hour_ts": 1788390000000,
+    "ops_since": "2026-09-02T20:30:32Z",
+    "last_eq_snap": 1788384152792,
     "last_report_day": "2026-09-02",
     "orders_day": "2026-09-02",
     "orders_day_n": 1,
@@ -225,7 +225,7 @@
   "go": {
     "used_rub": 347376.48,
     "budget_rub": 1651546.24,
-    "peak_day_rub": 1070004.33,
+    "peak_day_rub": 347376.48,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1689853.93,
     "bot_capital_account_rub": 1689853.93,
@@ -239,8 +239,40 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 47,
+  "pending_intents": [
+    {
+      "id": "i00047",
+      "kind": "entry",
+      "sleeve": "setA",
+      "asset": "PLD",
+      "ticker": "",
+      "uid": "",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "6ed3d601-fd9d-0d6a-6a25-1ecd79ff1512",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1788393000000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-09-02",
+      "state_ts": 1788384032932,
+      "last_error": "",
+      "ctx": {
+        "swing": 1295.25,
+        "atr": 53.838571,
+        "stop_dist": 0,
+        "risk_pct": 0.02,
+        "ref_px": 1351.28,
+        "note": "setup A pullback"
+      }
+    }
+  ],
+  "next_intent_id": 48,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 21,
@@ -261,15 +293,6 @@
     "positions": {
       "L00046": -835.16
     }
-  },
-  "readiness": {
-    "day": "2026-09-01",
-    "checked_n": 12,
-    "total_n": 12,
-    "failed": [],
-    "go_worst_rub": 1907303.05,
-    "go_cap_rub": 1207596.1,
-    "fits": false
   },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
@@ -385,6 +408,15 @@
     ],
     "updated_ms": 1788379232895
   },
+  "readiness": {
+    "day": "2026-09-02",
+    "checked_n": 12,
+    "total_n": 12,
+    "failed": [],
+    "go_worst_rub": 2196521.16,
+    "go_cap_rub": 1238659.68,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
@@ -392,7 +424,7 @@
     "7326ae99-d9f1-4df1-8e3a-d85390686038": -835.21
   },
   "broker": {
-    "captured_ms": 1788383732859,
+    "captured_ms": 1788384632865,
     "totals": {
       "portfolio": 1689853.93,
       "currencies": 1689853.93,
