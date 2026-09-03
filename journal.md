@@ -1094,3 +1094,5 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-09-03 12:00 MSK — РФ АВТО [C3b/core]: закрыта R22 COCOA LONG — -519.28 (stop)
 
 ## 2026-09-03 12:00 MSK — РФ АВТО [C3b/setA]: закрыта R12 BR SHORT — -210.30 (stop)
+
+## 2026-09-03 11:19 UTC — АВТО: TP1 по T33 BNB-USDT — закрыто 50% @708.874758, стоп в БУ 693.217903
