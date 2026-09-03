@@ -8,11 +8,51 @@
   "day_start_date_utc": "2026-09-03",
   "trading_halted": false,
   "entries_halt_reason": "",
-  "open_trades": [],
+  "open_trades": [
+    {
+      "id": "LT30",
+      "symbol": "BNB-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 0.05,
+      "qty_initial": 0.05,
+      "entry_filled_qty": 0.0,
+      "entry_price": 692.5,
+      "stop": 682.5,
+      "stop0": 682.5,
+      "tp1": 707.5,
+      "tp1_qty": 0.02,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-09-03 04:00",
+      "entry_ts": 1788408002875,
+      "risk_usd": 0.5,
+      "notional_usd": 34.62,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; BNB-USDT 4h up; F&G 65",
+        "riskPlan": "вход ~692.5, стоп 682.5 (1.42%), TP1 707.5 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.5",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
+    }
+  ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1788379200000,
-    "last_trail_4h_ts": 1788379200000,
+    "last_4h_ts": 1788393600000,
+    "last_trail_4h_ts": 1788393600000,
     "last_exec_ms": 1788292806769,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
@@ -381,7 +421,7 @@
       "889c43c6-dfe0-5c68-8ab0-45bd9969e716",
       "08fadd8a-b6c5-5a30-998d-21988266671c"
     ],
-    "next_trade_id": 30,
+    "next_trade_id": 31,
     "halt_day_utc": null,
     "soft_dd": true,
     "consec_api_fail": 0,
@@ -402,7 +442,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-03 03:45",
+    "last_tick_utc": "2026-09-03 04:00",
     "last_daily_summary_day": "2026-09-02",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
