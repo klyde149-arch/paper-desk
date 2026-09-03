@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1788407138398,
-  "sourceAtMs": 1788406653030,
+  "generatedAtMs": 1788408040831,
+  "sourceAtMs": 1788407612775,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -20,7 +20,7 @@
     "allTimeAmt": 158902.54,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
-    "openPositions": 1,
+    "openPositions": 2,
     "tradesPnl": 188308.48,
     "fees": 12582.33,
     "feesBrokerRub": 24747.76,
@@ -36,14 +36,14 @@
     "lastDailyDay": "2026-09-02"
   },
   "broker": {
-    "captured_ms": 1788407132814,
+    "captured_ms": 1788408032895,
     "totals": {
       "portfolio": 1689853.93,
       "currencies": 1689853.93,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 1253581.87
+      "futures_nominal": 1261933.49
     },
     "expected_yield_pct": -4.12,
     "daily_yield_rub": 11692.31,
@@ -57,7 +57,7 @@
         "lots": 48.0,
         "qty": 48.0,
         "avg_px": 3.005,
-        "cur_px": 3.002,
+        "cur_px": 3.022,
         "expected_yield": -835.21,
         "var_margin": 11692.31,
         "var_margin_settled": 11692.31
@@ -111,8 +111,8 @@
     },
     "stats": {
       "trades": 21,
-      "orders_posted": 29,
-      "fills": 43,
+      "orders_posted": 30,
+      "fills": 44,
       "wins": 15,
       "losses": 6,
       "fees_rub": 12582.32,
@@ -149,8 +149,8 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1677319.77,
-      "dayPct": -0.07
+      "equity": 1685648.06,
+      "dayPct": 0.42
     },
     "setA": {
       "equity": 1678881.85,
@@ -173,25 +173,56 @@
       "entry": 3.005,
       "stop": 2.813495,
       "tp1": null,
-      "cur": 3.002,
-      "upnl": -1249.24,
+      "cur": 3.022,
+      "upnl": 7079.04,
       "risk": 83944.09,
       "entryDay": "2026-09-02",
       "entryTs": 1788381333390,
       "rolls": 0,
       "rubPerPt": 8675.3,
       "notional": 1251325.0,
-      "pctChg": -0.1,
+      "pctChg": 0.57,
       "reconcileStatus": null,
       "reconcileSinceTs": null,
       "brokerPnl": -835.21,
       "goRub": 347376.0,
-      "pnlPctGo": -0.36,
+      "pnlPctGo": 2.04,
       "brokerVarMargin": 11692.31,
       "brokerVarMarginSettled": 11692.31,
       "brokerAvgPx": 3.005,
-      "brokerCurPx": 3.002,
+      "brokerCurPx": 3.022,
       "brokerLots": 48.0
+    },
+    {
+      "id": "L00047",
+      "sleeve": "setA",
+      "asset": "PLD",
+      "secid": "PDU6",
+      "title": "палладий (PDU6)",
+      "side": "long",
+      "lots": 6,
+      "entry": 1359.74,
+      "stop": 1295.25,
+      "tp1": 1456.475,
+      "cur": null,
+      "upnl": null,
+      "risk": 33577.64,
+      "entryDay": "2026-09-03",
+      "entryTs": 1788408032895,
+      "rolls": 0,
+      "rubPerPt": 86.996,
+      "notional": 709752.0,
+      "pctChg": null,
+      "reconcileStatus": null,
+      "reconcileSinceTs": null,
+      "brokerPnl": null,
+      "goRub": 153148.0,
+      "pnlPctGo": null,
+      "brokerVarMargin": null,
+      "brokerVarMarginSettled": null,
+      "brokerAvgPx": null,
+      "brokerCurPx": null,
+      "brokerLots": null
     }
   ],
   "holdings": [],
@@ -17406,6 +17437,10 @@
     [
       1788406653030,
       826868.17
+    ],
+    [
+      1788407612775,
+      826868.17
     ]
   ],
   "capitalCurve": [
@@ -34199,6 +34234,10 @@
     ],
     [
       1788406653030,
+      1689853.93
+    ],
+    [
+      1788407612775,
       1689853.93
     ]
   ]
