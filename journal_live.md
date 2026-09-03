@@ -964,3 +964,7 @@ qty 0.05, стоп 682.5 (1.42%), TP1 707.5 (1.5R, 0.02), риск 0.5$, ном�
 ## 2026-09-03 11:17 UTC — LIVE: стоп LT30 BNB-USDT переведён в БУ @692.5
 
 ## 2026-09-03 12:00 UTC — LIVE: сигнал BTC-USDT long пропущен (skipped-minlot: qty 0 при min 0.001)
+
+## 2026-09-03 16:00 UTC — LIVE: сигнал ETH-USDT long пропущен (skipped-minlot: qty 0 при min 0.01)
+
+## 2026-09-03 16:00 UTC — LIVE: сигнал SOL-USDT long пропущен (skipped-minlot: qty 0 при min 0.1)
