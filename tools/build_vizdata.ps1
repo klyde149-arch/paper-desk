@@ -313,14 +313,34 @@ elseif (Test-Path $lrPf) {
   if ($lp.PSObject.Properties['broker_pnl_by_card'] -and $null -ne $lp.broker_pnl_by_card) {
     foreach ($pr in $lp.broker_pnl_by_card.PSObject.Properties) { $lrCardPnl[$pr.Name] = [double]$pr.Value }
   }
+  # Позиции из снимка счёта - по uid, как в Build-RfPresentationSnapshot.
+  $lrBrkByUid = @{}
+  if ($lp.PSObject.Properties['broker'] -and $null -ne $lp.broker) {
+    foreach ($bp in @($lp.broker.positions)) { if ($null -ne $bp -and $bp.uid) { $lrBrkByUid[[string]$bp.uid] = $bp } }
+  }
   $lrPos = [object[]]@()
   foreach ($snName in 'core','setA') {
     $lrPos += [object[]]@(@($lp.sleeves.$snName.positions) | Where-Object { $null -ne $_ } | ForEach-Object {
       $asset = [string]$_.asset; $secid = [string]$_.secid
-      $brokerUpnl = if ($lrCardPnl.ContainsKey([string]$_.id)) { [math]::Round($lrCardPnl[[string]$_.id], 2) } else { $_.upnl_rub }
+      # Поля-в-поле как в Build-RfPresentationSnapshot (bake_rf_candles.ps1): эта ветка включается,
+      # когда снапшота нет - в live_rf_tick.sh его выпечка падает мягко, одним WARN. Раньше здесь
+      # НЕ отдавались goRub/pnlPctGo/brokerPnl, и дашборд в этом режиме терял и процент, и ГО, а в
+      # upnl лежало брокерское число ПО КОНТРАКТУ под тултипом «P&L этой позиции» - тот самый
+      # двойной счёт закрытых лотов, от которого ушли 2026-09-01 (CRU6 27.08).
+      $entryPx = [double]$_.entry_px_pts
+      $curPx = if ($null -ne $_.cur_px) { [double]$_.cur_px } else { $null }
       $rpp = [double]$_.rub_per_pt
-      $notional = [math]::Round([double]$_.lots * [double]$_.entry_px_pts * $rpp, 0)
-      $pct = $(if ($null -ne $_.cur_px -and [double]$_.entry_px_pts -ne 0) { [math]::Round(([double]$_.cur_px / [double]$_.entry_px_pts - 1) * 100, 2) } else { $null })
+      $notional = [math]::Round([double]$_.lots * $entryPx * $rpp, 0)
+      # pctChg - движение ЦЕНЫ, не доходность: дашборд его не рисует, живёт ради контракта Mini App.
+      # Со стороной, как в снапшоте: без неё шорт в плюсе отдавался с минусом. DEPRECATED.
+      $ratio = if ([string]$_.side -eq 'short' -and $null -ne $curPx -and $curPx -ne 0) { $entryPx / $curPx }
+               elseif ($null -ne $curPx -and $entryPx -ne 0) { $curPx / $entryPx } else { $null }
+      $pct = $(if ($null -ne $ratio) { [math]::Round((($ratio - 1) * 100), 2) } else { $null })
+      $bPnl = if ($lrCardPnl.ContainsKey([string]$_.id)) { [math]::Round($lrCardPnl[[string]$_.id], 2) } else { $null }
+      $bPos = if ($_.uid -and $lrBrkByUid.ContainsKey([string]$_.uid)) { $lrBrkByUid[[string]$_.uid] } else { $null }
+      $goRub = if ($null -ne $_.go_per_lot) { [math]::Round([double]$_.lots * [double]$_.go_per_lot, 0) } else { $null }
+      # База процента - upnl_rub (P&L ЭТОЙ позиции), а не brokerPnl: см. разбор CRU6 в снапшоте.
+      $pnlPctGo = if ($null -ne $_.upnl_rub -and $null -ne $goRub -and $goRub -gt 0) { [math]::Round(100.0 * [double]$_.upnl_rub / $goRub, 2) } else { $null }
       # часовые свечи: сперва испечённый T-Invest файл (VPS), иначе фолбэк на MOEX ISS
       $c1h = [object[]]@()
       $cf = Join-Path $lrCandDir ("{0}_1h.json" -f $asset)
@@ -333,10 +353,16 @@ elseif (Test-Path $lrPf) {
       }
       [ordered]@{ id = $_.id; sleeve = $snName; asset = $_.asset; secid = $_.secid; side = $_.side
         lots = $_.lots; entry = $_.entry_px_pts; stop = $_.stop_px_pts; tp1 = $_.tp1_px_pts
-        cur = $_.cur_px; upnl = $brokerUpnl; riskRub = $_.risk_rub; entryDay = $_.entry_day; entryTs = $_.entry_ts
+        cur = $_.cur_px; upnl = $_.upnl_rub; riskRub = $_.risk_rub; entryDay = $_.entry_day; entryTs = $_.entry_ts
         rolls = $_.rolls; rubPerPt = $rpp; notional = $notional; pctChg = $pct; candles1h = $c1h
         reconcileStatus = $(if ($_.PSObject.Properties['reconcile_status']) { [string]$_.reconcile_status } else { '' })
-        reconcileSinceTs = $(if ($_.PSObject.Properties['reconcile_since_ts']) { [long]$_.reconcile_since_ts } else { 0 }) } })
+        reconcileSinceTs = $(if ($_.PSObject.Properties['reconcile_since_ts']) { [long]$_.reconcile_since_ts } else { 0 })
+        brokerPnl = $bPnl; goRub = $goRub; pnlPctGo = $pnlPctGo
+        brokerVarMargin = $(if ($null -ne $bPos) { $bPos.var_margin } else { $null })
+        brokerVarMarginSettled = $(if ($null -ne $bPos) { $bPos.var_margin_settled } else { $null })
+        brokerAvgPx = $(if ($null -ne $bPos) { $bPos.avg_px } else { $null })
+        brokerCurPx = $(if ($null -ne $bPos) { $bPos.cur_px } else { $null })
+        brokerLots = $(if ($null -ne $bPos) { $bPos.lots } else { $null }) } })
   }
   $lrHold = [object[]]@(@($lp.sleeves.mom.holdings) | Where-Object { $null -ne $_ } | ForEach-Object {
     [ordered]@{ sym = $_.sym; lots = $_.lots; lotSize = $_.lot_size; avg = $_.avg_px; last = $_.last_px } })
