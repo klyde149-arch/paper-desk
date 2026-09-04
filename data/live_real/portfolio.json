@@ -55,17 +55,17 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.822
+      "cur_upnl_usd": 0.843
     },
     {
       "id": "LT31",
       "symbol": "DOT-USDT",
       "side": "long",
-      "status": "pending",
+      "status": "open",
       "qty": 14.7,
       "qty_initial": 14.7,
-      "entry_filled_qty": 0.0,
-      "entry_price": 0.8749,
+      "entry_filled_qty": 14.7,
+      "entry_price": 0.8751210884353742,
       "stop": 0.8403,
       "stop0": 0.8403,
       "tp1": 0.9268,
@@ -79,7 +79,7 @@
       "entry_ts": 1788552003205,
       "risk_usd": 0.51,
       "notional_usd": 12.86,
-      "fees_usd": 0.0,
+      "fees_usd": 0.012864279999999999,
       "funding_usd": 0.0,
       "legs": [],
       "thesis": {
@@ -94,17 +94,18 @@
           "funding": true,
           "fearGreed": true
         }
-      }
+      },
+      "cur_upnl_usd": 0.01292
     },
     {
       "id": "LT32",
       "symbol": "BCH-USDT",
       "side": "long",
-      "status": "pending",
+      "status": "open",
       "qty": 0.08,
       "qty_initial": 0.08,
-      "entry_filled_qty": 0.0,
-      "entry_price": 253.0,
+      "entry_filled_qty": 0.08,
+      "entry_price": 253.2,
       "stop": 247.1,
       "stop0": 247.1,
       "tp1": 261.9,
@@ -118,7 +119,7 @@
       "entry_ts": 1788552003205,
       "risk_usd": 0.47,
       "notional_usd": 20.24,
-      "fees_usd": 0.0,
+      "fees_usd": 0.020256,
       "funding_usd": 0.0,
       "legs": [],
       "thesis": {
@@ -133,14 +134,15 @@
           "funding": true,
           "fearGreed": true
         }
-      }
+      },
+      "cur_upnl_usd": 0.008
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1788537600000,
     "last_trail_4h_ts": 1788537600000,
-    "last_exec_ms": 1788537600000,
+    "last_exec_ms": 1788552046005,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -513,7 +515,11 @@
       "6f20f8c5-5877-47de-b1c2-13be6b13762b",
       "f255c534-3461-4a7f-9f37-dd013439da20",
       "f206b626-4ac1-4494-b34c-b9d2a35a971e",
-      "a22022fe-bb6b-4925-a072-219cf8050b0d"
+      "a22022fe-bb6b-4925-a072-219cf8050b0d",
+      "2981ffa5-d3ec-50ad-a8e0-fdb244aa0e4f",
+      "a485b001-4a76-5353-a891-9d41cdd9f781",
+      "e93f197e-5aca-5236-b68e-cca75a87b017",
+      "0d1e386e-e772-5544-93fd-cc4471397168"
     ],
     "next_trade_id": 33,
     "halt_day_utc": null,
@@ -536,7 +542,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-04 20:00",
+    "last_tick_utc": "2026-09-04 20:01",
     "last_daily_summary_day": "2026-09-03",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
