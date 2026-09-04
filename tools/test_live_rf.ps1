@@ -1,9 +1,9 @@
 ﻿# test_live_rf.ps1 - тест-раннер LIVE-контура Т-Инвестиций (C3b): юнит-тесты конвертеров/сайзинга
 # + сценарная матрица state machine / reconcile / governors на mock-транспорте (без сети и токена).
-# Запуск: powershell -File tools\test_live_rf.ps1 [-Only converters|sizing|report|scenarios]
+# Запуск: powershell -File tools\test_live_rf.ps1 [-Only converters|sizing|report|vizdto|scenarios]
 # Каждый сценарий: чистый data-каталог + mock-сценарий + прогон N тиков live_rf_engine с -NowMs + assert'ы.
 param(
-  [string]$Only = ''   # '' = всё; 'converters' | 'sizing' | 'report' | 'scenarios' | имя сценария
+  [string]$Only = ''   # '' = всё; 'converters' | 'sizing' | 'report' | 'vizdto' | 'scenarios' | имя сценария
 )
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
@@ -190,6 +190,33 @@ function Test-Report {
   Check 'причины: обе через «; »' ($whyBoth.Contains('недоступны у брокера: 2 из 12 (см. алерт); худший случай ГО'))
 }
 
+# ================= 3.5 DTO открытых позиций: две ветки build_vizdata должны совпадать =================
+# report/trades.html читает у позиции pnlPctGo (процент на ГО), goRub и brokerPnl. build_vizdata
+# собирает этот DTO ДВАЖДЫ: из презентационного снапшота и, когда снапшота нет, напрямую из
+# portfolio.json (в live_rf_tick.sh выпечка снапшота падает мягко, одним WARN - фолбэк реально
+# достижим). Ветки писались руками и разъехались: в фолбэке этих трёх полей не было вовсе, и
+# дашборд в этом режиме терял и процент, и ГО, а в upnl клал брокерское число ПО КОНТРАКТУ под
+# тултипом «P&L этой позиции» - двойной счёт закрытых лотов (CRU6 27.08). Тест сверяет наборы
+# ключей: любая новая колонка, добавленная в одну ветку и забытая в другой, красит сборку.
+function Test-VizDtoMirror {
+  Write-Host "== DTO позиций: снапшот против фолбэка (build_vizdata) =="
+  $src = Join-Path $PSScriptRoot 'build_vizdata.ps1'
+  $errs = $null
+  $ast = [System.Management.Automation.Language.Parser]::ParseFile($src, [ref]$null, [ref]$errs)
+  Check 'build_vizdata.ps1 парсится' (0 -eq @($errs).Count)
+  # оба DTO опознаём по ключу reconcileSinceTs - он есть только в них
+  $all = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)
+  $dto = @($all | Where-Object { @($_.KeyValuePairs | ForEach-Object { $_.Item1.Extent.Text }) -contains 'reconcileSinceTs' })
+  Check 'найдены ровно две ветки сборки позиции' ($dto.Count -eq 2)
+  if ($dto.Count -ne 2) { return }
+  $keys = @($dto | ForEach-Object { ,(@($_.KeyValuePairs | ForEach-Object { $_.Item1.Extent.Text }) | Sort-Object) })
+  $diff = @(Compare-Object $keys[0] $keys[1] | ForEach-Object { $_.InputObject })
+  Check "наборы ключей совпадают$(if ($diff.Count) { ' (разошлись: ' + ($diff -join ', ') + ')' })" ($diff.Count -eq 0)
+  foreach ($k in 'pnlPctGo', 'goRub', 'brokerPnl', 'upnl') {
+    Check "обе ветки отдают $k" (($keys[0] -contains $k) -and ($keys[1] -contains $k))
+  }
+}
+
 # ================= 4. сценарная матрица (движок на mock-транспорте) =================
 # заполняется вместе с live_rf_engine.ps1 (см. Invoke-Scenario ниже)
 function Test-Scenarios {
@@ -201,6 +228,7 @@ function Test-Scenarios {
 if (-not $Only -or $Only -eq 'converters') { Test-Converters }
 if (-not $Only -or $Only -eq 'sizing') { Test-Sizing }
 if (-not $Only -or $Only -eq 'report') { Test-Report }
+if (-not $Only -or $Only -eq 'vizdto') { Test-VizDtoMirror }
 if (-not $Only -or $Only -eq 'scenarios') { Test-Scenarios }
 
 Write-Host ""
