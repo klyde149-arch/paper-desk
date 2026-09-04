@@ -55,13 +55,91 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.831
+      "cur_upnl_usd": 0.822
+    },
+    {
+      "id": "LT31",
+      "symbol": "DOT-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 14.7,
+      "qty_initial": 14.7,
+      "entry_filled_qty": 0.0,
+      "entry_price": 0.8749,
+      "stop": 0.8403,
+      "stop0": 0.8403,
+      "tp1": 0.9268,
+      "tp1_qty": 7.3,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-09-04 20:00",
+      "entry_ts": 1788552003205,
+      "risk_usd": 0.51,
+      "notional_usd": 12.86,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; DOT-USDT 4h up; F&G 74",
+        "riskPlan": "вход ~0.8749, стоп 0.8403 (3.83%), TP1 0.9268 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.51",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
+    },
+    {
+      "id": "LT32",
+      "symbol": "BCH-USDT",
+      "side": "long",
+      "status": "pending",
+      "qty": 0.08,
+      "qty_initial": 0.08,
+      "entry_filled_qty": 0.0,
+      "entry_price": 253.0,
+      "stop": 247.1,
+      "stop0": 247.1,
+      "tp1": 261.9,
+      "tp1_qty": 0.04,
+      "tp1_filled_qty": 0.0,
+      "tp1_done": false,
+      "be_done": false,
+      "close_reason": null,
+      "sl_exec": false,
+      "entry_utc": "2026-09-04 20:00",
+      "entry_ts": 1788552003205,
+      "risk_usd": 0.47,
+      "notional_usd": 20.24,
+      "fees_usd": 0.0,
+      "funding_usd": 0.0,
+      "legs": [],
+      "thesis": {
+        "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+        "regime": "BTC 4h up; BCH-USDT 4h up; F&G 74",
+        "riskPlan": "вход ~253, стоп 247.1 (2.33%), TP1 261.9 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.47",
+        "checks": {
+          "setupA": true,
+          "btcFilter": true,
+          "flatMode": true,
+          "atrCap": true,
+          "funding": true,
+          "fearGreed": true
+        }
+      }
     }
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1788523200000,
-    "last_trail_4h_ts": 1788523200000,
+    "last_4h_ts": 1788537600000,
+    "last_trail_4h_ts": 1788537600000,
     "last_exec_ms": 1788537600000,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
@@ -437,7 +515,7 @@
       "f206b626-4ac1-4494-b34c-b9d2a35a971e",
       "a22022fe-bb6b-4925-a072-219cf8050b0d"
     ],
-    "next_trade_id": 31,
+    "next_trade_id": 33,
     "halt_day_utc": null,
     "soft_dd": true,
     "consec_api_fail": 0,
@@ -458,7 +536,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-04 19:45",
+    "last_tick_utc": "2026-09-04 20:00",
     "last_daily_summary_day": "2026-09-03",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
