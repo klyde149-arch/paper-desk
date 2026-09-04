@@ -1540,5 +1540,49 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT32",
+    "sym": "BCH-USDT",
+    "side": "long",
+    "live": true,
+    "result": "loss",
+    "entryUtc": "2026-09-04 20:00",
+    "entryDay": "2026-09-04",
+    "entryTs": 1788552003205,
+    "entry": 253.2,
+    "qty": 0.08,
+    "exitUtc": "2026-09-04 23:32",
+    "exitDay": "2026-09-04",
+    "exitTs": 1788564722741,
+    "exitPx": 247.0,
+    "exitReason": "stop",
+    "legs": [
+      {
+        "part": "stop",
+        "qty": 0.08,
+        "price": 247.0,
+        "utc": "2026-09-04 23:31",
+        "pnl": -0.5
+      }
+    ],
+    "pnlUsd": -0.54,
+    "rMultiple": -1.15,
+    "riskUsd": 0.47,
+    "fees": 0.04,
+    "funding": 0.0,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; BCH-USDT 4h up; F&G 74",
+      "riskPlan": "вход ~253, стоп 247.1 (2.33%), TP1 261.9 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.47",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
