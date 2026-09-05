@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 102.45,
+  "equity_usd": 102.42,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 102.5,
   "day_start_date_utc": "2026-09-05",
@@ -55,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.921
+      "cur_upnl_usd": 0.918
     },
     {
       "id": "LT31",
@@ -95,16 +95,16 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.25106
+      "cur_upnl_usd": 0.23783
     },
     {
       "id": "LT33",
       "symbol": "ATOM-USDT",
       "side": "long",
-      "status": "pending",
+      "status": "open",
       "qty": 6.0,
       "qty_initial": 6.0,
-      "entry_filled_qty": 0.0,
+      "entry_filled_qty": 6.0,
       "entry_price": 1.535,
       "stop": 1.45,
       "stop0": 1.45,
@@ -119,7 +119,7 @@
       "entry_ts": 1788580802640,
       "risk_usd": 0.51,
       "notional_usd": 9.21,
-      "fees_usd": 0.0,
+      "fees_usd": 0.00921,
       "funding_usd": 0.0,
       "legs": [],
       "thesis": {
@@ -134,14 +134,15 @@
           "funding": true,
           "fearGreed": true
         }
-      }
+      },
+      "cur_upnl_usd": 0.0
     }
   ],
   "pending_intents": [],
   "auto": {
     "last_4h_ts": 1788566400000,
     "last_trail_4h_ts": 1788566400000,
-    "last_exec_ms": 1788566400000,
+    "last_exec_ms": 1788580840979,
     "seen_exec_ids": [
       "b91a6f33-82cb-5ba6-b48d-2a728e51b24f",
       "25ab7b45-a190-59b6-a730-ef75639e968f",
@@ -521,7 +522,9 @@
       "0d1e386e-e772-5544-93fd-cc4471397168",
       "569de5e4-4d26-50ed-b295-104def462887",
       "efe162cc-4e2f-4b41-b460-c383637b1d3a",
-      "79936009-3424-4748-868e-289684622c1e"
+      "79936009-3424-4748-868e-289684622c1e",
+      "07bc4d6c-d087-5018-9cef-78818d35b47b",
+      "f0bd1bd3-f5e5-54da-84df-12cfff7e5776"
     ],
     "next_trade_id": 34,
     "halt_day_utc": null,
@@ -544,7 +547,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-05 04:00",
+    "last_tick_utc": "2026-09-05 04:01",
     "last_daily_summary_day": "2026-09-04",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
