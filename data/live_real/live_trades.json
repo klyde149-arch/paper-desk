@@ -1584,5 +1584,56 @@
         "fearGreed": true
       }
     }
+  },
+  {
+    "id": "LT30",
+    "sym": "BNB-USDT",
+    "side": "long",
+    "live": true,
+    "result": "win",
+    "entryUtc": "2026-09-03 04:00",
+    "entryDay": "2026-09-03",
+    "entryTs": 1788408002875,
+    "entry": 692.5,
+    "qty": 0.05,
+    "exitUtc": "2026-09-07 16:01",
+    "exitDay": "2026-09-07",
+    "exitTs": 1788796862820,
+    "exitPx": 723.46,
+    "exitReason": "trail-ema20",
+    "legs": [
+      {
+        "part": "TP1",
+        "qty": 0.02,
+        "price": 707.5,
+        "utc": "2026-09-03 11:16",
+        "pnl": 0.3
+      },
+      {
+        "part": "runner",
+        "qty": 0.03,
+        "price": 734.1,
+        "utc": "2026-09-07 16:00",
+        "pnl": 1.25
+      }
+    ],
+    "pnlUsd": 1.47,
+    "rMultiple": 2.94,
+    "riskUsd": 0.5,
+    "fees": 0.06,
+    "funding": 0.02,
+    "thesis": {
+      "setup": "A — трендовый откат (LIVE v2, все 6 ворот пройдены)",
+      "regime": "BTC 4h up; BNB-USDT 4h up; F&G 65",
+      "riskPlan": "вход ~692.5, стоп 682.5 (1.42%), TP1 707.5 (1.5R, 50%), затем БУ + трейл EMA20 4h; риск $0.5",
+      "checks": {
+        "setupA": true,
+        "btcFilter": true,
+        "flatMode": true,
+        "atrCap": true,
+        "funding": true,
+        "fearGreed": true
+      }
+    }
   }
 ]
