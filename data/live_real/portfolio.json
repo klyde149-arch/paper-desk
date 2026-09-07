@@ -2,7 +2,7 @@
   "schema": 1,
   "engine": "v2-combo-live",
   "mode": "LIVE",
-  "equity_usd": 105.09,
+  "equity_usd": 105.03,
   "peak_equity_usd": 120.81,
   "day_start_equity_usd": 104.59,
   "day_start_date_utc": "2026-09-07",
@@ -25,14 +25,14 @@
       "tp1_filled_qty": 0.02,
       "tp1_done": true,
       "be_done": true,
-      "close_reason": null,
+      "close_reason": "trail-ema20",
       "sl_exec": false,
       "entry_utc": "2026-09-03 04:00",
       "entry_ts": 1788408002875,
       "risk_usd": 0.5,
       "notional_usd": 34.62,
       "fees_usd": 0.039719000000000004,
-      "funding_usd": 0.02,
+      "funding_usd": 0.0206,
       "legs": [
         {
           "part": "TP1",
@@ -55,7 +55,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 1.311
+      "cur_upnl_usd": 1.248
     },
     {
       "id": "LT31",
@@ -103,7 +103,7 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 1.49020394
+      "cur_upnl_usd": 1.49464394
     },
     {
       "id": "LT33",
@@ -158,16 +158,15 @@
           "fearGreed": true
         }
       },
-      "cur_upnl_usd": 0.3177
+      "cur_upnl_usd": 0.312
     }
   ],
   "pending_intents": [],
   "auto": {
-    "last_4h_ts": 1788768000000,
-    "last_trail_4h_ts": 1788768000000,
-    "last_exec_ms": 1788785344184,
+    "last_4h_ts": 1788782400000,
+    "last_trail_4h_ts": 1788782400000,
+    "last_exec_ms": 1788796800000,
     "seen_exec_ids": [
-      "0921cdbc-02dd-463f-b480-416dc42391ab",
       "1f4ee65c-ff2e-44d7-8e47-e397fa76cfcd",
       "711ca6ab-49bc-4ace-a075-1fcd340cb24b",
       "21ab8a2f-d967-4b8d-9dcc-b1c1f3367e00",
@@ -566,7 +565,8 @@
       "65a4803a-1be3-466f-85d5-4897bd6d0897",
       "1837d38f-07dd-4f32-adaf-7f7eadc115b9",
       "62b0c06a-cc46-561e-b27c-3299fde030ff",
-      "0ee11154-e4a1-5b25-9afd-fe15e17ad44b"
+      "0ee11154-e4a1-5b25-9afd-fe15e17ad44b",
+      "747b9e0d-8f94-42c3-8019-c61483da55cb"
     ],
     "next_trade_id": 34,
     "halt_day_utc": null,
@@ -589,7 +589,7 @@
       "DOT-USDT",
       "NEAR-USDT"
     ],
-    "last_tick_utc": "2026-09-07 15:45",
+    "last_tick_utc": "2026-09-07 16:00",
     "last_daily_summary_day": "2026-09-06",
     "fail_since_ms": 0,
     "fail_alert_ms": 0
