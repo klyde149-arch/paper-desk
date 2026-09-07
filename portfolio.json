@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9293.42,
-    "equity_usd":  9593.78,
+    "balance_usd":  9365.71,
+    "equity_usd":  9591.6,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9671.87,
     "day_start_date_utc":  "2026-09-07",
@@ -53,55 +53,6 @@
                                               "indicators":  "RSI 54.1, ATR 0.96% (кэп 3%), фандинг 0.0001/8ч",
                                               "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
                                               "riskPlan":  "вход ~693.217903, стоп 682.78 (1.41%), TP1 708.874758 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $91.73",
-                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
-                                              "checks":  {
-                                                             "setupA":  true,
-                                                             "btcFilter":  true,
-                                                             "flatMode":  true,
-                                                             "atrCap":  true,
-                                                             "funding":  true,
-                                                             "fearGreed":  true,
-                                                             "btcMom5d":  true,
-                                                             "atrCapLong":  true
-                                                         }
-                                          }
-                           },
-                           {
-                               "id":  "T34",
-                               "symbol":  "BTC-USDT",
-                               "side":  "long",
-                               "qty":  0.04645,
-                               "qty_initial":  0.0929,
-                               "entry_price":  77934.67339,
-                               "stop":  77934.67339,
-                               "stop0":  76931.4,
-                               "tp1":  79439.583475,
-                               "entry_utc":  "2026-09-03 12:01",
-                               "entry_ts":  1788436865520,
-                               "risk_usd":  93.19,
-                               "notional_usd":  7240.13,
-                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  true,
-                               "fees_usd":  6.0115548956896125,
-                               "funding_usd":  0.7982940755900001,
-                               "legs":  [
-                                            {
-                                                "part":  "TP1",
-                                                "qty":  0.04645,
-                                                "price":  79439.583475,
-                                                "utc":  "2026-09-03 14:25",
-                                                "pnl":  69.9
-                                            }
-                                        ],
-                               "mfe_px":  82264.7,
-                               "mae_px":  77851.3,
-                               "thesis":  {
-                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
-                                              "regime":  "BTC 4h up; BTC-USDT 4h up; F\u0026G 65",
-                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-09-03 08:00 UTC",
-                                              "indicators":  "RSI 51.2, ATR 1.09% (кэп 3%), фандинг 7.3E-05/8ч",
-                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
-                                              "riskPlan":  "вход ~77934.67339, стоп 76931.4 (1.25%), TP1 79439.583475 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $93.19",
                                               "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
                                               "checks":  {
                                                              "setupA":  true,
@@ -160,24 +111,24 @@
                            }
                        ],
     "stats":  {
-                  "closed_trades":  32,
-                  "wins":  10,
+                  "closed_trades":  33,
+                  "wins":  11,
                   "losses":  22,
-                  "total_fees_usd":  172.44,
-                  "total_funding_usd":  23.1,
-                  "realized_pnl_usd":  -827.18
+                  "total_fees_usd":  180.48,
+                  "total_funding_usd":  23.9,
+                  "realized_pnl_usd":  -691.8
               },
-    "last_check_utc":  "2026-09-07 03:45",
+    "last_check_utc":  "2026-09-07 04:01",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1788752640000,
-                 "last_4h_ts":  1788724800000,
+                 "last_1m_ts":  1788753600000,
+                 "last_4h_ts":  1788739200000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
                  "next_trade_id":  36,
-                 "ticks_since_viz":  1,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-09-06",
-                 "last_tick_utc":  "2026-09-07 03:45"
+                 "last_tick_utc":  "2026-09-07 04:01"
              }
 }
