@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1678247.8060618,
       "month_start_eq": 1632488.16,
-      "day_start_eq": 1678569.017646,
+      "day_start_eq": 1678247.8060618,
       "halt_day": null,
       "positions": [
         {
@@ -77,7 +77,7 @@
           "tp1_order_id": "",
           "tp1_done": false,
           "be_moved": false,
-          "mfe_pts": 99.38,
+          "mfe_pts": 99.46,
           "atr_entry": 3.074557,
           "risk_rub": 83928.45,
           "rub_per_pt": 861.909,
@@ -247,14 +247,14 @@
   "profile_eq": 792239.31,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1702382.35,
-  "day_start_date": "2026-09-07",
+  "day_start_eq": 1631057.07,
+  "day_start_date": "2026-09-08",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-07",
-    "last_hour_ts": 1788904800000,
-    "ops_since": "2026-09-08T20:15:32Z",
-    "last_eq_snap": 1788901412969,
+    "last_daily_day": "2026-09-08",
+    "last_hour_ts": 1788908400000,
+    "ops_since": "2026-09-08T20:30:32Z",
+    "last_eq_snap": 1788902372867,
     "last_report_day": "2026-09-08",
     "orders_day": "2026-09-08",
     "orders_day_n": 1,
@@ -427,15 +427,6 @@
       "L00049": -8830.44
     }
   },
-  "readiness": {
-    "day": "2026-09-07",
-    "checked_n": 12,
-    "total_n": 12,
-    "failed": [],
-    "go_worst_rub": 2080891.48,
-    "go_cap_rub": 1239286.76,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1788638432927,
@@ -558,6 +549,15 @@
     ],
     "updated_ms": 1788897633007
   },
+  "readiness": {
+    "day": "2026-09-08",
+    "checked_n": 12,
+    "total_n": 12,
+    "failed": [],
+    "go_worst_rub": 2093738.76,
+    "go_cap_rub": 1185792.8,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
@@ -569,7 +569,7 @@
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": -2075.44
   },
   "broker": {
-    "captured_ms": 1788902132816,
+    "captured_ms": 1788903032950,
     "totals": {
       "portfolio": 1614485.53,
       "currencies": 1614485.53,
@@ -686,10 +686,10 @@
     "model": "legacy"
   },
   "broker_pnl_by_card": {
-    "L00050": -2075.44,
-    "L00049": -8830.32,
     "L00046": -37920.96,
     "L00047": -2553.48,
-    "L00048": -18438.05
+    "L00049": -8830.32,
+    "L00048": -18438.05,
+    "L00050": -2075.44
   }
 }
