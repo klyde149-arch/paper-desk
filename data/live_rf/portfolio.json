@@ -103,8 +103,8 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 1357.57,
-          "upnl_rub": 991.75
+          "cur_px": 1358.52,
+          "upnl_rub": 1487.63
         },
         {
           "id": "L00048",
@@ -143,8 +143,8 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 4395.6,
-          "upnl_rub": -13337.19
+          "cur_px": 4396.7,
+          "upnl_rub": -13146.03
         },
         {
           "id": "L00049",
@@ -183,11 +183,11 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 66.49,
-          "upnl_rub": -2398.09
+          "cur_px": 66.5,
+          "upnl_rub": -2293.82
         }
       ],
-      "equity_mtm": 1663593.23
+      "equity_mtm": 1664384.52
     },
     "mom": {
       "eq_rub": 350000.0,
@@ -204,7 +204,7 @@
       }
     }
   },
-  "profile_eq": 803938.36,
+  "profile_eq": 804317.66,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
   "day_start_eq": 1702382.35,
@@ -213,8 +213,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-07",
     "last_hour_ts": 1788897600000,
-    "ops_since": "2026-09-08T17:30:33Z",
-    "last_eq_snap": 1788892053059,
+    "ops_since": "2026-09-08T17:45:32Z",
+    "last_eq_snap": 1788893012820,
     "last_report_day": "2026-09-07",
     "orders_day": "2026-09-04",
     "orders_day_n": 2,
@@ -345,12 +345,12 @@
   },
   "go": {
     "used_rub": 706558.26,
-    "budget_rub": 1603634.67,
+    "budget_rub": 1605918.99,
     "peak_day_rub": 706558.26,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1692082.25,
     "bot_capital_account_rub": 1692082.25,
-    "bot_capital_rub": 1655160.09
+    "bot_capital_rub": 1655893.41
   },
   "drift": {
     "D2": 0,
@@ -520,24 +520,24 @@
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {
-    "4efee70d-e626-495b-af30-b6ccd9b566e3": -1981.8,
-    "7326ae99-d9f1-4df1-8e3a-d85390686038": -32940.0,
-    "8677985f-9148-4594-a7d3-84102a001b6b": 1379.34,
-    "b23c0f58-94fe-4e95-b95e-535a6618eba3": -13076.71
+    "4efee70d-e626-495b-af30-b6ccd9b566e3": -2708.16,
+    "7326ae99-d9f1-4df1-8e3a-d85390686038": -31279.68,
+    "8677985f-9148-4594-a7d3-84102a001b6b": 1317.06,
+    "b23c0f58-94fe-4e95-b95e-535a6618eba3": -13215.07
   },
   "broker": {
-    "captured_ms": 1788892233552,
+    "captured_ms": 1788893132949,
     "totals": {
       "portfolio": 1692082.25,
       "currencies": 1692082.25,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 3358430.93
+      "futures_nominal": 3358801.56
     },
-    "expected_yield_pct": -6.53,
-    "daily_yield_rub": -39982.16,
-    "daily_yield_rel_pct": -2.3,
+    "expected_yield_pct": -6.49,
+    "daily_yield_rub": -39248.84,
+    "daily_yield_rel_pct": -2.26,
     "positions": [
       {
         "uid": "4efee70d-e626-495b-af30-b6ccd9b566e3",
@@ -547,9 +547,9 @@
         "lots": 12.0,
         "qty": 12.0,
         "avg_px": 66.72,
-        "cur_px": 66.49,
-        "expected_yield": -1981.8,
-        "var_margin": 1037.64,
+        "cur_px": 66.5,
+        "expected_yield": -2708.16,
+        "var_margin": 311.28,
         "var_margin_settled": 622.56
       },
       {
@@ -560,9 +560,9 @@
         "lots": 48.0,
         "qty": 48.0,
         "avg_px": 3.005,
-        "cur_px": 2.927,
-        "expected_yield": -32940.0,
-        "var_margin": -16602.72,
+        "cur_px": 2.926,
+        "expected_yield": -31279.68,
+        "var_margin": -14942.4,
         "var_margin_settled": -34865.76
       },
       {
@@ -573,9 +573,9 @@
         "lots": 6.0,
         "qty": 6.0,
         "avg_px": 1355.67,
-        "cur_px": 1357.57,
-        "expected_yield": 1379.34,
-        "var_margin": -16566.48,
+        "cur_px": 1358.52,
+        "expected_yield": 1317.06,
+        "var_margin": -16628.76,
         "var_margin_settled": -16680.66
       },
       {
@@ -599,9 +599,9 @@
         "lots": 2.0,
         "qty": 2.0,
         "avg_px": 4472.4,
-        "cur_px": 4395.6,
-        "expected_yield": -13076.71,
-        "var_margin": -4790.6,
+        "cur_px": 4396.7,
+        "expected_yield": -13215.07,
+        "var_margin": -4928.96,
         "var_margin_settled": -2421.24
       },
       {
@@ -621,18 +621,18 @@
   },
   "capital_breakdown": {
     "currencies": 1692082.25,
-    "futures": -36922.16,
+    "futures": -36188.84,
     "mom_shares": 0.0,
     "user_assets": 0.0,
     "portfolio_total": 1692082.25,
     "capital_account": 1692082.25,
-    "capital_legacy": 1655160.09,
+    "capital_legacy": 1655893.41,
     "model": "legacy"
   },
   "broker_pnl_by_card": {
-    "L00048": -13076.71,
-    "L00049": -1981.8,
-    "L00047": 1379.34,
-    "L00046": -32940.0
+    "L00048": -13215.07,
+    "L00046": -31279.68,
+    "L00049": -2708.16,
+    "L00047": 1317.06
   }
 }
