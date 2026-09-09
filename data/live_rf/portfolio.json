@@ -173,15 +173,15 @@
   "watermarks": {
     "last_daily_day": "2026-09-09",
     "last_hour_ts": 1788994800000,
-    "ops_since": "2026-09-09T20:30:32Z",
-    "last_eq_snap": 1788989252918,
+    "ops_since": "2026-09-09T20:45:32Z",
+    "last_eq_snap": 1788990212682,
     "last_report_day": "2026-09-09",
     "orders_day": "2026-09-09",
     "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
     "auto_rebase_day": "2026-09-02",
-    "broker_ledger_day": "2026-09-09",
-    "evening_confirm_day": "2026-09-09"
+    "evening_confirm_day": "2026-09-09",
+    "broker_ledger_day": "2026-09-10"
   },
   "fronts": {
     "BR": {
@@ -345,16 +345,25 @@
       "L00049": 8063.52
     }
   },
+  "readiness": {
+    "day": "2026-09-09",
+    "checked_n": 12,
+    "total_n": 12,
+    "failed": [],
+    "go_worst_rub": 2032519.5,
+    "go_cap_rub": 1181366.58,
+    "fits": false
+  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
-    "first_ms": 1788724833007,
-    "until_ms": 1788984032869,
-    "varmargin_rub": 110793.2,
-    "fees_rub": -27698.63,
+    "first_ms": 1788811232869,
+    "until_ms": 1788989732868,
+    "varmargin_rub": 115226.12,
+    "fees_rub": -28692.96,
     "fees_other_rub": -4854.23,
     "fees_by_type": {
-      "OPERATION_TYPE_BROKER_FEE": -31772.86,
-      "OPERATION_TYPE_SERVICE_FEE": -780.0
+      "OPERATION_TYPE_SERVICE_FEE": -780.0,
+      "OPERATION_TYPE_BROKER_FEE": -32767.19
     },
     "op_ids": [
       "16293230",
@@ -468,18 +477,13 @@
       "16831745525",
       "7599096",
       "16825522146",
-      "423593538757"
+      "423593538757",
+      "10569113",
+      "16839238410",
+      "16839185126"
     ],
-    "updated_ms": 1788984032869
-  },
-  "readiness": {
-    "day": "2026-09-09",
-    "checked_n": 12,
-    "total_n": 12,
-    "failed": [],
-    "go_worst_rub": 2032519.5,
-    "go_cap_rub": 1181366.58,
-    "fits": false
+    "updated_ms": 1788989732868,
+    "last_varmargin_op_ms": 1788987615000
   },
   "consec_fail": 0,
   "fail_since_ms": 0,
@@ -490,7 +494,7 @@
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 37063.93
   },
   "broker": {
-    "captured_ms": 1788989432843,
+    "captured_ms": 1788990332834,
     "totals": {
       "portfolio": 1619104.78,
       "currencies": 1619104.78,
@@ -578,7 +582,7 @@
       "avg_px": 66.72,
       "lots": 12.0,
       "secid": "SVU6",
-      "ts": 1788989432843
+      "ts": 1788990332834
     },
     "b23c0f58-94fe-4e95-b95e-535a6618eba3": {
       "vm": 820.4,
@@ -587,7 +591,7 @@
       "avg_px": 4472.4,
       "lots": 2.0,
       "secid": "GDU6",
-      "ts": 1788989432843
+      "ts": 1788990332834
     },
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": {
       "vm": 4614.9,
@@ -596,7 +600,7 @@
       "avg_px": 101.63,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1788989432843
+      "ts": 1788990332834
     }
   },
   "capital_breakdown": {
@@ -611,7 +615,7 @@
   },
   "broker_pnl_by_card": {
     "L00049": 8063.52,
-    "L00051": 37063.93,
-    "L00048": -9801.49
+    "L00048": -9801.49,
+    "L00051": 37063.93
   }
 }
