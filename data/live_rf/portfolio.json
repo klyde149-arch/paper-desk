@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1611846.3019818626,
       "month_start_eq": 1632488.16,
-      "day_start_eq": 1678247.8060618,
+      "day_start_eq": 1611846.3019818626,
       "halt_day": null,
       "positions": [
         {
@@ -37,7 +37,7 @@
           "tp1_order_id": "",
           "tp1_done": false,
           "be_moved": false,
-          "mfe_pts": 101.63,
+          "mfe_pts": 101.73,
           "atr_entry": 3.088304,
           "risk_rub": 84621.01,
           "rub_per_pt": 864.7299999999999,
@@ -63,7 +63,7 @@
     "setA": {
       "eq_rub": 1669484.1549517303,
       "month_start_eq": 1678881.85,
-      "day_start_eq": 1678336.7432899603,
+      "day_start_eq": 1669484.1549517303,
       "halt_day": null,
       "positions": [
         {
@@ -167,14 +167,14 @@
   "profile_eq": 789602.36,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1631057.07,
-  "day_start_date": "2026-09-08",
+  "day_start_eq": 1625155.44,
+  "day_start_date": "2026-09-09",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-08",
-    "last_hour_ts": 1788991200000,
-    "ops_since": "2026-09-09T20:15:32Z",
-    "last_eq_snap": 1788988352895,
+    "last_daily_day": "2026-09-09",
+    "last_hour_ts": 1788994800000,
+    "ops_since": "2026-09-09T20:30:32Z",
+    "last_eq_snap": 1788989252918,
     "last_report_day": "2026-09-09",
     "orders_day": "2026-09-09",
     "orders_day_n": 1,
@@ -306,7 +306,7 @@
   "go": {
     "used_rub": 475093.92,
     "budget_rub": 1575155.44,
-    "peak_day_rub": 971528.16,
+    "peak_day_rub": 475093.92,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1619104.78,
     "bot_capital_account_rub": 1619104.78,
@@ -344,15 +344,6 @@
       "L00048": -9801.49,
       "L00049": 8063.52
     }
-  },
-  "readiness": {
-    "day": "2026-09-08",
-    "checked_n": 12,
-    "total_n": 12,
-    "failed": [],
-    "go_worst_rub": 2093738.76,
-    "go_cap_rub": 1185792.8,
-    "fits": false
   },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
@@ -481,6 +472,15 @@
     ],
     "updated_ms": 1788984032869
   },
+  "readiness": {
+    "day": "2026-09-09",
+    "checked_n": 12,
+    "total_n": 12,
+    "failed": [],
+    "go_worst_rub": 2032519.5,
+    "go_cap_rub": 1181366.58,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
@@ -490,7 +490,7 @@
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 37063.93
   },
   "broker": {
-    "captured_ms": 1788988532817,
+    "captured_ms": 1788989432843,
     "totals": {
       "portfolio": 1619104.78,
       "currencies": 1619104.78,
@@ -578,7 +578,7 @@
       "avg_px": 66.72,
       "lots": 12.0,
       "secid": "SVU6",
-      "ts": 1788988532817
+      "ts": 1788989432843
     },
     "b23c0f58-94fe-4e95-b95e-535a6618eba3": {
       "vm": 820.4,
@@ -587,7 +587,7 @@
       "avg_px": 4472.4,
       "lots": 2.0,
       "secid": "GDU6",
-      "ts": 1788988532817
+      "ts": 1788989432843
     },
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": {
       "vm": 4614.9,
@@ -596,7 +596,7 @@
       "avg_px": 101.63,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1788988532817
+      "ts": 1788989432843
     }
   },
   "capital_breakdown": {
@@ -610,8 +610,8 @@
     "model": "legacy"
   },
   "broker_pnl_by_card": {
-    "L00048": -9801.49,
+    "L00049": 8063.52,
     "L00051": 37063.93,
-    "L00049": 8063.52
+    "L00048": -9801.49
   }
 }
