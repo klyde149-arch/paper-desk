@@ -20,7 +20,7 @@ const positionKeys = ['asset', 'cur', 'entry', 'entryDay', 'entryTs', 'id', 'lot
 // добавить молча: набор ключей по-прежнему сверяется точно, просто своим для каждого контура.
 // У RF это числа, приходящие от брокера дословно (см. tools/live_rf_engine.ps1 Set-BotCapital).
 const rfSummaryExtra = ['accountTotal', 'allTimeSource', 'capitalModel', 'feesBrokerRub', 'openPnlBroker',
-  'peakStale', 'userAssets'];
+  'peakStale', 'pendingSettleRub', 'pendingSettleTodayRub', 'userAssets'];
 const rfPositionExtra = ['brokerPnl', 'brokerVarMargin', 'goRub', 'pnlPctGo'];
 const tradeKeys = ['asset', 'entry', 'entryDay', 'exitDay', 'exitPx', 'exitReason', 'fees', 'id', 'pnl', 'rMultiple',
   'secid', 'side', 'title'];
@@ -98,6 +98,64 @@ test('RF dashboard fixture preserves the common DTO contract', (t) => {
   assert.equal(v2.summary.peak, undefined);
   assert.equal(v2.positions[0].asset, undefined);
   assert.equal(v2.closedTrades[0].fees, undefined);
+});
+
+test('RF fallback (no presentation snapshot) folds pending_settle into allTimeAmt', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-rf-pending-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const now = Date.now();
+  const dataDir = path.join(root, 'rf');
+  const today = mskDay(now);
+  writeJson(path.join(dataDir, 'portfolio.json'), {
+    mode: 'prod', profile_eq: 800000, peak_eq: 820000, meta: { base_rub: 700000 },
+    day_start_eq: 100000, day_start_date: today, watermarks: { last_eq_snap: now - 60000 },
+    go: { bot_capital_rub: 105000, capital_peak_rub: 110000, used_rub: 20000, budget_rub: 50000 },
+    entries_halt: { active: false, reason: '' },
+    broker_ledger: { varmargin_rub: 1000, fees_rub: -50 },
+    capital_breakdown: { futures: 200 },
+    // BRV6-подобный кейс 2026-09-09: закрыта сегодня с висящей маржой 4000, плюс старый
+    // «висяк» позавчерашней даты, который НЕ должен попасть в pendingSettleTodayRub.
+    pending_settle: { rub: 4300, items: [
+      { ts: now, day: today, card: 'Ltest1', uid: 'u1', secid: 'NGU6', lots: 1, rub: 4000, why: 'manual-ext' },
+      { ts: now - 5 * 86400000, day: '2020-01-01', card: 'Ltest0', uid: 'u0', secid: 'BRV6', lots: 1, rub: 300, why: 'stop' }
+    ] },
+    sleeves: { core: { positions: [] }, setA: { positions: [] } }
+  });
+  writeJson(path.join(dataDir, 'equity.json'), [{ ts: now - 120000, bot_capital: 100000, account_liquid: 100000, total: 750000 }]);
+  writeJson(path.join(dataDir, 'trades.json'), []);
+  writeJson(path.join(root, 'names.json'), { fut: {} });
+
+  const d = readRfDashboard({ dataDir, namesPath: path.join(root, 'names.json'), currency: 'RUB' });
+  // allTimeAmt = varmargin_rub(1000) + curVm(200) + pendAll(4300) + fees_rub(-50) = 5450
+  assert.equal(d.summary.allTimeAmt, 5450);
+  assert.equal(d.summary.allTimeSource, 'broker_ops');
+  assert.equal(d.summary.pendingSettleRub, 4300);
+  assert.equal(d.summary.pendingSettleTodayRub, 4000);
+});
+
+test('RF fallback without pending_settle keeps the pre-existing allTimeAmt untouched', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-rf-nopending-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const now = Date.now();
+  const dataDir = path.join(root, 'rf');
+  writeJson(path.join(dataDir, 'portfolio.json'), {
+    mode: 'prod', profile_eq: 800000, peak_eq: 820000, meta: { base_rub: 700000 },
+    day_start_eq: 100000, day_start_date: mskDay(now), watermarks: { last_eq_snap: now - 60000 },
+    go: { bot_capital_rub: 105000, capital_peak_rub: 110000, used_rub: 20000, budget_rub: 50000 },
+    entries_halt: { active: false, reason: '' },
+    broker_ledger: { varmargin_rub: 1000, fees_rub: -50 },
+    capital_breakdown: { futures: 200 },
+    sleeves: { core: { positions: [] }, setA: { positions: [] } }
+  });
+  writeJson(path.join(dataDir, 'equity.json'), [{ ts: now - 120000, bot_capital: 100000, account_liquid: 100000, total: 750000 }]);
+  writeJson(path.join(dataDir, 'trades.json'), []);
+  writeJson(path.join(root, 'names.json'), { fut: {} });
+
+  const d = readRfDashboard({ dataDir, namesPath: path.join(root, 'names.json'), currency: 'RUB' });
+  // без pending_settle - byte-в-byte старая формула: 1000 + 200 - 50 = 1150
+  assert.equal(d.summary.allTimeAmt, 1150);
+  assert.equal(d.summary.pendingSettleRub, 0);
+  assert.equal(d.summary.pendingSettleTodayRub, 0);
 });
 
 test('RF presentation snapshot is preferred and keeps its stale source timestamp', (t) => {

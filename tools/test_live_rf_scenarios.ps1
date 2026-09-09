@@ -1636,31 +1636,204 @@ function Scn-BrokerLedgerFees {
   Check 'ledger: повторный тик не удвоил комиссии' ([double]$lg2.fees_rub -eq -2000.0)
 }
 
-# --- окно леджера: разовый бэкфилл идёт сразу, регулярное обновление ждёт вечера
+# --- окно леджера (2026-09-09: переписан под BROKER_LEDGER_FROM='00:35' ПОСЛЕ клиринга,
+# см. live_rf_engine.ps1:900-919). Разовый бэкфилл идёт сразу при первом тике; регулярное
+# обновление - только в окне 00:35-23:47 (клиринг 23:48-00:34 исключён двусторонне);
+# GIVEUP заставляет сдаться и выставить вотермарку, даже если операция клиринга ещё старая.
 function Scn-BrokerLedgerWindow {
   $r = New-Scenario 'broker-ledger-window'
   Write-Json (Join-Path $r 'data\live_rf\portfolio.json') (New-BaseState $r)
+  # операция датирована ВЧЕРАШНИМ днём (до сегодняшней полуночи MSK) - клиринг за сегодня
+  # заведомо не увиден, вотермарка сможет встать только через GIVEUP
   $ops = [pscustomobject]@{ operations = @(
-    [pscustomobject]@{ id='b1'; operation_type='OPERATION_TYPE_ACCRUING_VARMARGIN'; instrument_type=''
+    [pscustomobject]@{ id='b1'; date='2026-07-14T09:00:00Z'; operation_type='OPERATION_TYPE_ACCRUING_VARMARGIN'; instrument_type=''
       payment=[pscustomobject]@{ units='7000'; nano=0; currency='rub' } }) }
   Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') $ops
   Set-Queue $r @([pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' })
-  # утро: леджера ещё нет -> разовый бэкфилл ДОЛЖЕН отработать, ждать вечера незачем
+  # утро: леджера ещё нет -> разовый бэкфилл ДОЛЖЕН отработать сразу, ждать следующего клиринга незачем
   [void](Run-Tick $r '2026-07-15 10:05')
   $st = Get-State $r
-  Check 'ledger-window: бэкфилл отработал сразу, не дожидаясь вечера' ($null -ne $st.broker_ledger -and [double]$st.broker_ledger.varmargin_rub -eq 7000.0)
-  # ...но суточную вотермарку днём НЕ ставит, иначе съел бы сегодняшний вечерний прогон
-  Check 'ledger-window: днём суточная вотермарка не ставится' ([string]$st.watermarks.broker_ledger_day -ne '2026-07-15')
-  # следующий дневной тик: леджер уже есть -> в торговые часы к брокеру не ходим
+  Check 'ledger-window: бэкфилл отработал сразу' ($null -ne $st.broker_ledger -and [double]$st.broker_ledger.varmargin_rub -eq 7000.0)
+  # операция вчерашняя (клиринг за сегодня не увиден), но время (10:05) уже за GIVEUP (01:30) ->
+  # сдаёмся и ставим вотермарку без него, иначе долбили бы API каждую минуту весь день
+  Check 'ledger-window: вотермарка выставлена через GIVEUP' ([string]$st.watermarks.broker_ledger_day -eq '2026-07-15')
+  # тот же день: вотермарка уже стоит -> к брокеру повторно не ходим
   $before = @((Get-Calls $r 'GetOperations') | Where-Object { $null -ne $_ }).Count
   [void](Run-Tick $r '2026-07-15 12:00')
   $after = @((Get-Calls $r 'GetOperations') | Where-Object { $null -ne $_ }).Count
   Check 'ledger-window: повторно днём операции не запрашиваются' ($after -eq $before)
-  # вечер: регулярное обновление идёт и ставит вотермарку
-  [void](Run-Tick $r '2026-07-15 23:10')
+  # вечернее клиринговое окно (23:48-23:59): леджер больше НЕ full (id совпал, инкремент) ->
+  # двустороннее окно (FROM..TILL) исключает клиринг из опроса вовсе
+  $before2 = @((Get-Calls $r 'GetOperations') | Where-Object { $null -ne $_ }).Count
+  [void](Run-Tick $r '2026-07-15 23:50')
+  $after2 = @((Get-Calls $r 'GetOperations') | Where-Object { $null -ne $_ }).Count
+  Check 'ledger-window: в вечернем клиринге операции не запрашиваются' ($after2 -eq $before2)
+  # следующий день, 00:35 (сразу после ночного клиринга): появилась СВЕЖАЯ операция ->
+  # инкремент подхватывает её, дедуп не задваивает вчерашнюю b1
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='b1'; date='2026-07-14T09:00:00Z'; operation_type='OPERATION_TYPE_ACCRUING_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='7000'; nano=0; currency='rub' } },
+    [pscustomobject]@{ id='b2'; date='2026-07-16T00:00:05Z'; operation_type='OPERATION_TYPE_ACCRUING_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='500'; nano=0; currency='rub' } }) })
+  [void](Run-Tick $r '2026-07-16 00:35')
   $st2 = Get-State $r
-  Check 'ledger-window: вечером обновление отработало' ([string]$st2.watermarks.broker_ledger_day -eq '2026-07-15')
-  Check 'ledger-window: дедуп не удвоил вариационку' ([double]$st2.broker_ledger.varmargin_rub -eq 7000.0)
+  Check 'ledger-window: на следующий день после клиринга обновление отработало' ([string]$st2.watermarks.broker_ledger_day -eq '2026-07-16')
+  Check 'ledger-window: новая операция учтена, старая не задвоена' ([double]$st2.broker_ledger.varmargin_rub -eq 7500.0)
+}
+
+# --- леджер ретраится каждую минуту после клиринга, пока не увидит СЕГОДНЯШНЮЮ операцию
+# VARMARGIN или не истечёт GIVEUP - иначе прогон, попавший на публикацию клиринга брокером
+# с задержкой, заморозил бы карточку до завтра (см. комментарий в Invoke-BrokerLedger)
+function Scn-BrokerLedgerRetriesUntilClearingSeen {
+  $r = New-Scenario 'broker-ledger-retry'
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') (New-BaseState $r)
+  Set-Queue $r @([pscustomobject]@{ service='UsersService'; method='GetMarginAttributes'; http=400; message='margin disabled' })
+  # день 1: бэкфилл сразу видит "сегодняшнюю" (для дня 1) операцию -> вотермарка встаёт сразу
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='d1'; date='2026-07-15T09:00:00Z'; operation_type='OPERATION_TYPE_ACCRUING_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='1000'; nano=0; currency='rub' } }) })
+  [void](Run-Tick $r '2026-07-15 12:00')
+  Check 'ledger-retry: леджер дня 1 установлен' ([string](Get-State $r).watermarks.broker_ledger_day -eq '2026-07-15')
+
+  # день 2, 00:35 (первый тик после конца клиринга): в ленте пока только ВЧЕРАШНЯЯ операция ->
+  # клиринг за сегодня не увиден, время ЕЩЁ ДО GIVEUP (01:30) -> вотермарка НЕ продвигается
+  [void](Run-Tick $r '2026-07-16 00:35')
+  Check 'ledger-retry: 00:35 - вотермарка ещё вчерашняя (клиринг не увиден)' ([string](Get-State $r).watermarks.broker_ledger_day -eq '2026-07-15')
+  $callsAt035 = @((Get-Calls $r 'GetOperations') | Where-Object { $null -ne $_ }).Count
+
+  # 00:50: брокер опубликовал операцию клиринга дня 2 -> следующий (минутный) тик её видит
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='d1'; date='2026-07-15T09:00:00Z'; operation_type='OPERATION_TYPE_ACCRUING_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='1000'; nano=0; currency='rub' } },
+    [pscustomobject]@{ id='d2'; date='2026-07-16T00:00:10Z'; operation_type='OPERATION_TYPE_ACCRUING_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='2000'; nano=0; currency='rub' } }) })
+  [void](Run-Tick $r '2026-07-16 00:50')
+  $st = Get-State $r
+  Check 'ledger-retry: 00:50 - клиринг увиден, вотермарка продвинута' ([string]$st.watermarks.broker_ledger_day -eq '2026-07-16')
+  Check 'ledger-retry: новая вариационка учтена, старая не задвоена' ([double]$st.broker_ledger.varmargin_rub -eq 3000.0)
+  Check 'ledger-retry: ретрай реально ходил к брокеру каждую минуту (не застрял на 00:35)' ($callsAt035 -gt 0)
+}
+
+# --- несведённая маржа закрытых позиций (Add-PendingSettle): закрытие внутри дня не должно
+# занижать «Результат бота» до ближайшего клиринга (боевой инцидент 09.09, карточка BRV6)
+function Scn-PendingSettleLifecycle {
+  $r = New-Scenario 'pending-settle'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 3 2.905 2.676 7749.12)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  # тик 1: у брокера позиция ЕЩЁ ЕСТЬ, с накопленной вариационкой 40000 - штампуется
+  # broker_vm_last['uid-NGQ6'], лоты (3) и текущая цена (3.0) совпадают с картой
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') (New-PfResponse 1000000.0 1000000.0 40000.0 16602.75 0.0)
+  [void](Run-Tick $r '2026-07-15 10:00')
+  $st1 = Get-State $r
+  Check 'pending-settle: штамп var_margin записан' ($null -ne $st1.broker_vm_last.'uid-NGQ6' -and [double]$st1.broker_vm_last.'uid-NGQ6'.vm -eq 40000.0)
+  Check 'pending-settle: pending_settle пока пуст' (-not $st1.PSObject.Properties['pending_settle'] -or [double]$st1.pending_settle.rub -eq 0.0)
+
+  # тик 2 (5 минут спустя, тот же день): позиция у брокера ИСЧЕЗЛА (закрыта), операция
+  # закрытия найдена по цене ЛУЧШЕ стопа -> D4-manual-ext, ровно как Scn-D4ManualExt
+  Write-CashOnlyPortfolio $r
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='op-ext'; date='2026-07-15T07:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='3'
+      price=[pscustomobject]@{units='3';nano=50000000} } ) })   # 3.05
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st2 = Get-State $r
+  $tr = Get-Trades $r
+  Check 'pending-settle: позиция закрыта manual-ext' ($tr.Count -eq 1 -and [string]$tr[0].exitReason -eq 'manual-ext')
+  # ожидаем 40000 (штамп) + 3 лота x (3.05-3.00) x 7749.12 ~= 41162.37 (доводка от цены штампа
+  # до фактического выхода) - источник СВОЙ, не наш P&L сделки (Get-Trades pnlRub - другое число)
+  $pend = [double]$st2.pending_settle.rub
+  Check 'pending-settle: висяк ~41162.37 (штамп 40000 + доводка по цене)' ([math]::Abs($pend - 41162.37) -lt 0.5)
+  Check 'pending-settle: висяк - НЕ наш P&L сделки (та же сумма другая)' ([math]::Abs($pend - [double]$tr[0].pnlRub) -gt 100)
+  $item = @($st2.pending_settle.items)[0]
+  Check 'pending-settle: элемент помечен днём/картой/причиной' ([string]$item.day -eq '2026-07-15' -and [string]$item.card -eq 'LtestNGcore' -and [string]$item.why -eq 'manual-ext')
+
+  # тик 3, следующий день после клиринга: ЛЕДЖЕР впервые видит VARMARGIN-операцию, датированную
+  # сегодняшним 00:00 - клиринг сводит именно эту маржу -> «висяк» гасится
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='vm1'; date='2026-07-16T00:00:05Z'; operation_type='OPERATION_TYPE_WRITING_OFF_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='41162'; nano=370000000; currency='rub' } } ) })
+  [void](Run-Tick $r '2026-07-16 00:35')
+  $st3 = Get-State $r
+  Check 'pending-settle: висяк сведён клирингом' ([double]$st3.pending_settle.rub -eq 0.0)
+  Check 'pending-settle: items пуст' (@($st3.pending_settle.items).Count -eq 0)
+}
+
+# --- «висяк» закрытия ПОСЛЕ вечерней сессии (19:05-23:50) переживает БЛИЖАЙШИЙ ночной клиринг -
+# оплачивается только СЛЕДУЮЩИМ (Get-SettledCutMs привязан к дате самой VARMARGIN-операции, не
+# к календарю), иначе он гасился бы на клиринге, который его ещё не видел
+function Scn-PendingSettleSurvivesEveningClose {
+  $r = New-Scenario 'pending-settle-evening'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 3 2.905 2.676 7749.12)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') (New-PfResponse 1000000.0 1000000.0 40000.0 16602.75 0.0)
+  [void](Run-Tick $r '2026-07-15 20:00')   # штамп в вечернюю сессию
+  Write-CashOnlyPortfolio $r
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='op-ext'; date='2026-07-15T17:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='3'
+      price=[pscustomobject]@{units='3';nano=50000000} } ) })
+  [void](Run-Tick $r '2026-07-15 20:05')   # закрытие в вечернюю сессию (после 19:00 MSK)
+  $before = [double](Get-State $r).pending_settle.rub
+  Check 'pending-settle-evening: висяк записан' ($before -gt 0)
+  # ближайший ночной клиринг (16.07 00:00) сводит маржу, набежавшую ДО 15.07 19:00 - закрытие
+  # прошло ПОСЛЕ этого рубежа, значит НЕ должно погаситься этим клирингом
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='vm-night1'; date='2026-07-16T00:00:05Z'; operation_type='OPERATION_TYPE_WRITING_OFF_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='1'; nano=0; currency='rub' } } ) })
+  [void](Run-Tick $r '2026-07-16 00:35')
+  $mid = [double](Get-State $r).pending_settle.rub
+  Check 'pending-settle-evening: ближайший клиринг НЕ погасил висяк' ([math]::Abs($mid - $before) -lt 0.01)
+  # СЛЕДУЮЩИЙ клиринг (17.07 00:00) уже сводит и вечернюю сессию 15-16.07 - висяк гасится
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='vm-night2'; date='2026-07-17T00:00:05Z'; operation_type='OPERATION_TYPE_WRITING_OFF_VARMARGIN'; instrument_type=''
+      payment=[pscustomobject]@{ units='1'; nano=0; currency='rub' } } ) })
+  [void](Run-Tick $r '2026-07-17 00:35')
+  Check 'pending-settle-evening: следующий клиринг погасил висяк' ([double](Get-State $r).pending_settle.rub -eq 0.0)
+}
+
+# --- закрытие без свежего штампа var_margin (позиция ни разу не встречалась в снимке брокера
+# с момента запуска или штамп протух через клиринг) - «висяк» НЕ додумывается, движок не падает
+function Scn-PendingSettleNoStamp {
+  $r = New-Scenario 'pending-settle-no-stamp'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 3 2.905 2.676 7749.12)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-CashOnlyPortfolio $r   # штампа никогда не было
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='op-ext'; date='2026-07-15T07:05:30Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='3'
+      price=[pscustomobject]@{units='3';nano=50000000} } ) })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  Check 'pending-settle-no-stamp: тик выжил' ([string]$log -match 'tick ok')
+  Check 'pending-settle-no-stamp: закрытие всё равно прошло' (@($st.sleeves.core.positions).Count -eq 0)
+  Check 'pending-settle-no-stamp: висяк не выдуман (0 или блока нет)' (-not $st.PSObject.Properties['pending_settle'] -or [double]$st.pending_settle.rub -eq 0.0)
+  Check 'pending-settle-no-stamp: причина в логе' ([string]$log -match 'pending-settle.*нет свежего штампа')
+}
+
+# --- governors: клиринговое окно приостанавливает Invoke-Governors ЦЕЛИКОМ (не просто снимает
+# триггер) - контрольный случай (те же числа ВНЕ клиринга флэттенят позицию) - Scn-HardDd.
+function Scn-GovernorsSkippedInClearing {
+  $r = New-Scenario 'governors-clearing-gate'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  $s.go | Add-Member -NotePropertyName capital_peak_rub -NotePropertyValue 700000.0 -Force
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  # те же числа, что в Scn-HardDd (капитал 420k против пика 700k -> dd 40% > 35%) - разница
+  # только во ВРЕМЕНИ тика: здесь он попадает в клиринговое окно.
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{
+    total_amount_currencies = [pscustomobject]@{ units = '420000'; nano = 0; currency = 'rub' }
+    total_amount_portfolio  = [pscustomobject]@{ units = '420000'; nano = 0; currency = 'rub' }
+    positions = @([pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='19';nano=0} }) })
+  Write-Json (Join-Path $r 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @(
+    [pscustomobject]@{ stopOrderId='stop-live-1' } ) })
+  [void](Run-Tick $r '2026-07-15 00:10')   # внутри $CLEARING (00:00-00:32 MSK)
+  $st = Get-State $r
+  Check 'governors-clearing: позиция цела (governors не оценивались)' (@($st.sleeves.core.positions).Count -eq 1)
+  Check 'governors-clearing: HALT_RF_LIVE НЕ создан' (-not (Test-Path (Join-Path $r 'data\HALT_RF_LIVE')))
+  Check 'governors-clearing: PostOrder не вызывался (флэттена не было)' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  Check 'governors-clearing: причина пропуска в логе' ([string]$log -match 'governors: клиринговое окно')
 }
 
 # ================= запуск =================
@@ -1689,6 +1862,8 @@ $scenarios = @(
   ${function:Scn-LongOnlyEveningShort},
   ${function:Scn-CapitalNoVarMarginDoubleCount}, ${function:Scn-CapitalUserAssetsNeverNegative},
   ${function:Scn-BrokerBlockPersisted}, ${function:Scn-BrokerBlockSurvivesEmptySnapshot},
-  ${function:Scn-BrokerLedgerFees}, ${function:Scn-BrokerLedgerWindow}
+  ${function:Scn-BrokerLedgerFees}, ${function:Scn-BrokerLedgerWindow}, ${function:Scn-BrokerLedgerRetriesUntilClearingSeen},
+  ${function:Scn-PendingSettleLifecycle}, ${function:Scn-PendingSettleSurvivesEveningClose}, ${function:Scn-PendingSettleNoStamp},
+  ${function:Scn-GovernorsSkippedInClearing}
 )
 foreach ($fn in $scenarios) { & $fn }

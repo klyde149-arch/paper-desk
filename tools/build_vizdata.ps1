@@ -285,6 +285,7 @@ if ($rfPresentation -and [int]$rfPresentation.schema -eq 1) {
     accountTotal=$s.accountTotal; userAssets=$s.userAssets; capitalModel=[string]$s.capitalModel; peakStale=[bool]$s.peakStale
     feesBrokerRub=$s.feesBrokerRub; openPnlBroker=$s.openPnlBroker
     allTimeAmt=$s.allTimeAmt; allTimePct=$s.allTimePct; allTimeNote=[string]$s.allTimeNote; allTimeSource=[string]$s.allTimeSource
+    pendingSettleRub=$s.pendingSettleRub; pendingSettleTodayRub=$s.pendingSettleTodayRub; ledgerUntilMs=$s.ledgerUntilMs
     broker=$rfPresentation.broker; capitalCurveJoinTs=$rfPresentation.capitalCurveJoinTs }
 }
 elseif (Test-Path $lrPf) {

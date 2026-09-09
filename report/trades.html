@@ -1691,9 +1691,13 @@
     // Pct(profile_eq, base_rub) - бумажная блендовая модель, к этому счёту не относящаяся.
     const totOk=(RFR.allTimeSource==="broker_ops"||RFR.allTimeSource==="ledger");
     const tot=(totOk&&RFR.allTimeAmt!=null)?+RFR.allTimeAmt:(real+flt), te=$("frTot");
+    // «висяк» ненулевой = есть закрытая сегодня позиция, чья маржа ещё не сведена ближайшим
+    // ночным клирингом (Add-PendingSettle в live_rf_engine.ps1) - без пометки цифра выглядит
+    // как обычный «Результат бота», хотя часть суммы ещё не дошла до денег на счёте.
+    const pend=(RFR.pendingSettleRub!=null)?+RFR.pendingSettleRub:0;
     if(te){ te.textContent=sgnRub(tot); te.className="v num "+(tot>=0?"pos":"neg");
       $("frTotS").textContent=(RFR.allTimeSource==="broker_ops")
-        ? "с запуска, по операциям брокера"
+        ? "с запуска, по операциям брокера"+(Math.abs(pend)>=1?" (+несведённая маржа закрытых "+sgnRub(pend)+")":"")
         : "закрытые "+sgnRub(real)+" · открытые "+sgnRub(flt); }
     const cc=arr(RFR.capitalCurve), de=$("frDay"), deS=$("frDayS");
     // Приоритет — число самого бота (dayBase = закрытие предыдущего дня), та же цифра, что
@@ -1702,7 +1706,8 @@
     // первую точку истории, и «P&L сегодня» показывал доход за всё время.
     let dv=null, dsrc="МСК-день";
     if(RFR.todayAmt!=null){ dv=+RFR.todayAmt;
-      if(RFR.dayBaseSource==="broker_daily_yield") dsrc="данные брокера";
+      if(RFR.dayBaseSource==="broker_daily_yield+pending") dsrc="данные брокера + маржа закрытых сегодня";
+      else if(RFR.dayBaseSource==="broker_daily_yield") dsrc="данные брокера";
       else if(RFR.dayBaseSource==="prev_day_close") dsrc="от закрытия прошлого дня"; }
     else if(cc.length){ const d0=mskDayStartUtcMs(), first=cc.find(p=>p[0]>=d0); if(first) dv=cap-first[1]; }
     if(dv!=null){ de.textContent=sgnRub(dv); de.className="v num "+(dv>=0?"pos":"neg");

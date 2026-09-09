@@ -81,16 +81,30 @@ function Build-RfPresentationSnapshot($State) {
   $peakStale = ($capModel -eq 'legacy' -and $State.go.PSObject.Properties['bot_capital_account_rub'] -and $null -ne $State.go.bot_capital_account_rub)
   $ddPct = if ($peakStale) { $null } else { Pct $capital $peak }
   $today = (Get-Date).ToUniversalTime().AddHours(3).ToString('yyyy-MM-dd')
+  # Несведённая маржа закрытых позиций (Add-PendingSettle в live_rf_engine.ps1) - деньги,
+  # которые вышли из capital_breakdown.futures (позиции нет в портфеле), но ещё не попали в
+  # broker_ledger.varmargin_rub (сведутся только на ближайшем ночном клиринге). Без них
+  # прибыльное закрытие внутри дня выглядит как провал «P&L сегодня» (боевой факт 09.09:
+  # BRV6 +14 172 ₽ по сделке обрушил карточку с +40 248 до +5 412 на свою несведённую маржу).
+  $pendAll = 0.0; $pendToday = 0.0
+  if ($State.PSObject.Properties['pending_settle'] -and $null -ne $State.pending_settle) {
+    foreach ($it in @($State.pending_settle.items)) {
+      if ($null -eq $it) { continue }
+      $pendAll += [double]$it.rub
+      if ([string]$it.day -eq $today) { $pendToday += [double]$it.rub }
+    }
+  }
   $dayBase = $null; $daySource = 'day_start_eq_stale'; $todayAmt = $null; $todayPct = $null
   # «Сегодня» - число САМОГО брокера (daily_yield / daily_yield_relative), то же, что видно в
   # приложении. Наш прежний расчёт (капитал - база дня) брал базу из day_start_eq либо из
   # закрытия прошлого дня и на 2026-09-01 давал +89 829 / +5,65% против брокерских
   # +100 564 / +6,84%: он наследовал завышение капитала и терял переоценку валют.
   if ($null -ne $brk -and $null -ne $brk.daily_yield_rub) {
-    $todayAmt = [double]$brk.daily_yield_rub
-    $todayPct = if ($null -ne $brk.daily_yield_rel_pct) { [math]::Round([double]$brk.daily_yield_rel_pct, 2) } else { $null }
-    $dayBase = [math]::Round($capital - $todayAmt, 2)
-    $daySource = 'broker_daily_yield'
+    $dayBase = [math]::Round($capital - [double]$brk.daily_yield_rub, 2)
+    $todayAmt = [math]::Round([double]$brk.daily_yield_rub + $pendToday, 2)
+    $todayPct = if ($pendToday -ne 0 -and $dayBase -gt 0) { [math]::Round(100.0 * $todayAmt / $dayBase, 2) }
+                elseif ($null -ne $brk.daily_yield_rel_pct) { [math]::Round([double]$brk.daily_yield_rel_pct, 2) } else { $null }
+    $daySource = if ($pendToday -ne 0) { 'broker_daily_yield+pending' } else { 'broker_daily_yield' }
   }
   else {
     if ([string]$State.day_start_date -eq $today -and [double]$State.day_start_eq -gt 0) { $dayBase = [double]$State.day_start_eq; $daySource = 'day_start_eq' }
@@ -170,7 +184,9 @@ function Build-RfPresentationSnapshot($State) {
   $feesFact = $null; $netSince = $null; $netSource = 'ledger'
   if ($null -ne $lg -and $null -ne $lg.varmargin_rub) {
     $feesFact = [math]::Abs([math]::Round([double]$lg.fees_rub, 2))
-    $netSince = [math]::Round([double]$lg.varmargin_rub + $curVm + [double]$lg.fees_rub, 2)
+    # + $pendAll: несведённая маржа закрытых позиций (см. выше) - без неё «Результат бота»
+    # занижен ровно на неё с момента закрытия до ближайшего ночного клиринга.
+    $netSince = [math]::Round([double]$lg.varmargin_rub + $curVm + $pendAll + [double]$lg.fees_rub, 2)
     $netSource = 'broker_ops'
   } else {
     $ownOpen = 0.0
@@ -186,7 +202,7 @@ function Build-RfPresentationSnapshot($State) {
   $userAssets = if ($null -ne $State.capital_breakdown -and $null -ne $State.capital_breakdown.user_assets) { [double]$State.capital_breakdown.user_assets } else { $null }
   return [ordered]@{
     schema=1; generatedAtMs=(UtcNowMs); sourceAtMs=$State.watermarks.last_eq_snap
-    summary=[ordered]@{ mode=$State.mode; accountId=$State.account_id; capital=$capital; peak=$peak; drawdownPct=$ddPct; peakStale=[bool]$peakStale; capitalModel=$capModel; accountTotal=$accTotal; userAssets=$userAssets; dayBase=$dayBase; dayBaseSource=$daySource; todayAmt=$todayAmt; todayPct=$todayPct; allTimePct=$netPct; allTimeAmt=$netSince; allTimeNote='результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный'; allTimeSource=$netSource; openPositions=$positions.Count; tradesPnl=$realizedPnl; fees=$feesEst; feesBrokerRub=$feesFact; openPnlBroker=$openPnl; winRate=$(if($closed.Count){[math]::Round(100*$wins/$closed.Count,1)}else{$null}); wins=$wins; losses=$closed.Count-$wins; entriesHalt=[bool]$State.entries_halt.active; haltReason=$State.entries_halt.reason; goUsed=$State.go.used_rub; goBudget=$State.go.budget_rub; accountLiquid=$State.go.account_liquid_rub; lastDailyDay=$State.watermarks.last_daily_day }
+    summary=[ordered]@{ mode=$State.mode; accountId=$State.account_id; capital=$capital; peak=$peak; drawdownPct=$ddPct; peakStale=[bool]$peakStale; capitalModel=$capModel; accountTotal=$accTotal; userAssets=$userAssets; dayBase=$dayBase; dayBaseSource=$daySource; todayAmt=$todayAmt; todayPct=$todayPct; allTimePct=$netPct; allTimeAmt=$netSince; allTimeNote='результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный'; allTimeSource=$netSource; openPositions=$positions.Count; tradesPnl=$realizedPnl; fees=$feesEst; feesBrokerRub=$feesFact; openPnlBroker=$openPnl; winRate=$(if($closed.Count){[math]::Round(100*$wins/$closed.Count,1)}else{$null}); wins=$wins; losses=$closed.Count-$wins; entriesHalt=[bool]$State.entries_halt.active; haltReason=$State.entries_halt.reason; goUsed=$State.go.used_rub; goBudget=$State.go.budget_rub; accountLiquid=$State.go.account_liquid_rub; lastDailyDay=$State.watermarks.last_daily_day; pendingSettleRub=[math]::Round($pendAll,2); pendingSettleTodayRub=[math]::Round($pendToday,2); ledgerUntilMs=$(if ($null -ne $lg) { $lg.until_ms } else { $null }) }
     broker=$brk; capitalCurveJoinTs=$capJoinTs
     operational=[ordered]@{ go=$State.go; drift=$State.drift; stats=$State.stats; capitalBreakdown=$State.capital_breakdown; active=$State.active; consecFail=$State.consec_fail }
     sleeves=[ordered]@{ core=[ordered]@{equity=$State.sleeves.core.equity_mtm; dayPct=(Pct $State.sleeves.core.equity_mtm $State.sleeves.core.day_start_eq)}; setA=[ordered]@{equity=$State.sleeves.setA.equity_mtm; dayPct=(Pct $State.sleeves.setA.equity_mtm $State.sleeves.setA.day_start_eq)}; mom=[ordered]@{equity=$State.sleeves.mom.equity_mtm; dayPct=(Pct $State.sleeves.mom.equity_mtm $State.sleeves.mom.day_start_eq)} }

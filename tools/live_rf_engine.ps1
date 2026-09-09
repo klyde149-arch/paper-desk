@@ -244,6 +244,13 @@ function Test-Clearing {
   foreach ($w in $CLEARING) { if ($mskHHmm -ge $w[0] -and $mskHHmm -le $w[1]) { return $true } }
   return $false
 }
+# UTC-мс последней ПРОШЕДШЕЙ отметки $Hhmm по MSK-стенным часам (для сравнения с полями,
+# которые сами приходят как реальный UTC - в отличие от $mskNowMs/$mskToday, которые «MSK-как-UTC»).
+function Get-MskBoundaryMs([string]$Hhmm) {
+  $b = (UtcStrToMs ("{0} {1}" -f $mskToday, $Hhmm))   # в «MSK-как-UTC» пространстве, как $mskNowMs
+  if ($b -gt $mskNowMs) { $b -= 86400000L }
+  return ($b - $MSK)   # обратно в истинный UTC
+}
 # постановка заявок разрешена: будни, не клиринг, утро+осн.+веч. сессия (ЕТС: торги с ~06:00 MSK)
 function Can-PostOrders {
   if ((Test-Weekend) -and -not $LIVE.trade_weekends) { return $false }
@@ -471,7 +478,86 @@ function Test-StopCouldFire($Card, [double]$FillPx) {
   $tol = 0.001 * [math]::Abs($sp)
   return (($sm * ($FillPx - $sp)) -le $tol)
 }
+# Штамп var_margin валиден только внутри ТЕКУЩЕГО расчётного дня: на ночном клиринге брокер
+# переякоривает var_margin (боевой факт 09.09: BRV6 -2 075,44 -> +21 272,36 в 00:15 MSK),
+# и вчерашнее значение как якорь для «висяка» уже отражает ДРУГОЙ период - не годится.
+function Get-BrokerVmStamp([string]$Uid) {
+  if (-not $Uid -or -not $st.PSObject.Properties['broker_vm_last']) { return $null }
+  $pr = $st.broker_vm_last.PSObject.Properties[$Uid]
+  if ($null -eq $pr) { return $null }
+  if ([long]$pr.Value.ts -lt (Get-MskBoundaryMs '00:32')) { return $null }
+  return $pr.Value
+}
+# «Висящая» вариационка закрытой позиции: маржа по контракту, которая УЖЕ вышла из
+# capital_breakdown.futures (позиции больше нет в портфеле) и ЕЩЁ не попала в
+# broker_ledger.varmargin_rub (сведётся только на ближайшем ночном клиринге) - без этого
+# бота «Результат бота» на дашборде занижается ровно на неё до самого клиринга (боевой
+# факт 09.09: BRV6 закрыт в 13:22 MSK, карточка занижена на ≈37 тыс. ₽ до ночи).
+# Источник суммы - ПОСЛЕДНИЙ БРОКЕРСКИЙ var_margin по контракту (Get-BrokerVmStamp), а НЕ наш
+# P&L сделки: часть маржи по контракту могла быть уже выплачена на ПРЕДЫДУЩЕМ клиринге и уже
+# сидеть в varmargin_rub - наш P&L считает от цены входа карточки, брокерский var_margin -
+# от последнего клиринга, это разные базы и суммировать их напрямую нельзя.
+function Add-PendingSettle($Card, [int]$Lots, [double]$ExitPx, [string]$Why) {
+  if ($mode -eq 'dryrun' -or $Lots -le 0) { return }
+  $s = Get-BrokerVmStamp ([string]$Card.uid)
+  if ($null -eq $s -or $null -eq $s.vm -or [math]::Abs([double]$s.lots) -lt 0.0001) {
+    Write-LiveLog "pending-settle $($Card.id): нет свежего штампа var_margin - несведённая маржа не учтена"
+    return
+  }
+  $share = [math]::Min(1.0, [double]$Lots / [math]::Abs([double]$s.lots))
+  $rub = [double]$s.vm * $share
+  # доводка от цены штампа (последний тик) до фактической цены выхода - штамп мог устареть
+  # на минуту-другую относительно момента закрытия
+  if ([double]$s.cur_px -gt 0 -and $ExitPx -gt 0 -and [double]$Card.rub_per_pt -gt 0) {
+    $sm = if ([string]$Card.side -eq 'long') { 1.0 } else { -1.0 }
+    $rub += $sm * $Lots * ($ExitPx - [double]$s.cur_px) * [double]$Card.rub_per_pt
+  }
+  $rub = [math]::Round($rub, 2)
+  $ps = if ($st.PSObject.Properties['pending_settle']) { $st.pending_settle } else { $null }
+  $items = New-Object System.Collections.Generic.List[object]
+  if ($null -ne $ps) { foreach ($it in @($ps.items)) { if ($null -ne $it) { $items.Add($it) } } }
+  $items.Add([pscustomobject]@{ ts = $NowMs; day = $mskToday; card = [string]$Card.id; uid = [string]$Card.uid
+    secid = [string]$Card.secid; lots = $Lots; rub = $rub; why = $Why; src = 'broker_vm' })
+  $total = [math]::Round((($items | Measure-Object rub -Sum).Sum), 2)
+  $st | Add-Member -NotePropertyName pending_settle -NotePropertyValue ([pscustomobject]@{
+    rub = $total; updated_ms = $NowMs; items = (ToArr $items) }) -Force
+  Write-LiveLog "pending-settle $($Card.id): +$rub руб. ($Why), несведённых всего $total"
+}
+# UTC-мс границы ближайшего ПРОШЕДШЕГО 19:00 MSK относительно $RefMs (истинный UTC). Ночной
+# клиринг платит маржу, набежавшую ДО предыдущего 19:00 - вечерняя сессия 19:05-23:50 относится
+# к СЛЕДУЮЩЕМУ расчётному дню (боевой факт: var_margin_settled замерзает на тике 19:15 и
+# оплачивается только следующим 00:00). Привязка к дате самой VARMARGIN-операции, а не к
+# календарю, сама разруливает выходные - см. вызов в Invoke-BrokerLedger.
+function Get-SettledCutMs([long]$RefMs) {
+  $shifted = $RefMs + $MSK
+  $hhmm = (MsToUtc $shifted).ToString('HH:mm')
+  $day = MsToUtcDay $shifted
+  $cut = UtcStrToMs "$day 19:00"
+  if ([string]$hhmm -lt '19:00') { $cut -= 86400000L }
+  return ($cut - $MSK)
+}
+# Гасит «висяки», чья маржа уже сведена клирингом (ts раньше cutoff), и подчищает совсем
+# протухшие - если модель разошлась (штамп не найден, ролл через выходные и т.п.), 5 суток
+# висящих денег - это уже сигнал, а не нормальная эксплуатация.
+function Invoke-PendingSettlePrune([long]$CutMs) {
+  if (-not $st.PSObject.Properties['pending_settle'] -or $null -eq $st.pending_settle) { return }
+  $items = New-Object System.Collections.Generic.List[object]
+  $staleSum = 0.0
+  foreach ($it in @($st.pending_settle.items)) {
+    if ($null -eq $it) { continue }
+    if ([long]$it.ts -lt $CutMs) { continue }   # сведено клирингом - выбрасываем
+    if (($NowMs - [long]$it.ts) -gt 5L*86400000) { $staleSum += [double]$it.rub; continue }   # протухло
+    $items.Add($it)
+  }
+  if ([math]::Abs($staleSum) -gt 1) {
+    Alert ("pending-settle: $([math]::Round($staleSum,2)) руб. висело дольше 5 суток без сведения клирингом - модель разошлась, сброшено принудительно, нужна ручная сверка.")
+  }
+  $total = if ($items.Count) { [math]::Round((($items | Measure-Object rub -Sum).Sum), 2) } else { 0.0 }
+  $st | Add-Member -NotePropertyName pending_settle -NotePropertyValue ([pscustomobject]@{
+    rub = $total; updated_ms = $NowMs; items = (ToArr $items) }) -Force
+}
 function Close-CardLedger($Card, [double]$ExitPx, [string]$Reason, [double]$FeeRub) {
+  Add-PendingSettle $Card ([int]$Card.lots) $ExitPx $Reason
   $sl = Get-SleeveRef ([string]$Card.sleeve)
   $sm = if ($Card.side -eq 'long') { 1.0 } else { -1.0 }
   $pnl = $sm * [double]$Card.lots * ($ExitPx - [double]$Card.entry_px_pts) * [double]$Card.rub_per_pt - $FeeRub
@@ -836,6 +922,27 @@ function Set-BotCapital($Pf) {
     daily_yield_rel_pct = (TiNum $Pf 'daily_yield_relative' 4)
     positions = (ToArr $brkPos)
   }) -Force
+  # Липкий снимок var_margin по фьючерсным контрактам (для Add-PendingSettle при закрытии,
+  # см. ниже Close-CardLedger/Apply-RollClose/Invoke-Tp1Sync). ЗАЧЕМ отдельным словарём, а не
+  # читать $st.broker.positions на месте закрытия: блок broker выше ПЕРЕЗАПИСЫВАЕТСЯ целиком
+  # каждый тик, и позиция, закрытая биржевым стопом между тиками, исчезает из него бесследно.
+  # Здесь ключи ОБНОВЛЯЮТСЯ, но не удаляются по факту отсутствия в свежем снимке - последнее
+  # известное значение и есть якорь. Ключ - instrument_uid, а не id карточки: переживает
+  # исчезновение карточки, и деление между карточками одного контракта берётся из брокерских
+  # лотов, а не из наших (Add-PendingSettle делит Lots/|stamp.lots|).
+  $vmMap = if ($st.PSObject.Properties['broker_vm_last']) { $st.broker_vm_last } else { [pscustomobject]@{} }
+  foreach ($bp in $brkPos) {
+    if ([string]$bp.type -ne 'futures' -or -not $bp.uid) { continue }
+    $rec = [pscustomobject]@{ vm = $bp.var_margin; ey = $bp.expected_yield; cur_px = $bp.cur_px
+      avg_px = $bp.avg_px; lots = $bp.lots; secid = $bp.ticker; ts = $NowMs }
+    if ($vmMap.PSObject.Properties[[string]$bp.uid]) { $vmMap.([string]$bp.uid) = $rec }
+    else { $vmMap | Add-Member -NotePropertyName ([string]$bp.uid) -NotePropertyValue $rec }
+  }
+  # чистка мёртвых записей - иначе словарь растёт по всем контрактам, которые бот когда-либо держал
+  foreach ($pr in @($vmMap.PSObject.Properties)) {
+    if (($NowMs - [long]$pr.Value.ts) -gt 5L*86400000) { [void]$vmMap.PSObject.Properties.Remove($pr.Name) }
+  }
+  $st | Add-Member -NotePropertyName broker_vm_last -NotePropertyValue $vmMap -Force
   if (-not $gotVm) {
     foreach ($sn in 'core','setA') {
       foreach ($cc in @($st.sleeves.$sn.positions)) {
@@ -898,7 +1005,17 @@ function Set-BotCapital($Pf) {
 # Комиссии на СВОИ бумаги пользователя (продажи ПЛЗЛ/Сбера/облигаций/USD) в fees_rub не идут -
 # бот их не платил; они лежат отдельно в fees_other_rub, чтобы ничего не терялось молча.
 $script:BROKER_LEDGER_ID = 'v1-2026-09'
-$script:BROKER_LEDGER_FROM = '23:00'   # после вечернего клиринга FORTS, до отчёта в 23:55
+# Инцидент 2026-09-09: старое окно '23:00' стояло ДО клиринга, а не после него - $CLEARING
+# (см. выше) сам говорит, что ночной клиринг ЕТС идёт в 23:48-00:32 MSK, а не вечером. Леджер,
+# снятый в 23:00, замерзал на 23 часа с несведённой вариационкой предыдущего дня внутри "Результата
+# бота" (bake_rf_candles.ps1), и в 00:00 при списании денег карточка на дашборде скачком уезжала
+# на всю сумму клиринга (боевой факт: +76 692.81 руб в ночь 08->09.09, при том что вечерний отчёт
+# в 23:55 - ДО клиринга - был верным). BROKER_LEDGER_FROM теперь стоит ПОСЛЕ конца $CLEARING;
+# TILL не даёт лезть в сам клиринг (снимок операций там неполон); GIVEUP - отдать вотермарку не
+# позже часа даже если ни одной операции VARMARGIN не пришло (дни без сделок бота).
+$script:BROKER_LEDGER_FROM = '00:35'
+$script:BROKER_LEDGER_TILL = '23:47'
+$script:BROKER_LEDGER_GIVEUP = '01:30'
 $script:FEE_OPS = @('OPERATION_TYPE_BROKER_FEE','OPERATION_TYPE_EXCHANGE_FEE',
   'OPERATION_TYPE_SERVICE_FEE','OPERATION_TYPE_MARGIN_FEE')
 
@@ -920,11 +1037,12 @@ function Invoke-BrokerLedger {
   if ($mode -eq 'dryrun') { return }
   $lg = if ($st.PSObject.Properties['broker_ledger']) { $st.broker_ledger } else { $null }
   $full = ($null -eq $lg -or [string]$lg.backfill_id -ne $script:BROKER_LEDGER_ID)
-  $inWindow = ([string]$mskHHmm -ge $script:BROKER_LEDGER_FROM)
+  $inWindow = ([string]$mskHHmm -ge $script:BROKER_LEDGER_FROM -and [string]$mskHHmm -le $script:BROKER_LEDGER_TILL)
   # РАЗОВЫЙ бэкфилл идёт при первом же тике после деплоя, в любое время: история операций
-  # уже закрыта, ждать вечернего клиринга нечего, а до него отчётность 20+ часов показывала бы
-  # фолбэк вместо реального итога бота и фактических комиссий.
-  # РЕГУЛЯРНОЕ обновление - только в вечернем окне (после клиринга) и раз в календарный день.
+  # уже закрыта, ждать клиринга нечего, а до него отчётность 20+ часов показывала бы фолбэк
+  # вместо реального итога бота и фактических комиссий.
+  # РЕГУЛЯРНОЕ обновление - только в окне ПОСЛЕ ночного клиринга (см. BROKER_LEDGER_FROM выше)
+  # и раз в календарный день.
   if (-not $full -and -not $inWindow) { return }
   if ($inWindow -and [string]$st.watermarks.broker_ledger_day -eq $mskToday) { return }
   if (-not $full) { $full = $false }
@@ -944,16 +1062,27 @@ function Invoke-BrokerLedger {
   $seen = New-Object System.Collections.Generic.List[string]
   $vm = 0.0; $fee = 0.0; $feeOther = 0.0
   $byType = [pscustomobject]@{}
+  $lastVmOpMs = 0L
   if (-not $full) {
     $vm = [double]$lg.varmargin_rub; $fee = [double]$lg.fees_rub; $feeOther = [double]$lg.fees_other_rub
     if ($lg.PSObject.Properties['fees_by_type'] -and $null -ne $lg.fees_by_type) { $byType = $lg.fees_by_type }
+    if ($lg.PSObject.Properties['last_varmargin_op_ms'] -and $null -ne $lg.last_varmargin_op_ms) { $lastVmOpMs = [long]$lg.last_varmargin_op_ms }
     foreach ($id in @($lg.op_ids)) { if ($id) { $seen.Add([string]$id) } }
   }
   $added = 0
   foreach ($o in $ops) {
     $oid = [string](Get-TiField $o 'id')
-    if ($oid -and $seen.Contains($oid)) { continue }
     $t = [string](Get-TiField $o 'operation_type')
+    # Дату VARMARGIN-операции смотрим ДО дедупа по id: нужно знать САМУЮ СВЕЖУЮ вариационку,
+    # видимую брокером прямо сейчас, даже если она уже была учтена в предыдущем прогоне -
+    # это единственный сигнал «клиринг уже опубликован», см. Get-MskBoundaryMs ниже.
+    if ($t -like '*VARMARGIN*') {
+      try {
+        $od = [DateTimeOffset]::Parse([string](Get-TiField $o 'date')).ToUnixTimeMilliseconds()
+        if ($od -gt $lastVmOpMs) { $lastVmOpMs = $od }
+      } catch {}
+    }
+    if ($oid -and $seen.Contains($oid)) { continue }
     $pay = [double](M2D (Get-TiField $o 'payment')).value
     $itype = [string](Get-TiField $o 'instrument_type')
     if ($t -like '*VARMARGIN*') { $vm += $pay }
@@ -975,13 +1104,24 @@ function Invoke-BrokerLedger {
     fees_rub = [math]::Round($fee, 2)          # отрицательные: это списания
     fees_other_rub = [math]::Round($feeOther, 2)
     fees_by_type = $byType; op_ids = (ToArr $keep); updated_ms = $NowMs
+    last_varmargin_op_ms = $lastVmOpMs         # для гейта ниже: видел ли леджер СЕГОДНЯШНИЙ клиринг
   }) -Force
-  # Вотермарку суток ставим ТОЛЬКО когда отработали в вечернем окне. Иначе бэкфилл, сделанный
-  # днём, закрыл бы сегодняшний вечерний прогон, и в итог бота не попало бы сведение этого
-  # клиринга (а текущая несведённая вариационка к тому моменту уже обнулится).
-  if ($inWindow) { $st.watermarks | Add-Member -NotePropertyName broker_ledger_day -NotePropertyValue $mskToday -Force }
+  # Вотермарку суток ставим только когда в текущем окне (после клиринга) ЛИБО реально увидели
+  # сегодняшнюю VARMARGIN-операцию (клиринг брокер уже опубликовал), ЛИБО время ушло за GIVEUP -
+  # тогда сдаёмся и не долбим API весь день (нормальный исход в дни без открытых позиций).
+  # Без этого гейта прогон в 00:35, попавший на ПУБЛИКАЦИЮ клиринга с задержкой у брокера,
+  # поставил бы вотермарку на пустом месте и заморозил бы карточку до завтра.
+  $sawClearing = ($lastVmOpMs -gt 0 -and $lastVmOpMs -ge (Get-MskBoundaryMs '00:00'))
+  $gaveUp = ([string]$mskHHmm -ge $script:BROKER_LEDGER_GIVEUP)
+  if ($inWindow -and ($sawClearing -or $gaveUp)) {
+    $st.watermarks | Add-Member -NotePropertyName broker_ledger_day -NotePropertyValue $mskToday -Force
+  }
   if ($full) { Write-LiveLog "broker-ledger: бэкфилл, операций учтено $added, вариационка $([math]::Round($vm,2)), комиссии $([math]::Round($fee,2))" }
   elseif ($added) { Write-LiveLog "broker-ledger: +$added операций, вариационка $([math]::Round($vm,2)), комиссии $([math]::Round($fee,2))" }
+  if ($inWindow -and -not $sawClearing -and $gaveUp) { Write-LiveLog "broker-ledger: сдались по GIVEUP ($mskHHmm) - клиринг за сегодня не увиден, вотермарка выставлена без него" }
+  # гасим «висяки» (Add-PendingSettle), чья маржа уже подтверждённо сведена клирингом -
+  # cutoff берётся от ДАТЫ САМОЙ VARMARGIN-операции, не от календаря (Get-SettledCutMs)
+  if ($lastVmOpMs -gt 0) { Invoke-PendingSettlePrune (Get-SettledCutMs $lastVmOpMs) }
 }
 
 # Общий хелпер ребейза виртуального леджера рукава на новую базу капитала (ручной и авто- пути).
@@ -1535,6 +1675,10 @@ function Apply-RollClose($Card, [double]$Px, [string]$ToSecid) {
   $sl.eq_rub = [double]$sl.eq_rub + $pnl
   $Card.realized_rub = [double]$Card.realized_rub + $pnl
   $Card.fees_rub = [double]$Card.fees_rub + $fee
+  # ролл закрывает СТАРЫЙ контракт у брокера точно так же, как обычный выход - его несведённая
+  # маржа исчезает из capital_breakdown.futures в этот же тик (Card.uid пока ещё старый,
+  # переприсвоится только в Apply-RollOpen ногой 2)
+  Add-PendingSettle $Card ([int]$Card.lots) $Px 'roll'
   $Card | Add-Member -NotePropertyName roll_pending_to -NotePropertyValue $ToSecid -Force
   $Card | Add-Member -NotePropertyName roll_close_px -NotePropertyValue $Px -Force
   $Card.stop_order_id = ''
@@ -2163,6 +2307,7 @@ function Invoke-Tp1Sync($StopIds) {
       $sl.eq_rub = [double]$sl.eq_rub + $pnl
       $c.realized_rub = [double]$c.realized_rub + $pnl
       $c.fees_rub = [double]$c.fees_rub + $fee
+      Add-PendingSettle $c $half $px 'tp1'
       $c.lots = [int]$c.lots - $half
       $c.tp1_done = $true; $c.tp1_order_id = ''
       $script:ev.Add("TP1 fill $($c.id) $($c.asset) $half лот @$px")
@@ -2437,17 +2582,28 @@ function Invoke-DailyReport([switch]$Preview) {
   $L.Add('')
   $L.Add("Капитал бота: $(Fmt-Money $capNow '₽' 0)")
   $hoursTail = if ($baseTs -gt 0 -and ($NowMs - $baseTs) -gt 26 * 3600000) { " (за последние $([math]::Round(($NowMs - $baseTs)/3600000.0)) ч — прошлый отчёт не отправлялся)" } else { '' }
+  # маржа закрытых сегодня позиций, ещё не сведённая клирингом (Add-PendingSettle) - без неё
+  # прибыльное закрытие внутри дня выглядело бы как убыток (боевой факт 09.09: BRV6 +14 172 ₽
+  # по сделке обрушил «за сутки» с +40 248 до +5 412 ровно на её несведённую маржу).
+  $pendToday = 0.0
+  if ($st.PSObject.Properties['pending_settle'] -and $null -ne $st.pending_settle) {
+    foreach ($it in @($st.pending_settle.items)) { if ($null -ne $it -and [string]$it.day -eq $mskToday) { $pendToday += [double]$it.rub } }
+  }
   # «За сутки» - число САМОГО брокера (daily_yield), то же, что в приложении и на дашборде.
   # Свой расчёт «капитал минус база отчёта» оставлен фолбэком: он сидит на report_base, который
   # штамповался в старой шкале капитала, и после перехода на счёт брокера дал бы фантомный скачок.
   $brk = if ($st.PSObject.Properties['broker']) { $st.broker } else { $null }
   $dayFromBroker = ($null -ne $brk -and $null -ne $brk.daily_yield_rub)
   if ($dayFromBroker) {
-    $dpl = [double]$brk.daily_yield_rub
-    $dplPct = if ($null -ne $brk.daily_yield_rel_pct) { [double]$brk.daily_yield_rel_pct } else { 0 }
-    $L.Add("За сутки: $(Fmt-Money $dpl '₽' 0 -Sign) ($(Fmt-Pct $dplPct)) — по данным брокера")
+    $dplBroker = [double]$brk.daily_yield_rub
+    $dayBase = $capNow - $dplBroker
+    $dpl = [math]::Round($dplBroker + $pendToday, 2)
+    $dplPct = if ($pendToday -ne 0 -and $dayBase -gt 0) { 100.0 * $dpl / $dayBase }
+              elseif ($null -ne $brk.daily_yield_rel_pct) { [double]$brk.daily_yield_rel_pct } else { 0 }
+    $srcTail = if ($pendToday -ne 0) { ' — по данным брокера + маржа закрытых сегодня' } else { ' — по данным брокера' }
+    $L.Add("За сутки: $(Fmt-Money $dpl '₽' 0 -Sign) ($(Fmt-Pct $dplPct))$srcTail")
   } else {
-    $dpl = $capNow - $baseCap
+    $dpl = $capNow - $baseCap + $pendToday
     $dplPct = if ($baseCap -gt 0) { 100.0 * $dpl / $baseCap } else { 0 }
     $L.Add("За сутки: $(Fmt-Money $dpl '₽' 0 -Sign) ($(Fmt-Pct $dplPct)$hoursTail)")
   }
@@ -2805,7 +2961,14 @@ try {
 
   # 6. MTM + governors
   Invoke-Mtm
-  Invoke-Governors
+  # Клиринговое окно: рубли за день уже списаны с currencies, а var_margin позиций брокер
+  # переякоривает на несколько минут позже - в этот зазор дневной убыток входит в
+  # bot_capital_rub (легаси-модель губернаторов) ДВАЖДЫ (боевой факт 08.09 00:00 MSK:
+  # capital_legacy 1 554 364 против реального счёта 1 614 486, фантомный провал -60 121).
+  # Заявок в клиринг всё равно нельзя (Can-PostOrders), а флэттен по hard-dd в это окно
+  # физически не исполнился бы - пропускаем тик целиком, это минимальное вмешательство.
+  if (Test-Clearing) { Write-LiveLog 'governors: клиринговое окно - пропуск тика' }
+  else { Invoke-Governors }
 
   # 6b. брокерский леджер (реальные комиссии + сведённая вариационка) - ПОСЛЕ всей торговой
   # логики и только в вечернем окне.
