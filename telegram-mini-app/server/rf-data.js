@@ -32,6 +32,10 @@ function presentationSummary(snapshot) {
     allTimeAmt: round(s.allTimeAmt),
     allTimeNote: s.allTimeNote ?? '',
     allTimeSource: s.allTimeSource ?? '',
+    // Несведённая маржа закрытых сегодня позиций - уже учтена ВНУТРИ todayAmt/allTimeAmt выше
+    // (bake_rf_candles.ps1), здесь только для отображения самой суммы отдельной строкой.
+    pendingSettleRub: round(s.pendingSettleRub),
+    pendingSettleTodayRub: round(s.pendingSettleTodayRub),
     // Числа брокера, которые снапшот отдаёт дословно. capital с 2026-09 — это весь счёт
     // (total_amount_portfolio); accountTotal держим отдельно, чтобы расхождение между
     // «капитал бота» и «весь счёт» было видно, а не молча схлопывалось в одно число.
@@ -258,8 +262,15 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
   const accountTotal = num(portfolio.capital_breakdown?.portfolio_total) ?? num(portfolio.go?.account_liquid_rub);
   const ledger = portfolio.broker_ledger ?? null;
   const curVm = num(portfolio.capital_breakdown?.futures) ?? 0;
+  // Несведённая маржа закрытых позиций (Add-PendingSettle в live_rf_engine.ps1, зеркало
+  // tools/bake_rf_candles.ps1) - без неё allTimeAmt занижен ровно на неё до ближайшего клиринга.
+  const pendingItems = portfolio.pending_settle?.items ?? [];
+  const pendAll = pendingItems.reduce((sum, it) => sum + (num(it?.rub) ?? 0), 0);
+  const pendToday = pendingItems
+    .filter((it) => it?.day === mskDay())
+    .reduce((sum, it) => sum + (num(it?.rub) ?? 0), 0);
   const allTimeAmt = ledger !== null && num(ledger.varmargin_rub) !== null
-    ? num(ledger.varmargin_rub) + curVm + (num(ledger.fees_rub) ?? 0)
+    ? num(ledger.varmargin_rub) + curVm + pendAll + (num(ledger.fees_rub) ?? 0)
     : null;
 
   return {
@@ -295,6 +306,8 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
         && (portfolio.capital_breakdown?.model ?? 'legacy') === 'legacy'),
       feesBrokerRub: ledger !== null ? round(Math.abs(num(ledger.fees_rub) ?? 0)) : null,
       openPnlBroker: round(positions.reduce((sum, x) => sum + (num(x.brokerPnl) ?? num(x.upnl) ?? 0), 0)),
+      pendingSettleRub: round(pendAll),
+      pendingSettleTodayRub: round(pendToday),
 
       openPositions: positions.length,
       tradesPnl: round(closedTrades.reduce((sum, t) => sum + (num(t.pnl) ?? 0), 0)),
