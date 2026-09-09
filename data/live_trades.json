@@ -1952,5 +1952,56 @@
                                       "atrCapLong":  true
                                   }
                    }
+    },
+    {
+        "id":  "T38",
+        "sym":  "BTC-USDT",
+        "side":  "long",
+        "result":  "loss",
+        "entryUtc":  "2026-09-09 08:00",
+        "entryDay":  "2026-09-09",
+        "entryTs":  1788940854175,
+        "entry":  79406.51481,
+        "qty":  0.0817,
+        "exitUtc":  "2026-09-09 15:22",
+        "exitDay":  "2026-09-09",
+        "exitTs":  1788967320000,
+        "exitPx":  78203.6786,
+        "exitReason":  "stop",
+        "legs":  [
+                     {
+                         "part":  "stop",
+                         "qty":  0.0817,
+                         "price":  78203.6786,
+                         "utc":  "2026-09-09 15:22",
+                         "pnl":  -98.27
+                     }
+                 ],
+        "pnlUsd":  -105.35,
+        "rMultiple":  -1.11,
+        "riskUsd":  95.06,
+        "fees":  7.08,
+        "funding":  0,
+        "mfePx":  79737.7,
+        "maePx":  78245,
+        "thesis":  {
+                       "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                       "regime":  "BTC 4h up; BTC-USDT 4h up; F\u0026G 66",
+                       "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-09-09 04:00 UTC",
+                       "indicators":  "RSI 51.8, ATR 0.88% (кэп 3%), фандинг 8.9E-05/8ч",
+                       "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                       "riskPlan":  "вход ~79406.51481, стоп 78242.8 (1.26%), TP1 81152.087025 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $95.06",
+                       "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                       "checks":  {
+                                      "setupA":  true,
+                                      "btcFilter":  true,
+                                      "flatMode":  true,
+                                      "atrCap":  true,
+                                      "funding":  true,
+                                      "fearGreed":  true,
+                                      "btcMom5d":  true,
+                                      "atrCapLong":  true
+                                  }
+                   }
     }
 ]
