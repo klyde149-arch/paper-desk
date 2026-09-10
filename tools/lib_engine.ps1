@@ -198,10 +198,19 @@ function Get-TickersAll([string[]]$Syms) {
 }
 
 # ---------- MOEX ISS (no key; ~15 min delayed; timestamps stored MSK-as-UTC like the whole project) ----------
+# Circuit breaker (инцидент 2026-09-10): раньше каждый вызов по отдельности мог стоить до 96с
+# ретраев (30с x3 + backoff), а часть вызывающих циклов по активам (напр. Invoke-HourlyPass)
+# ловит ошибку через try/catch{continue} НА КАЖДОЙ итерации - при недоступном ISS это умножалось
+# на число активов и валило весь тик systemd-таймаутом (TimeoutStartSec=110) ДО того, как штатный
+# try/catch в конце тика успевал залогировать ошибку и сохранить состояние (движок убивался
+# SIGTERM'ом посреди Start-Sleep). $script:IssDown размыкает цепь после первого подтверждённого
+# отказа в этом процессе - весь дальнейший тик получает мгновенный throw вместо повторных ретраев.
+$script:IssDown = $false
 function Invoke-Iss([string]$Url) {
-  for ($try = 1; $try -le 3; $try++) {
-    try { return Invoke-RestMethod -Uri $Url -TimeoutSec 30 }
-    catch { if ($try -eq 3) { throw }; Start-Sleep -Seconds (2 * $try) }
+  if ($script:IssDown) { throw 'MOEX ISS: недоступен (цепь разомкнута в этом тике)' }
+  for ($try = 1; $try -le 2; $try++) {
+    try { return Invoke-RestMethod -Uri $Url -TimeoutSec 10 }
+    catch { if ($try -eq 2) { $script:IssDown = $true; throw }; Start-Sleep -Seconds 2 }
   }
 }
 
