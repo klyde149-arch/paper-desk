@@ -2239,8 +2239,12 @@ function Invoke-HourlyPass {
   $fromDay = MsToUtcDay $fromTs
   foreach ($a in $need) {
     $secid = [string]$st.active.$a
+    # uid того же контракта - только для фолбэка на свечи T-Invest, когда ISS недоступен
+    # (инцидент 2026-09-10). Get-Inst кэширован на сутки, лишнего вызова к брокеру обычно нет.
+    $uid = ''
+    try { $uid = [string](Get-Inst $secid 'fut').uid } catch { $uid = '' }
     $bars = @()
-    try { $all = Get-IssCandles 'fut' $secid 60 $fromDay
+    try { $all = Get-IssCandles 'fut' $secid 60 $fromDay '' $uid
       $bars = @($all | Where-Object { [long]$_.t -ge $fromTs -and [long]$_.t -le $lastClosedH }) } catch { continue }
     foreach ($b in $bars) {
       foreach ($sn in 'core','setA') {

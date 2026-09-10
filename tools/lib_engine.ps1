@@ -224,7 +224,51 @@ function Get-IssCandleBase([string]$Kind, [string]$Secid) {
 }
 
 # candles: interval 24 (daily) / 60 (hourly); rows {t,o,h,l,c,v,end}; t = MSK-as-UTC ms
-function Get-IssCandles([string]$Kind, [string]$Secid, [int]$Interval, [string]$From, [string]$Till = '') {
+# TiUid - НЕОБЯЗАТЕЛЬНЫЙ фолбэк на свечи T-Invest, когда ISS недоступен (инцидент 2026-09-10:
+# биржа заблокировала подсеть VPS целиком - 85.118.181.x, и ISS, и www.moex.com). Сверка на
+# боевых данных 2026-09-10 (SBRF, дневной бар): OHLC совпали до рубля, расходится только объём
+# (~0.06%, в сигналах не участвует). Фолбэк срабатывает ТОЛЬКО там, где загружен lib_tinvest.ps1,
+# то есть в боевом контуре; бумага (auto_trade.ps1 в Actions) остаётся чисто на ISS и сохраняет
+# byte-parity, на которой провалидирован эдж.
+function Get-IssCandles([string]$Kind, [string]$Secid, [int]$Interval, [string]$From, [string]$Till = '', [string]$TiUid = '') {
+  try {
+    return Get-IssCandlesRaw $Kind $Secid $Interval $From $Till
+  } catch {
+    if (-not $TiUid -or -not (Get-Command Get-TiCandles -ErrorAction SilentlyContinue)) { throw }
+    Write-Warning "ISS недоступен ($($_.Exception.Message)) - свечи $Secid берём из T-Invest"
+    return Get-TiCandlesAsIss $TiUid $Interval $From $Till
+  }
+}
+
+# Свечи T-Invest в контракте Get-IssCandles. Get-TiCandles уже отдаёт MSK-как-UTC (+3ч), что верно
+# для внутридневных баров; у дневных T-Invest ставит метку на 00:00 UTC торгового дня, поэтому
+# после сдвига бар оказывается на 03:00 - опускаем на полночь, чтобы совпасть с конвенцией ISS.
+function Get-TiCandlesAsIss([string]$Uid, [int]$Interval, [string]$From, [string]$Till = '') {
+  $iv = switch ($Interval) { 24 { 'CANDLE_INTERVAL_DAY' } 60 { 'CANDLE_INTERVAL_HOUR' } default { throw "ti candles: неизвестный интервал $Interval" } }
+  $fromMs = (UtcStrToMs ("$From 00:00"))
+  $tillMs = if ($Till) { (UtcStrToMs ("$Till 00:00")) + 86400000L } else { [long]::MaxValue }
+  # запрос в истинном UTC (-3ч) и с запасом в сутки по краям: границы окна отфильтруем сами
+  $cur = MsToUtc ($fromMs - 3L * 3600000 - 86400000L)
+  $toU = if ($Till) { (MsToUtc ($tillMs - 3L * 3600000 + 86400000L)) } else { [datetime]::UtcNow }
+  $rows = New-Object System.Collections.Generic.List[object]
+  # T-Invest режет длинные окна: часовые тянем неделями, дневные - годами
+  $winDays = if ($Interval -eq 60) { 7 } else { 300 }
+  while ($cur -lt $toU) {
+    $chunkEnd = $cur.AddDays($winDays); if ($chunkEnd -gt $toU) { $chunkEnd = $toU }
+    foreach ($c in (Get-TiCandles $Uid $iv ($cur.ToString('yyyy-MM-ddTHH:mm:ssZ')) ($chunkEnd.ToString('yyyy-MM-ddTHH:mm:ssZ')))) {
+      $t = [long]$c.t
+      if ($Interval -eq 24) { $t = $t - ($t % 86400000L) }
+      if ($t -lt $fromMs -or $t -ge $tillMs) { continue }
+      $rows.Add([pscustomobject]@{ t = $t; o = [double]$c.o; h = [double]$c.h; l = [double]$c.l; c = [double]$c.c; v = [double]$c.v; end = '' })
+    }
+    $cur = $chunkEnd
+  }
+  $seen = @{}
+  $out = @($rows | Sort-Object t | Where-Object { if ($seen.ContainsKey($_.t)) { $false } else { $seen[$_.t] = $true; $true } })
+  return ,$out
+}
+
+function Get-IssCandlesRaw([string]$Kind, [string]$Secid, [int]$Interval, [string]$From, [string]$Till = '') {
   $base = Get-IssCandleBase $Kind $Secid
   $rows = New-Object System.Collections.Generic.List[object]
   $start = 0
