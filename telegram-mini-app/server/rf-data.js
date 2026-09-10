@@ -36,6 +36,8 @@ function presentationSummary(snapshot) {
     // (bake_rf_candles.ps1), здесь только для отображения самой суммы отдельной строкой.
     pendingSettleRub: round(s.pendingSettleRub),
     pendingSettleTodayRub: round(s.pendingSettleTodayRub),
+    // Разовые ручные коррекции - тоже уже учтены ВНУТРИ allTimeAmt (bake_rf_candles.ps1).
+    manualAdjustmentRub: round(s.manualAdjustmentRub),
     // Числа брокера, которые снапшот отдаёт дословно. capital с 2026-09 — это весь счёт
     // (total_amount_portfolio); accountTotal держим отдельно, чтобы расхождение между
     // «капитал бота» и «весь счёт» было видно, а не молча схлопывалось в одно число.
@@ -269,8 +271,11 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
   const pendToday = pendingItems
     .filter((it) => it?.day === mskDay())
     .reduce((sum, it) => sum + (num(it?.rub) ?? 0), 0);
+  // Разовые ручные коррекции (portfolio.manual_adjustments) - зеркало tools/bake_rf_candles.ps1.
+  // НЕ гасятся клирингом сами, в отличие от pending_settle - см. комментарий там.
+  const manualAdj = (portfolio.manual_adjustments ?? []).reduce((sum, m) => sum + (num(m?.rub) ?? 0), 0);
   const allTimeAmt = ledger !== null && num(ledger.varmargin_rub) !== null
-    ? num(ledger.varmargin_rub) + curVm + pendAll + (num(ledger.fees_rub) ?? 0)
+    ? num(ledger.varmargin_rub) + curVm + pendAll + manualAdj + (num(ledger.fees_rub) ?? 0)
     : null;
 
   return {
@@ -308,6 +313,7 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
       openPnlBroker: round(positions.reduce((sum, x) => sum + (num(x.brokerPnl) ?? num(x.upnl) ?? 0), 0)),
       pendingSettleRub: round(pendAll),
       pendingSettleTodayRub: round(pendToday),
+      manualAdjustmentRub: round(manualAdj),
 
       openPositions: positions.length,
       tradesPnl: round(closedTrades.reduce((sum, t) => sum + (num(t.pnl) ?? 0), 0)),

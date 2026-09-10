@@ -19,8 +19,8 @@ const positionKeys = ['asset', 'cur', 'entry', 'entryDay', 'entryTs', 'id', 'lot
 // Поля СВЕРХ ядра, специфичные для контура. Перечислены явно, чтобы новое поле нельзя было
 // добавить молча: набор ключей по-прежнему сверяется точно, просто своим для каждого контура.
 // У RF это числа, приходящие от брокера дословно (см. tools/live_rf_engine.ps1 Set-BotCapital).
-const rfSummaryExtra = ['accountTotal', 'allTimeSource', 'capitalModel', 'feesBrokerRub', 'openPnlBroker',
-  'peakStale', 'pendingSettleRub', 'pendingSettleTodayRub', 'userAssets'];
+const rfSummaryExtra = ['accountTotal', 'allTimeSource', 'capitalModel', 'feesBrokerRub', 'manualAdjustmentRub',
+  'openPnlBroker', 'peakStale', 'pendingSettleRub', 'pendingSettleTodayRub', 'userAssets'];
 const rfPositionExtra = ['brokerPnl', 'brokerVarMargin', 'goRub', 'pnlPctGo'];
 const tradeKeys = ['asset', 'entry', 'entryDay', 'exitDay', 'exitPx', 'exitReason', 'fees', 'id', 'pnl', 'rMultiple',
   'secid', 'side', 'title'];
@@ -156,6 +156,36 @@ test('RF fallback without pending_settle keeps the pre-existing allTimeAmt untou
   assert.equal(d.summary.allTimeAmt, 1150);
   assert.equal(d.summary.pendingSettleRub, 0);
   assert.equal(d.summary.pendingSettleTodayRub, 0);
+  assert.equal(d.summary.manualAdjustmentRub, 0);
+});
+
+test('RF fallback folds manual_adjustments into allTimeAmt (разовая ручная коррекция)', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-rf-manualadj-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const now = Date.now();
+  const dataDir = path.join(root, 'rf');
+  writeJson(path.join(dataDir, 'portfolio.json'), {
+    mode: 'prod', profile_eq: 800000, peak_eq: 820000, meta: { base_rub: 700000 },
+    day_start_eq: 100000, day_start_date: mskDay(now), watermarks: { last_eq_snap: now - 60000 },
+    go: { bot_capital_rub: 105000, capital_peak_rub: 110000, used_rub: 20000, budget_rub: 50000 },
+    entries_halt: { active: false, reason: '' },
+    broker_ledger: { varmargin_rub: 115226.12, fees_rub: -28692.96 },
+    capital_breakdown: { futures: -1316.08 },
+    // боевой случай 09.09.2026: NGU6/L00046 закрылась стопом в щели между версиями кода,
+    // ни один клиринг с тех пор её не подхватил - разовая ручная коррекция вместо висяка.
+    manual_adjustments: [
+      { id: 'manual-2026-09-09-NG-close', ts: now, day: '2026-09-09', card: 'L00046', secid: 'NGU6', rub: -80244.41 }
+    ],
+    sleeves: { core: { positions: [] }, setA: { positions: [] } }
+  });
+  writeJson(path.join(dataDir, 'equity.json'), [{ ts: now - 120000, bot_capital: 100000, account_liquid: 100000, total: 750000 }]);
+  writeJson(path.join(dataDir, 'trades.json'), []);
+  writeJson(path.join(root, 'names.json'), { fut: {} });
+
+  const d = readRfDashboard({ dataDir, namesPath: path.join(root, 'names.json'), currency: 'RUB' });
+  // 115226.12 + (-1316.08) + (-80244.41) + (-28692.96) = 4972.67
+  assert.equal(d.summary.allTimeAmt, 4972.67);
+  assert.equal(d.summary.manualAdjustmentRub, -80244.41);
 });
 
 test('RF presentation snapshot is preferred and keeps its stale source timestamp', (t) => {

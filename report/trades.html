@@ -1695,9 +1695,16 @@
     // ночным клирингом (Add-PendingSettle в live_rf_engine.ps1) - без пометки цифра выглядит
     // как обычный «Результат бота», хотя часть суммы ещё не дошла до денег на счёте.
     const pend=(RFR.pendingSettleRub!=null)?+RFR.pendingSettleRub:0;
+    // ручная коррекция (RFR.manualAdjustmentRub) - разовые записи для случаев, где обычный
+    // мост pending_settle не сработал (закрытие в щели между версиями кода, клиринг так и не
+    // подхватил операцию сам); в отличие от «висяка» не гасится автоматически.
+    const madj=(RFR.manualAdjustmentRub!=null)?+RFR.manualAdjustmentRub:0;
     if(te){ te.textContent=sgnRub(tot); te.className="v num "+(tot>=0?"pos":"neg");
+      const notes=[];
+      if(Math.abs(pend)>=1) notes.push("+несведённая маржа закрытых "+sgnRub(pend));
+      if(Math.abs(madj)>=1) notes.push("ручная коррекция "+sgnRub(madj));
       $("frTotS").textContent=(RFR.allTimeSource==="broker_ops")
-        ? "с запуска, по операциям брокера"+(Math.abs(pend)>=1?" (+несведённая маржа закрытых "+sgnRub(pend)+")":"")
+        ? "с запуска, по операциям брокера"+(notes.length?" ("+notes.join(" · ")+")":"")
         : "закрытые "+sgnRub(real)+" · открытые "+sgnRub(flt); }
     const cc=arr(RFR.capitalCurve), de=$("frDay"), deS=$("frDayS");
     // Приоритет — число самого бота (dayBase = закрытие предыдущего дня), та же цифра, что
