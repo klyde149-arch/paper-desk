@@ -92,15 +92,15 @@
   "watermarks": {
     "last_daily_day": "2026-09-10",
     "last_hour_ts": 1789081200000,
-    "ops_since": "2026-09-10T20:30:32Z",
-    "last_eq_snap": 1789075112796,
+    "ops_since": "2026-09-10T20:45:32Z",
+    "last_eq_snap": 1789076072824,
     "last_report_day": "2026-09-10",
     "orders_day": "2026-09-10",
     "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
     "auto_rebase_day": "2026-09-02",
-    "broker_ledger_day": "2026-09-10",
-    "evening_confirm_day": "2026-09-10"
+    "evening_confirm_day": "2026-09-10",
+    "broker_ledger_day": "2026-09-11"
   },
   "fronts": {
     "BR": {
@@ -262,16 +262,36 @@
       "L00052": 58522.56
     }
   },
+  "manual_adjustments": [
+    {
+      "id": "manual-2026-09-09-NG-close",
+      "ts": 1788986640000,
+      "day": "2026-09-09",
+      "card": "L00046",
+      "secid": "NGU6",
+      "reason": "L00046 NGU6 long 48 lots, стоп сработал 09.09 20:44 UTC (23:44 MSK) с pnlRub=-80244.41 (trades.json). Закрытие пришлось на щель между старым и новым кодом отчётности: деплой pending_settle встал в git только между 20:46 и 20:53 UTC, штамп var_margin для этой позиции никогда не создавался. Проверено: клиринг 00:00 MSK 09-10 (21:00-21:35 UTC) отработал (broker_ledger.until_ms сдвинулся, watermarks.broker_ledger_day='2026-09-10'), но broker_ledger.varmargin_rub при этом ВЫРОС на +4432.92, а не упал - вариационка по газу ни разу не была подхвачена автоматически. Спустя 11+ часов и один полный клиринг расхождение не самоисправилось. Разовая ручная коррекция вместо сломанного pending_settle - см. tools/bake_rf_candles.ps1 (State.manual_adjustments).",
+      "rub": -80244.41
+    }
+  ],
+  "readiness": {
+    "day": "2026-09-10",
+    "checked_n": 12,
+    "total_n": 12,
+    "failed": [],
+    "go_worst_rub": 1961347.92,
+    "go_cap_rub": 1180555.23,
+    "fits": false
+  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
-    "first_ms": 1788811232869,
-    "until_ms": 1788989732868,
-    "varmargin_rub": 115226.12,
-    "fees_rub": -28692.96,
+    "first_ms": 1788816932868,
+    "until_ms": 1789076132732,
+    "varmargin_rub": 109777.05,
+    "fees_rub": -30355.58,
     "fees_other_rub": -4854.23,
     "fees_by_type": {
       "OPERATION_TYPE_SERVICE_FEE": -780.0,
-      "OPERATION_TYPE_BROKER_FEE": -32767.19
+      "OPERATION_TYPE_BROKER_FEE": -34429.81
     },
     "op_ids": [
       "16293230",
@@ -388,69 +408,20 @@
       "423593538757",
       "10569113",
       "16839238410",
-      "16839185126"
+      "16839185126",
+      "13540523",
+      "16854256809",
+      "16847969835",
+      "16847954431",
+      "16847948845"
     ],
-    "updated_ms": 1788989732868,
-    "last_varmargin_op_ms": 1788987615000
+    "updated_ms": 1789076132732,
+    "last_varmargin_op_ms": 1789074033000
   },
-  "manual_adjustments": [
-    {
-      "id": "manual-2026-09-09-NG-close",
-      "ts": 1788986640000,
-      "day": "2026-09-09",
-      "card": "L00046",
-      "secid": "NGU6",
-      "reason": "L00046 NGU6 long 48 lots, стоп сработал 09.09 20:44 UTC (23:44 MSK) с pnlRub=-80244.41 (trades.json). Закрытие пришлось на щель между старым и новым кодом отчётности: деплой pending_settle встал в git только между 20:46 и 20:53 UTC, штамп var_margin для этой позиции никогда не создавался. Проверено: клиринг 00:00 MSK 09-10 (21:00-21:35 UTC) отработал (broker_ledger.until_ms сдвинулся, watermarks.broker_ledger_day='2026-09-10'), но broker_ledger.varmargin_rub при этом ВЫРОС на +4432.92, а не упал - вариационка по газу ни разу не была подхвачена автоматически. Спустя 11+ часов и один полный клиринг расхождение не самоисправилось. Разовая ручная коррекция вместо сломанного pending_settle - см. tools/bake_rf_candles.ps1 (State.manual_adjustments).",
-      "rub": -80244.41
-    }
-  ],
   "pending_settle": {
-    "rub": 18327.31,
-    "updated_ms": 1789043732822,
-    "items": [
-      {
-        "ts": 1789043672816,
-        "day": "2026-09-10",
-        "card": "L00048",
-        "uid": "b23c0f58-94fe-4e95-b95e-535a6618eba3",
-        "secid": "GDU6",
-        "lots": 2,
-        "rub": -8864.44,
-        "why": "manual-ext",
-        "src": "broker_vm"
-      },
-      {
-        "ts": 1789043732822,
-        "day": "2026-09-10",
-        "card": "L00051",
-        "uid": "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a",
-        "secid": "BRV6",
-        "lots": 15,
-        "rub": 53964.53,
-        "why": "manual-ext",
-        "src": "broker_vm"
-      },
-      {
-        "ts": 1789043732822,
-        "day": "2026-09-10",
-        "card": "L00049",
-        "uid": "4efee70d-e626-495b-af30-b6ccd9b566e3",
-        "secid": "SVU6",
-        "lots": 12,
-        "rub": -26772.78,
-        "why": "manual-ext",
-        "src": "broker_vm"
-      }
-    ]
-  },
-  "readiness": {
-    "day": "2026-09-10",
-    "checked_n": 12,
-    "total_n": 12,
-    "failed": [],
-    "go_worst_rub": 1961347.92,
-    "go_cap_rub": 1180555.23,
-    "fits": false
+    "rub": 0.0,
+    "updated_ms": 1789076132732,
+    "items": []
   },
   "consec_fail": 0,
   "fail_since_ms": 0,
@@ -459,7 +430,7 @@
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 58522.52
   },
   "broker": {
-    "captured_ms": 1789075832910,
+    "captured_ms": 1789076732823,
     "totals": {
       "portfolio": 1597503.09,
       "currencies": 1597503.09,
@@ -539,7 +510,7 @@
       "avg_px": 108.76,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1789075832910
+      "ts": 1789076732823
     }
   },
   "capital_breakdown": {
