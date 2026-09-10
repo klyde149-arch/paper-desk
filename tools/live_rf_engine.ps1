@@ -20,6 +20,9 @@ if (-not $Root) { $Root = Split-Path $PSScriptRoot -Parent }
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')
 . (Join-Path $PSScriptRoot 'lib_rf_signals.ps1')
 . (Join-Path $PSScriptRoot 'lib_tinvest.ps1')
+# резервный источник рыночных данных на случай недоступности MOEX ISS (инцидент 2026-09-10);
+# нужен только боевому контуру - бумага в Actions остаётся чисто на ISS
+. (Join-Path $PSScriptRoot 'lib_alor.ps1')
 . (Join-Path $PSScriptRoot 'lib_msg_ru.ps1')
 $namesRu = Get-RuNames $Root
 $alertsLib = Join-Path $PSScriptRoot 'lib_alerts.ps1'
@@ -1753,8 +1756,18 @@ function Apply-MomBuy($It, [double]$Px) {
 
 # ================= дневной хук (сигналы = paper, исполнение своё) =================
 function Invoke-LiveDaily {
-  # фронты (тот же код ISS, что paper)
-  $fronts = Get-FutFronts $ASSETS
+  # фронты (тот же код ISS, что paper). Префиксы тикеров - только для фолбэка на T-Invest,
+  # когда ISS недоступен (инцидент 2026-09-10): активный контракт GDU6 даёт префикс 'GD',
+  # по нему в списке T-Invest находится вся серия. Активы без active пропускаются - фронт для
+  # них всё равно неоткуда взять, поведение то же, что и раньше.
+  $tiPrefixes = @{}
+  if ($null -ne $st.active) {
+    foreach ($a in $ASSETS) {
+      $tk = [string]$st.active.$a
+      if ($tk.Length -gt 2) { $tiPrefixes[$a] = $tk.Substring(0, $tk.Length - 2) }
+    }
+  }
+  $fronts = Get-FutFronts $ASSETS $tiPrefixes
   $frontsRec = [ordered]@{}
   foreach ($a in $ASSETS) {
     if (-not $fronts.ContainsKey($a) -or -not @($fronts[$a]).Count) { throw "LIVE-RF: нет фронта для $a" }
@@ -1776,10 +1789,19 @@ function Invoke-LiveDaily {
   $st.fronts = [pscustomobject]$frontsRec
 
   # докатка серий (общий код) + сверка SHA с paper-сериями (кросс-контроль идентичности сигналов)
-  foreach ($a in $ASSETS) { Update-DailySeries $a 'fut' ([string]$st.active.$a) $completedDay }
+  # Резервные источники на случай недоступности ISS (инцидент 2026-09-10): фьючерсы и акции -
+  # T-Invest по uid; индекс - Alor по тикеру, потому что свечей по индексам T-Invest не отдаёт
+  # (подменять IMOEX на IMOEX2 нельзя: серия сверяется по SHA с бумажной).
+  foreach ($a in $ASSETS) {
+    $u = ''; try { $u = [string](Get-Inst ([string]$st.active.$a) 'fut').uid } catch { $u = '' }
+    Update-DailySeries $a 'fut' ([string]$st.active.$a) $completedDay $u
+  }
   foreach ($t in @($TICKERS) + @('IMOEX')) {
     $kind = if ($t -eq 'IMOEX') { 'index' } else { 'stock' }
-    Update-DailySeries $t $kind $t $completedDay
+    $u = ''; $alor = ''
+    if ($kind -eq 'stock') { try { $u = [string](Get-Inst $t 'share').uid } catch { $u = '' } }
+    else { $alor = $t }
+    Update-DailySeries $t $kind $t $completedDay $u $alor
   }
 
   # хуки по всем торговым дням (wm, completedDay]
@@ -1902,8 +1924,12 @@ function Invoke-LiveDayHook([string]$D) {
     elseif ($st.fronts.$a.next -and ((([datetime]$lt) - ([datetime]$D)).TotalDays -le 4)) { $needRoll = $true; $toSec = [string]$st.fronts.$a.next }
     if ($needRoll) {
       # рескейл серии тем же кодом, что paper (иначе разойдутся сигналы!)
-      $kOld = Get-IssCandles 'fut' $curActive 24 $D $D
-      $kNew = Get-IssCandles 'fut' $toSec 24 $D $D
+      # uid'ы - только для фолбэка на свечи T-Invest при недоступном ISS (инцидент 2026-09-10);
+      # без ролла позиция досидела бы до экспирации, поэтому этот путь нельзя оставлять без резерва
+      $uidOld = ''; try { $uidOld = [string](Get-Inst $curActive 'fut').uid } catch { $uidOld = '' }
+      $uidNew = ''; try { $uidNew = [string](Get-Inst $toSec 'fut').uid } catch { $uidNew = '' }
+      $kOld = Get-IssCandles 'fut' $curActive 24 $D $D $uidOld
+      $kNew = Get-IssCandles 'fut' $toSec 24 $D $D $uidNew
       if (@($kOld).Count -and @($kNew).Count) {
         $ratio = [double]$kNew[-1].c / [double]$kOld[-1].c
         Invoke-SeriesRollRescale $a $ratio
@@ -2237,6 +2263,7 @@ function Invoke-HourlyPass {
   }
   if (-not $need.Count) { $st.watermarks.last_hour_ts = $lastClosedH; return }
   $fromDay = MsToUtcDay $fromTs
+  $script:hourFetchFail = $false
   foreach ($a in $need) {
     $secid = [string]$st.active.$a
     # uid того же контракта - только для фолбэка на свечи T-Invest, когда ISS недоступен
@@ -2245,7 +2272,13 @@ function Invoke-HourlyPass {
     try { $uid = [string](Get-Inst $secid 'fut').uid } catch { $uid = '' }
     $bars = @()
     try { $all = Get-IssCandles 'fut' $secid 60 $fromDay '' $uid
-      $bars = @($all | Where-Object { [long]$_.t -ge $fromTs -and [long]$_.t -le $lastClosedH }) } catch { continue }
+      $bars = @($all | Where-Object { [long]$_.t -ge $fromTs -and [long]$_.t -le $lastClosedH }) }
+    catch {
+      # Час, по которому свечи не пришли, НЕ считается проверенным - см. блок вотермарки ниже.
+      $script:hourFetchFail = $true
+      Write-LiveLog "hourly ${a}: свечи недоступны ($($_.Exception.Message))"
+      continue
+    }
     foreach ($b in $bars) {
       foreach ($sn in 'core','setA') {
         foreach ($c in @($st.sleeves.$sn.positions | Where-Object { $_.asset -eq $a })) {
@@ -2290,7 +2323,33 @@ function Invoke-HourlyPass {
       }
     }
   }
-  $st.watermarks.last_hour_ts = $lastClosedH
+  # Вотермарка = "все часы до этого момента ПРОВЕРЕНЫ по барам". Двигать её, когда свечи не
+  # скачались, нельзя: час помечался бы проверенным, хотя в него никто не заглядывал, и бот к
+  # нему уже не вернётся - пропущенный внутричасовой пик занижает MFE (а значит и трейл), а
+  # касание TP1 у lots==1 не переносит стоп в безубыток. Так и было во время блокировки MOEX
+  # 2026-09-10: каждый проход списывал часы вхолостую.
+  # Но и стоять вечно нельзя - иначе окно догрузки растёт с каждым тиком и упирается в
+  # TimeoutStartSec=110. Поэтому: не скачалось - ждём следующего тика; отстали больше суток
+  # HOURLY_MAX_LAG_H - двигаем принудительно, но ГРОМКО (лог + телеграм), чтобы потеря данных
+  # никогда не была молчаливой (урок инцидента 2026-08-13 с тихо замёрзшими сериями).
+  if (-not $script:hourFetchFail) {
+    $st.watermarks.last_hour_ts = $lastClosedH
+    return
+  }
+  $maxLagH = 72
+  $floorTs = [long]$lastClosedH - ([long]$maxLagH * $H1)
+  if ([long]$st.watermarks.last_hour_ts -ge $floorTs) {
+    Write-LiveLog 'hourly: свечи недоступны - вотермарка не сдвинута, повтор на следующем тике'
+    return
+  }
+  $skipped = [int](([long]$floorTs - [long]$st.watermarks.last_hour_ts) / $H1)
+  $st.watermarks.last_hour_ts = $floorTs
+  Write-LiveLog "hourly: свечи недоступны дольше $maxLagH ч - вотермарка сдвинута принудительно, часов пропущено: $skipped"
+  Ensure-Prop $st.watermarks 'hour_force_alert_ts' 0
+  if (($NowMs - [long]$st.watermarks.hour_force_alert_ts) -ge (12 * 3600000L)) {
+    $st.watermarks.hour_force_alert_ts = $NowMs
+    Alert ("Фьючерсы: часовые свечи недоступны дольше {0} ч - {1} ч не проверены по барам (MFE/трейл и безубыток по ним не считались). Открытые позиции и стоп-заявки у брокера не затронуты." -f $maxLagH, $skipped)
+  }
 }
 
 # ================= TP1-подтверждение (fill брокерского take-profit) =================

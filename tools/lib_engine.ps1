@@ -230,13 +230,23 @@ function Get-IssCandleBase([string]$Kind, [string]$Secid) {
 # (~0.06%, в сигналах не участвует). Фолбэк срабатывает ТОЛЬКО там, где загружен lib_tinvest.ps1,
 # то есть в боевом контуре; бумага (auto_trade.ps1 в Actions) остаётся чисто на ISS и сохраняет
 # byte-parity, на которой провалидирован эдж.
-function Get-IssCandles([string]$Kind, [string]$Secid, [int]$Interval, [string]$From, [string]$Till = '', [string]$TiUid = '') {
+function Get-IssCandles([string]$Kind, [string]$Secid, [int]$Interval, [string]$From, [string]$Till = '', [string]$TiUid = '', [string]$AlorSymbol = '') {
   try {
     return Get-IssCandlesRaw $Kind $Secid $Interval $From $Till
   } catch {
-    if (-not $TiUid -or -not (Get-Command Get-TiCandles -ErrorAction SilentlyContinue)) { throw }
-    Write-Warning "ISS недоступен ($($_.Exception.Message)) - свечи $Secid берём из T-Invest"
-    return Get-TiCandlesAsIss $TiUid $Interval $From $Till
+    $err = $_
+    if ($TiUid -and (Get-Command Get-TiCandles -ErrorAction SilentlyContinue)) {
+      Write-Warning "ISS недоступен ($($err.Exception.Message)) - свечи $Secid берём из T-Invest"
+      return Get-TiCandlesAsIss $TiUid $Interval $From $Till
+    }
+    # Alor - резерв для того, чего нет у T-Invest: индексы (IMOEX) свечами он не отдаёт вовсе
+    if ($AlorSymbol -and (Get-Command Get-AlorCandles -ErrorAction SilentlyContinue)) {
+      Write-Warning "ISS недоступен ($($err.Exception.Message)) - свечи $Secid берём из Alor"
+      $fromMs = (UtcStrToMs ("$From 00:00"))
+      $toMs = if ($Till) { (UtcStrToMs ("$Till 00:00")) + 86400000L } else { (UtcNowMs) }
+      return Get-AlorCandles $AlorSymbol $Interval $fromMs $toMs
+    }
+    throw
   }
 }
 
@@ -292,7 +302,45 @@ function Get-IssCandlesRaw([string]$Kind, [string]$Secid, [int]$Interval, [strin
 
 # FORTS front contracts by ASSETCODE: one securities.json call -> asset -> ordered contract list
 # (front = [0], next = [1]); lasttrade 'yyyy-MM-dd'
-function Get-FutFronts([string[]]$Assets) {
+# TiPrefixes - НЕОБЯЗАТЕЛЬНЫЙ фолбэк на T-Invest (asset -> префикс тикера, напр. GOLD -> 'GD'),
+# см. Get-IssCandles о том же инциденте 2026-09-10. Сверка на боевых данных: сроки контрактов
+# совпали с ISS точно (GDU6 18.09 / GDZ6 18.12, SVU6 18.09 / SVZ6 18.12, BRV6 01.10 / BRX6 02.11).
+function Get-FutFronts([string[]]$Assets, [hashtable]$TiPrefixes = $null) {
+  try {
+    return Get-FutFrontsIss $Assets
+  } catch {
+    if (-not $TiPrefixes -or -not (Get-Command Get-TiFuturesList -ErrorAction SilentlyContinue)) { throw }
+    Write-Warning "ISS недоступен ($($_.Exception.Message)) - фронты берём из T-Invest"
+    return Get-FutFrontsTi $Assets $TiPrefixes
+  }
+}
+
+# Тот же контракт, что у Get-FutFrontsIss, но из списка T-Invest. Сопоставляем по ПРЕФИКСУ тикера
+# (GDU6 -> 'GD'), а не по basicAsset: там человекочитаемое имя ("Золото в долларах"), кода актива
+# MOEX в ответе нет. Требование "префикс + ровно 2 символа" отсекает недельные и прочие серии.
+function Get-FutFrontsTi([string[]]$Assets, [hashtable]$Prefixes) {
+  $all = Get-TiFuturesList
+  $mskToday = (Get-Date).ToUniversalTime().AddHours(3).ToString('yyyy-MM-dd')
+  $out = @{}
+  foreach ($a in $Assets) {
+    $p = [string]$Prefixes[$a]
+    if (-not $p) { continue }
+    $rows = New-Object System.Collections.Generic.List[object]
+    foreach ($f in $all) {
+      $tk = [string]$f.ticker
+      if ($tk.Length -ne ($p.Length + 2) -or -not $tk.StartsWith($p, [StringComparison]::Ordinal)) { continue }
+      $raw = Get-TiField $f 'last_trade_date'
+      if (-not $raw) { continue }
+      $ltd = if ($raw -is [datetime]) { $raw.ToString('yyyy-MM-dd') } else { ([datetime]::Parse([string]$raw, [Globalization.CultureInfo]::InvariantCulture)).ToString('yyyy-MM-dd') }
+      if ($ltd -lt $mskToday) { continue }
+      $rows.Add([pscustomobject]@{ secid = $tk; lasttrade = $ltd })
+    }
+    if ($rows.Count) { $out[$a] = @($rows | Sort-Object lasttrade) }
+  }
+  return $out
+}
+
+function Get-FutFrontsIss([string[]]$Assets) {
   $r = Invoke-Iss 'https://iss.moex.com/iss/engines/futures/markets/forts/securities.json?iss.only=securities&securities.columns=SECID,ASSETCODE,LASTTRADEDATE'
   $mskToday = (Get-Date).ToUniversalTime().AddHours(3).ToString('yyyy-MM-dd')
   $map = @{}

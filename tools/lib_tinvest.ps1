@@ -271,6 +271,15 @@ function Get-TiInstrument([string]$Ticker, [string]$Kind) {
     return $r.instrument
   }
 }
+# Полный список фьючерсов FORTS одним вызовом - аналог securities.json у ISS. Нужен фолбэку
+# Get-FutFronts, когда биржа недоступна (инцидент 2026-09-10). Поля camelCase: ticker,
+# basicAsset (человекочитаемое имя, НЕ код актива MOEX - сопоставлять по нему нельзя),
+# lastTradeDate, expirationDate, uid.
+function Get-TiFuturesList {
+  $r = Invoke-TInvest 'InstrumentsService' 'Futures' @{ instrumentStatus = 'INSTRUMENT_STATUS_BASE' }
+  return @($r.instruments)
+}
+
 function Get-TiInstrumentByUid([string]$Uid) {
   # generic-инструмент по uid (валюты/металлы/что угодно) - для funding-продаж
   $r = Invoke-TInvest 'InstrumentsService' 'GetInstrumentBy' @{ idType = 'INSTRUMENT_ID_TYPE_UID'; id = $Uid }

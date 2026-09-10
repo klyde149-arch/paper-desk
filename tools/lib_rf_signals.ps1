@@ -45,13 +45,15 @@ function Save-Ser([string]$Name) {
 function SerDay($bar) { MsToUtcDay ([long]$bar.t) }
 
 # докатать дневную серию до последнего завершённого дня: срез частичных хвостов + append закрытых баров ISS
-function Update-DailySeries([string]$Name, [string]$Kind, [string]$Secid, [string]$CompletedDay) {
+# TiUid - необязательный фолбэк на свечи T-Invest при недоступном ISS (инцидент 2026-09-10).
+# Бумага его не передаёт и остаётся чисто на ISS: byte-parity сигналов не трогаем.
+function Update-DailySeries([string]$Name, [string]$Kind, [string]$Secid, [string]$CompletedDay, [string]$TiUid = '', [string]$AlorSymbol = '') {
   $s = Get-Ser $Name
   # выбросить хвостовые ЧАСТИЧНЫЕ бары (день ещё не завершён на момент прежнего фетча)
   while ($s.Count -gt 0 -and (SerDay $s[$s.Count - 1]) -gt $CompletedDay) { $s.RemoveAt($s.Count - 1) }
   $lastDay = SerDay $s[$s.Count - 1]
   if ($lastDay -ge $CompletedDay) { return }
-  $k = Get-IssCandles $Kind $Secid 24 ((MsToUtc ((UtcStrToMs "$lastDay 00:00") + $DAY)).ToString('yyyy-MM-dd'))
+  $k = Get-IssCandles $Kind $Secid 24 ((MsToUtc ((UtcStrToMs "$lastDay 00:00") + $DAY)).ToString('yyyy-MM-dd')) '' $TiUid $AlorSymbol
   foreach ($b in $k) {
     $d = SerDay $b
     if ($d -le $lastDay -or $d -gt $CompletedDay) { continue }
