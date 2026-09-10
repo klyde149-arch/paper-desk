@@ -268,14 +268,44 @@ function Get-TiCandlesAsIss([string]$Uid, [int]$Interval, [string]$From, [string
     foreach ($c in (Get-TiCandles $Uid $iv ($cur.ToString('yyyy-MM-ddTHH:mm:ssZ')) ($chunkEnd.ToString('yyyy-MM-ddTHH:mm:ssZ')))) {
       $t = [long]$c.t
       if ($Interval -eq 24) { $t = $t - ($t % 86400000L) }
-      if ($t -lt $fromMs -or $t -ge $tillMs) { continue }
       $rows.Add([pscustomobject]@{ t = $t; o = [double]$c.o; h = [double]$c.h; l = [double]$c.l; c = [double]$c.c; v = [double]$c.v; end = '' })
     }
     $cur = $chunkEnd
   }
   $seen = @{}
-  $out = @($rows | Sort-Object t | Where-Object { if ($seen.ContainsKey($_.t)) { $false } else { $seen[$_.t] = $true; $true } })
+  $sorted = @($rows | Sort-Object t | Where-Object { if ($seen.ContainsKey($_.t)) { $false } else { $seen[$_.t] = $true; $true } })
+  # без @() вокруг вызова: функция возвращает массив через запятую-обёртку, и @() завернул бы его ещё раз
+  if ($Interval -eq 24) { $sorted = Merge-WeekendIntoWeekday $sorted }
+  $out = @($sorted | Where-Object { [long]$_.t -ge $fromMs -and [long]$_.t -lt $tillMs })
   return ,$out
+}
+
+# Выходные сессии FORTS в дневных барах. Проверено на самом ISS (BRV6, 05-07.09.2026): дневных
+# баров за сб/вс у него НЕТ, а понедельничный бар вбирает выходную сессию в себя - у BR открытие
+# 95.98 и минимум 95.8 против 97.13/96.04 у «чистого» понедельника от T-Invest. Часовые бары -
+# наоборот: там ISS отдаёт сб и вс отдельно (по 10 баров), поэтому склейка только для дневных.
+# Просто выбросить выходные нельзя: потеряются экстремумы, по которым считаются ATR и каналы.
+# Хвостовые выходные без последующего буднего дня отбрасываем - приклеивать их не к чему, а
+# самостоятельным баром они бы разошлись с бумагой.
+function Merge-WeekendIntoWeekday($Bars) {
+  $out = New-Object System.Collections.Generic.List[object]
+  $pend = New-Object System.Collections.Generic.List[object]
+  foreach ($b in $Bars) {
+    $dow = (MsToUtc ([long]$b.t)).DayOfWeek
+    if ($dow -eq [DayOfWeek]::Saturday -or $dow -eq [DayOfWeek]::Sunday) { $pend.Add($b); continue }
+    if ($pend.Count) {
+      $hi = [double]$b.h; $lo = [double]$b.l; $vol = [double]$b.v
+      foreach ($w in $pend) {
+        if ([double]$w.h -gt $hi) { $hi = [double]$w.h }
+        if ([double]$w.l -lt $lo) { $lo = [double]$w.l }
+        $vol += [double]$w.v
+      }
+      $b = [pscustomobject]@{ t = [long]$b.t; o = [double]$pend[0].o; h = $hi; l = $lo; c = [double]$b.c; v = $vol; end = '' }
+      $pend.Clear()
+    }
+    $out.Add($b)
+  }
+  return ,$out.ToArray()
 }
 
 function Get-IssCandlesRaw([string]$Kind, [string]$Secid, [int]$Interval, [string]$From, [string]$Till = '') {
