@@ -54,11 +54,11 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 100.89,
-          "upnl_rub": -9598.5
+          "cur_px": 101.99,
+          "upnl_rub": 4669.54
         }
       ],
-      "equity_mtm": 1602247.8
+      "equity_mtm": 1616515.84
     },
     "setA": {
       "eq_rub": 1669484.1549517303,
@@ -103,8 +103,8 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 4426.3,
-          "upnl_rub": -8002.31
+          "cur_px": 4403.5,
+          "upnl_rub": -11964.37
         },
         {
           "id": "L00049",
@@ -143,11 +143,11 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 67.58,
-          "upnl_rub": 8966.76
+          "cur_px": 66.55,
+          "upnl_rub": -1772.5
         }
       ],
-      "equity_mtm": 1670448.6
+      "equity_mtm": 1655747.29
     },
     "mom": {
       "eq_rub": 350000.0,
@@ -164,7 +164,7 @@
       }
     }
   },
-  "profile_eq": 785817.5,
+  "profile_eq": 785804.18,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
   "day_start_eq": 1625155.44,
@@ -172,9 +172,9 @@
   "peak_eq": 837288.71,
   "watermarks": {
     "last_daily_day": "2026-09-09",
-    "last_hour_ts": 1789027200000,
-    "ops_since": "2026-09-10T06:15:32Z",
-    "last_eq_snap": 1789023752870,
+    "last_hour_ts": 1789041600000,
+    "ops_since": "2026-09-10T09:30:32Z",
+    "last_eq_snap": 1789035932884,
     "last_report_day": "2026-09-09",
     "orders_day": "2026-09-09",
     "orders_day_n": 1,
@@ -305,12 +305,12 @@
   },
   "go": {
     "used_rub": 475093.92,
-    "budget_rub": 1569212.9,
+    "budget_rub": 1562077.0,
     "peak_day_rub": 475093.92,
     "capital_peak_rub": 1771706.14,
-    "account_liquid_rub": 1619464.78,
-    "bot_capital_account_rub": 1619464.78,
-    "bot_capital_rub": 1618148.7
+    "account_liquid_rub": 1613704.78,
+    "bot_capital_account_rub": 1613704.78,
+    "bot_capital_rub": 1613456.89
   },
   "drift": {
     "D2": 0,
@@ -485,27 +485,38 @@
     "updated_ms": 1788989732868,
     "last_varmargin_op_ms": 1788987615000
   },
+  "manual_adjustments": [
+    {
+      "id": "manual-2026-09-09-NG-close",
+      "ts": 1788986640000,
+      "day": "2026-09-09",
+      "card": "L00046",
+      "secid": "NGU6",
+      "reason": "L00046 NGU6 long 48 lots, стоп сработал 09.09 20:44 UTC (23:44 MSK) с pnlRub=-80244.41 (trades.json). Закрытие пришлось на щель между старым и новым кодом отчётности: деплой pending_settle встал в git только между 20:46 и 20:53 UTC, штамп var_margin для этой позиции никогда не создавался. Проверено: клиринг 00:00 MSK 09-10 (21:00-21:35 UTC) отработал (broker_ledger.until_ms сдвинулся, watermarks.broker_ledger_day='2026-09-10'), но broker_ledger.varmargin_rub при этом ВЫРОС на +4432.92, а не упал - вариационка по газу ни разу не была подхвачена автоматически. Спустя 11+ часов и один полный клиринг расхождение не самоисправилось. Разовая ручная коррекция вместо сломанного pending_settle - см. tools/bake_rf_candles.ps1 (State.manual_adjustments).",
+      "rub": -80244.41
+    }
+  ],
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {
-    "4efee70d-e626-495b-af30-b6ccd9b566e3": 8781.36,
-    "b23c0f58-94fe-4e95-b95e-535a6618eba3": -8143.57,
-    "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 27321.43
+    "4efee70d-e626-495b-af30-b6ccd9b566e3": -1166.16,
+    "b23c0f58-94fe-4e95-b95e-535a6618eba3": -11613.21,
+    "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 41806.78
   },
   "broker": {
-    "captured_ms": 1789024532857,
+    "captured_ms": 1789036232919,
     "totals": {
-      "portfolio": 1619464.78,
-      "currencies": 1619464.78,
+      "portfolio": 1613704.78,
+      "currencies": 1613704.78,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 2742580.16
+      "futures_nominal": 2742751.08
     },
-    "expected_yield_pct": -2.48,
-    "daily_yield_rub": -956.08,
-    "daily_yield_rel_pct": -0.05,
+    "expected_yield_pct": -2.77,
+    "daily_yield_rub": -5647.89,
+    "daily_yield_rel_pct": -0.34,
     "positions": [
       {
         "uid": "4efee70d-e626-495b-af30-b6ccd9b566e3",
@@ -515,10 +526,10 @@
         "lots": 12.0,
         "qty": 12.0,
         "avg_px": 66.72,
-        "cur_px": 67.56,
-        "expected_yield": 8781.36,
-        "var_margin": 1333.2,
-        "var_margin_settled": 1333.2
+        "cur_px": 66.56,
+        "expected_yield": -1166.16,
+        "var_margin": -8614.32,
+        "var_margin_settled": -8614.32
       },
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -541,10 +552,10 @@
         "lots": 2.0,
         "qty": 2.0,
         "avg_px": 4472.4,
-        "cur_px": 4426.5,
-        "expected_yield": -8143.57,
-        "var_margin": 2478.32,
-        "var_margin_settled": 2478.32
+        "cur_px": 4403.5,
+        "expected_yield": -11613.21,
+        "var_margin": -991.32,
+        "var_margin_settled": -991.32
       },
       {
         "uid": "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a",
@@ -554,10 +565,10 @@
         "lots": 15.0,
         "qty": 15.0,
         "avg_px": 101.63,
-        "cur_px": 100.88,
-        "expected_yield": 27321.43,
-        "var_margin": -5127.6,
-        "var_margin_settled": -5127.6
+        "cur_px": 102.0,
+        "expected_yield": 41806.78,
+        "var_margin": 9357.75,
+        "var_margin_settled": 9357.75
       },
       {
         "uid": "d6240afe-4e9c-49b6-8835-629f431c8506",
@@ -567,8 +578,8 @@
         "lots": 18.0,
         "qty": 1800.0,
         "avg_px": 217.38,
-        "cur_px": 178.9,
-        "expected_yield": -69263.0,
+        "cur_px": 175.7,
+        "expected_yield": -75023.0,
         "var_margin": 0.0,
         "var_margin_settled": 0.0
       }
@@ -576,57 +587,46 @@
   },
   "broker_vm_last": {
     "4efee70d-e626-495b-af30-b6ccd9b566e3": {
-      "vm": 1333.2,
-      "ey": 8781.36,
-      "cur_px": 67.56,
+      "vm": -8614.32,
+      "ey": -1166.16,
+      "cur_px": 66.56,
       "avg_px": 66.72,
       "lots": 12.0,
       "secid": "SVU6",
-      "ts": 1789024532857
+      "ts": 1789036232919
     },
     "b23c0f58-94fe-4e95-b95e-535a6618eba3": {
-      "vm": 2478.32,
-      "ey": -8143.57,
-      "cur_px": 4426.5,
+      "vm": -991.32,
+      "ey": -11613.21,
+      "cur_px": 4403.5,
       "avg_px": 4472.4,
       "lots": 2.0,
       "secid": "GDU6",
-      "ts": 1789024532857
+      "ts": 1789036232919
     },
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": {
-      "vm": -5127.6,
-      "ey": 27321.43,
-      "cur_px": 100.88,
+      "vm": 9357.75,
+      "ey": 41806.78,
+      "cur_px": 102.0,
       "avg_px": 101.63,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1789024532857
+      "ts": 1789036232919
     }
   },
   "capital_breakdown": {
-    "currencies": 1619464.78,
-    "futures": -1316.08,
+    "currencies": 1613704.78,
+    "futures": -247.89,
     "mom_shares": 0.0,
     "user_assets": 0.0,
-    "portfolio_total": 1619464.78,
-    "capital_account": 1619464.78,
-    "capital_legacy": 1618148.7,
+    "portfolio_total": 1613704.78,
+    "capital_account": 1613704.78,
+    "capital_legacy": 1613456.89,
     "model": "legacy"
   },
   "broker_pnl_by_card": {
-    "L00049": 8781.36,
-    "L00048": -8143.57,
-    "L00051": 27321.43
-  },
-  "manual_adjustments": [
-    {
-      "id": "manual-2026-09-09-NG-close",
-      "ts": 1788986640000,
-      "day": "2026-09-09",
-      "card": "L00046",
-      "secid": "NGU6",
-      "reason": "L00046 NGU6 long 48 lots, стоп сработал 09.09 20:44 UTC (23:44 MSK) с pnlRub=-80244.41 (trades.json). Закрытие пришлось на щель между старым и новым кодом отчётности: деплой pending_settle встал в git только между 20:46 и 20:53 UTC, штамп var_margin для этой позиции никогда не создавался. Проверено: клиринг 00:00 MSK 09-10 (21:00-21:35 UTC) отработал (broker_ledger.until_ms сдвинулся, watermarks.broker_ledger_day='2026-09-10'), но broker_ledger.varmargin_rub при этом ВЫРОС на +4432.92, а не упал - вариационка по газу ни разу не была подхвачена автоматически. Спустя 11+ часов и один полный клиринг расхождение не самоисправилось. Разовая ручная коррекция вместо сломанного pending_settle - см. tools/bake_rf_candles.ps1 (State.manual_adjustments).",
-      "rub": -80244.41
-    }
-  ]
+    "L00051": 41806.78,
+    "L00048": -11613.21,
+    "L00049": -1166.16
+  }
 }
