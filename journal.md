@@ -1164,3 +1164,7 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-09-11 06:00 MSK — РФ АВТО [C2/setA]: закрыта R2 CNY LONG — +286.77 (trail-ema20)
 
 ## 2026-09-11 06:00 MSK — РФ АВТО [C3b/setA]: закрыта R4 CNY LONG — +573.55 (trail-ema20)
+
+## 2026-09-11 13:00 MSK — РФ АВТО [C2/setA]: закрыта R17 RTS SHORT — +73.54 (be-stop)
+
+## 2026-09-11 13:00 MSK — РФ АВТО [C3b/setA]: закрыта R18 RTS SHORT — +146.35 (be-stop)
