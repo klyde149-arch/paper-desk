@@ -1168,3 +1168,7 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-09-11 13:00 MSK — РФ АВТО [C2/setA]: закрыта R17 RTS SHORT — +73.54 (be-stop)
 
 ## 2026-09-11 13:00 MSK — РФ АВТО [C3b/setA]: закрыта R18 RTS SHORT — +146.35 (be-stop)
+
+## 2026-09-11 15:00 MSK — РФ АВТО [C2/setA]: закрыта R23 GOLD LONG — -101.17 (stop)
+
+## 2026-09-11 15:00 MSK — РФ АВТО [C3b/setA]: закрыта R24 GOLD LONG — -201.06 (stop)
