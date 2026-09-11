@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9294.06,
-    "equity_usd":  9316.71,
+    "balance_usd":  9291.68,
+    "equity_usd":  9316.01,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9248.06,
     "day_start_date_utc":  "2026-09-11",
@@ -59,6 +59,49 @@
                                                              "atrCapLong":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T40",
+                               "symbol":  "BNB-USDT",
+                               "side":  "short",
+                               "qty":  5.9733,
+                               "qty_initial":  5.9733,
+                               "entry_price":  725.662236,
+                               "stop":  741.26,
+                               "stop0":  741.26,
+                               "tp1":  702.26559,
+                               "entry_utc":  "2026-09-11 20:01",
+                               "entry_ts":  1789156871856,
+                               "risk_usd":  93.17,
+                               "notional_usd":  4334.6,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  2.38402902886434,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  725.662236,
+                               "mae_px":  725.662236,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h down; BNB-USDT 4h down; F\u0026G 56",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-09-11 16:00 UTC",
+                                              "indicators":  "RSI 47.8, ATR 1.56% (кэп 3%), фандинг 5E-05/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~725.662236, стоп 741.26 (2.28%), TP1 702.26559 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $93.17",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -69,17 +112,17 @@
                   "total_funding_usd":  29.31,
                   "realized_pnl_usd":  -702.81
               },
-    "last_check_utc":  "2026-09-11 19:58",
+    "last_check_utc":  "2026-09-11 20:01",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1789156620000,
-                 "last_4h_ts":  1789128000000,
+                 "last_1m_ts":  1789156800000,
+                 "last_4h_ts":  1789142400000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
-                 "next_trade_id":  40,
-                 "ticks_since_viz":  3,
+                 "next_trade_id":  41,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-09-10",
-                 "last_tick_utc":  "2026-09-11 19:58"
+                 "last_tick_utc":  "2026-09-11 20:01"
              }
 }
