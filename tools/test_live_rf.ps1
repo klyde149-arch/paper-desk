@@ -28,6 +28,13 @@ function Test-Converters {
   # культурный формат и API 400 (инцидент 2026-07-20); строки проходят как есть
   Check 'TiIso: [datetime] -> ISO Z' ((ConvertTo-TiIso ([datetime]::SpecifyKind([datetime]'2026-07-20 02:59:33', 'Utc'))) -eq '2026-07-20T02:59:33Z')
   Check 'TiIso: строка как есть' ((ConvertTo-TiIso '2026-07-20T02:59:33Z') -eq '2026-07-20T02:59:33Z')
+  # ConvertTo-TiMs: ISO-строка (PS 5.1) и [datetime] из ConvertFrom-Json pwsh 7 - одно и то же время
+  # при любой культуре (до фикса на ru-RU под pwsh 7 операции брокера молча пропускались)
+  $msIso = ConvertTo-TiMs '2026-07-15T07:05:30Z'
+  Check 'TiMs: ISO Z -> UTC мс' ($msIso -eq ([DateTimeOffset]::new(2026, 7, 15, 7, 5, 30, [TimeSpan]::Zero)).ToUnixTimeMilliseconds())
+  Check 'TiMs: [datetime] Utc = та же мс' ((ConvertTo-TiMs ([datetime]::SpecifyKind([datetime]'2026-07-15 07:05:30', 'Utc'))) -eq $msIso)
+  Check 'TiMs: [datetime] без пояса трактуется как UTC' ((ConvertTo-TiMs ([datetime]::SpecifyKind([datetime]'2026-07-15 07:05:30', 'Unspecified'))) -eq $msIso)
+  Check 'TiMs: JSON-дата в этом PowerShell = та же мс' ((ConvertTo-TiMs ('{"d":"2026-07-15T07:05:30Z"}' | ConvertFrom-Json).d) -eq $msIso)
   foreach ($v in @([decimal]85.55, [decimal]-1.25, [decimal]0.001, [decimal]215650, [decimal]-0.5, [decimal]12.336)) {
     $q = D2Q $v; $back = Q2D ([pscustomobject]$q)
     Check "D2Q roundtrip $v" ($back -eq $v)

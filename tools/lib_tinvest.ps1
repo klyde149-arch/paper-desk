@@ -362,6 +362,21 @@ function ConvertTo-TiIso($V) {
   if ($V -is [datetime]) { return $V.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') }
   return [string]$V
 }
+# Время из ответа брокера -> UTC-мс. Та же гочка, что выше, в обратную сторону: pwsh 7 превращает
+# ISO-строку ('...Z') в [datetime], [string] от него даёт инвариантное '07/15/2026 07:05:30', а
+# [DateTimeOffset]::Parse с ТЕКУЩЕЙ культурой его либо не понимает (ru-RU: исключение -> операция
+# молча пропускалась), либо трактует как местное время. Разбираем тип явно, строку - только
+# в InvariantCulture как UTC. На VPS (LC_ALL=C.UTF-8, пояс UTC) старый разбор работал случайно.
+function ConvertTo-TiMs($V) {
+  if ($null -eq $V) { throw 'ConvertTo-TiMs: пустое время' }
+  if ($V -is [DateTimeOffset]) { return $V.ToUnixTimeMilliseconds() }
+  if ($V -is [datetime]) {
+    $u = if ($V.Kind -eq [DateTimeKind]::Unspecified) { [datetime]::SpecifyKind($V, [DateTimeKind]::Utc) } else { $V.ToUniversalTime() }
+    return ([DateTimeOffset]$u).ToUnixTimeMilliseconds()
+  }
+  $sty = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+  return [DateTimeOffset]::Parse([string]$V, [Globalization.CultureInfo]::InvariantCulture, $sty).ToUnixTimeMilliseconds()
+}
 function Get-TiOperations([string]$AccId, $FromIso, $ToIso) {
   $r = Invoke-TInvest 'OperationsService' 'GetOperations' @{ accountId = $AccId
     from = (ConvertTo-TiIso $FromIso); to = (ConvertTo-TiIso $ToIso); state = 'OPERATION_STATE_EXECUTED' }

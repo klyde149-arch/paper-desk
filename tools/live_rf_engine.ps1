@@ -1301,7 +1301,7 @@ function Invoke-BrokerLedger {
     # это единственный сигнал «клиринг уже опубликован», см. Get-MskBoundaryMs ниже.
     if ($t -like '*VARMARGIN*') {
       try {
-        $od = [DateTimeOffset]::Parse([string](Get-TiField $o 'date')).ToUnixTimeMilliseconds()
+        $od = ConvertTo-TiMs (Get-TiField $o 'date')
         if ($od -gt $lastVmOpMs) { $lastVmOpMs = $od }
       } catch {}
     }
@@ -1654,7 +1654,7 @@ function Find-FillOperation([string]$Uid, [string]$Dir, [int]$Lots, [long]$Since
     if ($ouid -ne $Uid -or $opDir -ne $want) { continue }
     if ($SinceMs -gt 0) {
       try {
-        $od = [DateTimeOffset]::Parse([string](Get-TiField $op 'date')).ToUnixTimeMilliseconds()
+        $od = ConvertTo-TiMs (Get-TiField $op 'date')
         if ($od -lt ($SinceMs - 60000)) { continue }
       } catch { continue }
     }
