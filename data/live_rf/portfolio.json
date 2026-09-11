@@ -54,11 +54,11 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 104.81,
-          "upnl_rub": -50694.52
+          "cur_px": 104.53,
+          "upnl_rub": -54283.82
         }
       ],
-      "equity_mtm": 1612863.2
+      "equity_mtm": 1609273.9
     },
     "setA": {
       "eq_rub": 1627533.4421334104,
@@ -83,7 +83,7 @@
       }
     }
   },
-  "profile_eq": 770479.3,
+  "profile_eq": 768709.88,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
   "day_start_eq": 1624073.64,
@@ -92,9 +92,9 @@
   "watermarks": {
     "last_daily_day": "2026-09-10",
     "last_hour_ts": 1789164000000,
-    "ops_since": "2026-09-11T19:45:32Z",
-    "last_eq_snap": 1789159352984,
-    "last_report_day": "2026-09-10",
+    "ops_since": "2026-09-11T20:00:33Z",
+    "last_eq_snap": 1789160312826,
+    "last_report_day": "2026-09-11",
     "orders_day": "2026-09-10",
     "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
@@ -224,12 +224,12 @@
   },
   "go": {
     "used_rub": 269173.65,
-    "budget_rub": 1521377.74,
+    "budget_rub": 1518976.39,
     "peak_day_rub": 269173.65,
     "capital_peak_rub": 1771706.14,
-    "account_liquid_rub": 1597413.09,
-    "bot_capital_account_rub": 1597413.09,
-    "bot_capital_rub": 1571124.99
+    "account_liquid_rub": 1574663.79,
+    "bot_capital_account_rub": 1574663.79,
+    "bot_capital_rub": 1546227.09
   },
   "drift": {
     "D2": 0,
@@ -254,12 +254,12 @@
     "signal_mismatch": 0
   },
   "report_base": {
-    "day": "2026-09-10",
-    "ts": 1789073732902,
-    "profile_eq": 796325.39,
-    "bot_capital_rub": 1602952.16,
+    "day": "2026-09-11",
+    "ts": 1789160132812,
+    "profile_eq": 768709.88,
+    "bot_capital_rub": 1597413.09,
     "positions": {
-      "L00052": 58522.56
+      "L00052": 3515.27
     }
   },
   "manual_adjustments": [
@@ -427,29 +427,29 @@
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {
-    "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 5663.87
+    "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 3515.27
   },
   "broker": {
-    "captured_ms": 1789159532762,
+    "captured_ms": 1789160433207,
     "totals": {
-      "portfolio": 1597413.09,
-      "currencies": 1597413.09,
+      "portfolio": 1574663.79,
+      "currencies": 1574663.79,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 1326121.1
+      "futures_nominal": 1322325.32
     },
-    "expected_yield_pct": -4.68,
-    "daily_yield_rub": -26378.1,
-    "daily_yield_rel_pct": -1.62,
+    "expected_yield_pct": -4.87,
+    "daily_yield_rub": -28526.7,
+    "daily_yield_rel_pct": -1.77,
     "positions": [
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
         "type": "currency",
         "ticker": "RUB000UTSTOM",
         "figi": "RUB000UTSTOM",
-        "lots": 1290333.09,
-        "qty": 1290333.09,
+        "lots": 1267583.79,
+        "qty": 1267583.79,
         "avg_px": 1.0,
         "cur_px": 1.0,
         "expected_yield": 0.0,
@@ -464,9 +464,9 @@
         "lots": 15.0,
         "qty": 15.0,
         "avg_px": 108.76,
-        "cur_px": 104.81,
-        "expected_yield": 5663.87,
-        "var_margin": -26288.1,
+        "cur_px": 104.51,
+        "expected_yield": 3515.27,
+        "var_margin": -28436.7,
         "var_margin_settled": -22749.3
       },
       {
@@ -504,26 +504,26 @@
       "ts": 1789043612775
     },
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": {
-      "vm": -26288.1,
-      "ey": 5663.87,
-      "cur_px": 104.81,
+      "vm": -28436.7,
+      "ey": 3515.27,
+      "cur_px": 104.51,
       "avg_px": 108.76,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1789159532762
+      "ts": 1789160433207
     }
   },
   "capital_breakdown": {
-    "currencies": 1597413.09,
-    "futures": -26288.1,
+    "currencies": 1574663.79,
+    "futures": -28436.7,
     "mom_shares": 0.0,
     "user_assets": 0.0,
-    "portfolio_total": 1597413.09,
-    "capital_account": 1597413.09,
-    "capital_legacy": 1571124.99,
+    "portfolio_total": 1574663.79,
+    "capital_account": 1574663.79,
+    "capital_legacy": 1546227.09,
     "model": "legacy"
   },
   "broker_pnl_by_card": {
-    "L00052": 5663.87
+    "L00052": 3515.27
   }
 }
