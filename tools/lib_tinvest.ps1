@@ -378,13 +378,22 @@ function New-TiOrderKey([string]$IntentId, [string]$Leg) {
   return (New-Object Guid (,$bytes)).ToString()
 }
 
+# Направление заявки - ТОЛЬКО buy|sell. Всё прочее - ошибка вызывающего кода, а не «продажа по
+# умолчанию»: до 2026-09-11 любое значение, отличное от 'buy', уходило брокеру как SELL, и потерянный
+# интент stop_replace (side = long|short) при повторе превращался в рыночную продажу всего объёма.
+function Assert-TiDirection([string]$Dir) {
+  if ($Dir -ne 'buy' -and $Dir -ne 'sell') { throw "TINVEST_BAD_DIRECTION: '$Dir' (ожидалось buy|sell)" }
+}
+
 function Post-TiMarketOrder([string]$AccId, [string]$Uid, [string]$Dir, [int]$Lots, [string]$OrderKey) {
+  Assert-TiDirection $Dir
   $body = @{ accountId = $AccId; instrumentId = $Uid; quantity = ([long]$Lots).ToString()
     direction = $(if ($Dir -eq 'buy') { 'ORDER_DIRECTION_BUY' } else { 'ORDER_DIRECTION_SELL' })
     orderType = 'ORDER_TYPE_MARKET'; orderId = $OrderKey }
   return Invoke-TInvest 'OrdersService' 'PostOrder' $body -Mutating
 }
 function Post-TiLimitOrder([string]$AccId, [string]$Uid, [string]$Dir, [int]$Lots, [decimal]$Px, [string]$OrderKey) {
+  Assert-TiDirection $Dir
   $body = @{ accountId = $AccId; instrumentId = $Uid; quantity = ([long]$Lots).ToString()
     direction = $(if ($Dir -eq 'buy') { 'ORDER_DIRECTION_BUY' } else { 'ORDER_DIRECTION_SELL' })
     orderType = 'ORDER_TYPE_LIMIT'; price = (D2Q $Px); orderId = $OrderKey }
@@ -406,6 +415,7 @@ function Cancel-TiOrder([string]$AccId, [string]$OrderId) {
 # Type: 'stop_loss' (stop-market) | 'take_profit'. VERIFY: лимиты кол-ва, постановка вне сессии.
 function Post-TiStopOrder([string]$AccId, [string]$Uid, [string]$Dir, [int]$Lots,
                           [decimal]$StopPx, [string]$Type = 'stop_loss', [string]$ExpIso = '') {
+  Assert-TiDirection $Dir
   $stopType = if ($Type -eq 'take_profit') { 'STOP_ORDER_TYPE_TAKE_PROFIT' } else { 'STOP_ORDER_TYPE_STOP_LOSS' }
   $body = @{ accountId = $AccId; instrumentId = $Uid; quantity = ([long]$Lots).ToString()
     direction = $(if ($Dir -eq 'buy') { 'STOP_ORDER_DIRECTION_BUY' } else { 'STOP_ORDER_DIRECTION_SELL' })

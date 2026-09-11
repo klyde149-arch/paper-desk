@@ -146,18 +146,27 @@ function New-Scenario([string]$Name) {
 function Set-Queue([string]$Root, $Entries) {
   Write-Json (Join-Path $Root 'mock\scenario.json') ([pscustomobject]@{ queue = @($Entries) })
 }
+# Дочерний тик: Windows PowerShell 5.1 по умолчанию; LRF_TEST_SHELL = pwsh (или полный путь к pwsh.exe)
+# гоняет ту же матрицу в PowerShell 7 - как на VPS (pwsh 7.6). Разница версий уже стоила инцидентов
+# (ConvertFrom-Json и [datetime], @($genericList)), поэтому 7-ка обязана проходить сценарии тоже.
 function Run-Tick([string]$Root, [string]$MskTime, [string]$Mode = 'prod', [switch]$DirectSleeveAccess) {
   $nowMs = MskToNowMs $MskTime
   $oldDirectSleeveAccess = $env:LIVE_RF_DIRECT_SLEEVE_ACCESS
+  # боевые креды Telegram из окружения разработчика не должны доехать до дочернего тика:
+  # иначе Alert() сценария уходит настоящим сообщением владельцу и клиенту
+  $oldTg = @($env:TG_BOT_TOKEN, $env:TG_CHAT_ID, $env:TG_CHAT_ID_FUT)
+  $shell = if ($env:LRF_TEST_SHELL) { [string]$env:LRF_TEST_SHELL } else { 'powershell' }
   try {
+    $env:TG_BOT_TOKEN = $null; $env:TG_CHAT_ID = $null; $env:TG_CHAT_ID_FUT = $null
     $env:TINVEST_MODE = $Mode; $env:TINVEST_MOCK_DIR = Join-Path $Root 'mock'
     $env:TINVEST_ACCOUNT_ID = 'acc1'; $env:TINVEST_TOKEN = 'test-token'
     $env:LIVE_RF_DIRECT_SLEEVE_ACCESS = if ($DirectSleeveAccess) { '1' } else { $null }
-    $out = & powershell -NoProfile -ExecutionPolicy Bypass -Command ". '$ENGINE' -Root '$Root' -NowMs $nowMs" 2>&1
+    $out = & $shell -NoProfile -ExecutionPolicy Bypass -Command ". '$ENGINE' -Root '$Root' -NowMs $nowMs" 2>&1
     return ($out | Out-String)
   } finally {
     $env:TINVEST_MOCK_DIR = $null
     $env:LIVE_RF_DIRECT_SLEEVE_ACCESS = $oldDirectSleeveAccess
+    $env:TG_BOT_TOKEN = $oldTg[0]; $env:TG_CHAT_ID = $oldTg[1]; $env:TG_CHAT_ID_FUT = $oldTg[2]
   }
 }
 function Get-State([string]$Root) { Read-JsonFile (Join-Path $Root 'data\live_rf\portfolio.json') }
@@ -663,6 +672,13 @@ function Scn-D5 {
   $st = Get-State $r
   Check 'D5: лоты усечены 19->17' ([int]@($st.sleeves.core.positions)[0].lots -eq 17)
   Check 'D5: счётчик' ([int]$st.drift.D5 -eq 1)
+  # стоп на 19 лотов при позиции 17 перевернул бы 2 лота при срабатывании -> перевыставлен на 17
+  $c = @($st.sleeves.core.positions)[0]
+  $posts = Get-Calls $r 'PostStopOrder'
+  Check 'D5: старый стоп снят' (@(Get-Calls $r 'CancelStopOrder' | Where-Object { $_.body -like '*stop-live-1*' }).Count -eq 1)
+  Check 'D5: стоп перевыставлен ровно один раз на 17 лот' ($posts.Count -eq 1 -and $posts[0].body -match '"quantity":"17"')
+  Check 'D5: stop_lots = lots = 17, уровень прежний' ([int]$c.stop_lots -eq 17 -and [math]::Abs([double]$c.stop_px_pts - 2.676) -lt 1e-9)
+  Check 'D5: без ложного D6 (новая заявка этого тика считается живой)' ([int]$st.drift.D6 -eq 0)
 }
 
 # --- 13. D6: стоп-заявка исчезла -> немедленный перевзвод
@@ -836,6 +852,10 @@ function Scn-Tp1Sync {
   Check 'tp1: tp1_done' ([bool]$c.tp1_done)
   Check 'tp1: стоп в безубыток (=entry)' ([math]::Abs([double]$c.stop_px_pts - 2.9) -lt 1e-9)
   Check 'tp1: профит в леджере' ([double]$st.sleeves.setA.eq_rub -gt 700000)
+  # перестановка стопа в Invoke-Tp1Sync идёт ДО сверки: снимок стоп-заявок её не видит, и раньше
+  # Ensure-CardStop ставил ВТОРУЮ стоп-заявку на остаток (D6) - две заявки = переворот
+  Check 'tp1: стоп в БУ выставлен ровно один раз' ((Get-Calls $r 'PostStopOrder').Count -eq 1)
+  Check 'tp1: ложного D6 нет' ([int]$st.drift.D6 -eq 0)
 }
 
 # --- 23. roll-flow: сигнал ролла -> закрытие старого + открытие нового + стоп
@@ -1836,6 +1856,222 @@ function Scn-GovernorsSkippedInClearing {
   Check 'governors-clearing: причина пропуска в логе' ([string]$log -match 'governors: клиринговое окно')
 }
 
+# ================= гигиена стоп-заявок (2026-09-11) =================
+# снимок портфеля: фьючерсная строка + рублёвая (у реального счёта рубли есть всегда; снимок без строк
+# движок считает битым и откладывает сверку). Lots=0 - позиции по фьючерсу нет.
+function Write-BrokerFut([string]$Root, [string]$Uid, [int]$Lots) {
+  $rows = @([pscustomobject]@{ instrumentUid='uid-RUB'; instrumentType='currency'; quantityLots=[pscustomobject]@{units='700000';nano=0} })
+  if ($Lots -ne 0) { $rows += [pscustomobject]@{ instrumentUid=$Uid; instrumentType='futures'; quantityLots=[pscustomobject]@{units=[string]$Lots;nano=0} } }
+  Write-Json (Join-Path $Root 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = $rows })
+}
+function New-StopOrder([string]$Id, [string]$Uid, [string]$Ticker, [string]$Dir = 'SELL', [int]$Lots = 19,
+                       [string]$Type = 'STOP_ORDER_TYPE_STOP_LOSS', [double]$Px = 2.676) {
+  $u = [math]::Truncate([decimal]$Px); $n = [int](([decimal]$Px - $u) * 1000000000)
+  [pscustomobject]@{ stopOrderId = $Id; instrumentUid = $Uid; ticker = $Ticker; direction = "STOP_ORDER_DIRECTION_$Dir"
+    lotsRequested = [string]$Lots; orderType = $Type; status = 'STOP_ORDER_STATUS_ACTIVE'
+    stopPrice = [pscustomobject]@{ currency = 'rub'; units = [string]$u; nano = $n } }
+}
+function Write-BrokerStops([string]$Root, $Orders) {
+  Write-Json (Join-Path $Root 'mock\StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @($Orders) })
+}
+
+# --- отмена старого стопа при перестановке ПОТЕРЯЛАСЬ -> ни одной рыночной заявки, уровень ждёт.
+# До фикса: интент stop_replace (side=long) оставался LOST, полинг «повторял» его через
+# Post-IntentMarket, транспорт слал 'long' как SELL -> рыночная продажа всего объёма.
+function Scn-StopReplaceCancelLost {
+  $r = New-Scenario 'stop-replace-cancel-lost'
+  $s = New-BaseState $r
+  $card = New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12
+  $card.stop_deferred = 2.75   # отложенный трейл: пакетный проход применит его в 10:00 (>= 09:45)
+  $s.sleeves.core.positions = @($card)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerFut $r 'uid-NGQ6' 19
+  Write-BrokerStops $r @(New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6')
+  Set-Queue $r @([pscustomobject]@{ service='StopOrdersService'; method='CancelStopOrder'; error='network' })
+  [void](Run-Tick $r '2026-07-15 10:00')
+  $st = Get-State $r
+  $c = @($st.sleeves.core.positions)[0]
+  Check 'sr-lost: stop_replace не остался висеть в интентах' (@($st.pending_intents | Where-Object { $_.kind -eq 'stop_replace' }).Count -eq 0)
+  Check 'sr-lost: желаемый уровень ждёт в stop_deferred' ($null -ne $c.stop_deferred -and [math]::Abs([double]$c.stop_deferred - 2.75) -lt 1e-9)
+  [void](Run-Tick $r '2026-07-15 10:01')   # отмена проходит (фикстура) -> стоп переставлен
+  $st = Get-State $r
+  $c = @($st.sleeves.core.positions)[0]
+  Check 'sr-lost: за 2 тика ни одной рыночной заявки' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  Check 'sr-lost: стоп переставлен на 2.75 новой заявкой' ([math]::Abs([double]$c.stop_px_pts - 2.75) -lt 1e-9 -and [string]$c.stop_order_id -eq 'stop-new-1')
+}
+
+# --- отмена старого стопа отбита 4xx, потому что стоп УЖЕ исполнился -> D4 закрывает карточку по стопу,
+# рыночной заявки нет (операция стопа была ДО попытки отмены - усыновить её «повтор» не мог бы)
+function Scn-StopReplaceCancel4xx {
+  $r = New-Scenario 'stop-replace-cancel-4xx'
+  $s = New-BaseState $r
+  $card = New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12
+  $card.stop_deferred = 2.75
+  $s.sleeves.core.positions = @($card)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerFut $r 'uid-NGQ6' 19
+  Write-BrokerStops $r @(New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6')
+  Set-Queue $r @([pscustomobject]@{ service='StopOrdersService'; method='CancelStopOrder'; http=400; message='stop order not found' })
+  [void](Run-Tick $r '2026-07-15 10:00')
+  # к следующему тику у брокера: позиции нет, стоп-заявки нет, есть операция продажи по стопу (09:58 MSK)
+  Write-BrokerFut $r 'uid-NGQ6' 0
+  Write-BrokerStops $r @()
+  Write-Json (Join-Path $r 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @(
+    [pscustomobject]@{ id='op-stop'; date='2026-07-15T06:58:00Z'; instrumentUid='uid-NGQ6'; operationType='OPERATION_TYPE_SELL'; quantity='19'
+      price=[pscustomobject]@{units='2';nano=676000000} } ) })
+  [void](Run-Tick $r '2026-07-15 10:01')
+  $st = Get-State $r
+  $tr = Get-Trades $r
+  Check 'sr-4xx: ни одной рыночной заявки' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  Check 'sr-4xx: карточка закрыта сверкой как стоп' (@($st.sleeves.core.positions).Count -eq 0 -and $tr.Count -eq 1 -and [string]$tr[0].exitReason -eq 'stop')
+  Check 'sr-4xx: интентов не осталось' (@($st.pending_intents).Count -eq 0)
+}
+
+# --- в состоянии остался stop_replace (краш посреди перестановки / LOST от старого кода) -> снят без
+# повтора рыночной заявкой, уровень применён пакетным проходом
+function Scn-StopReplaceStaleIntent {
+  $r = New-Scenario 'stop-replace-stale'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  $s.pending_intents = @([pscustomobject]@{
+    id = 'i00005'; kind = 'stop_replace'; sleeve = 'core'; asset = 'NG'; ticker = 'NGQ6'; uid = 'uid-NGQ6'
+    side = 'long'; lots = 19; filled_lots = 0; avg_fill_px = $null
+    order_key = (New-TiOrderKey 'x|i00005' 'stopreplace'); broker_order_id = ''
+    state = 'LOST'; attempts = 0; t_signal = [long]0; t_post = [long]0; t_ack = [long]0; t_fill = [long]0
+    created_day = '2026-07-15'; state_ts = (MskToNowMs '2026-07-15 09:50'); last_error = 'cancel lost'
+    ctx = [pscustomobject]@{ card_id = 'LtestNGcore'; new_stop = 2.75 } })
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerFut $r 'uid-NGQ6' 19
+  Write-BrokerStops $r @(New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6')
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $c = @($st.sleeves.core.positions)[0]
+  Check 'sr-stale: рыночной заявки нет' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  Check 'sr-stale: stop_replace снят' (@($st.pending_intents | Where-Object { $_.kind -eq 'stop_replace' }).Count -eq 0)
+  Check 'sr-stale: желаемый уровень применён' ([math]::Abs([double]$c.stop_px_pts - 2.75) -lt 1e-9)
+}
+
+# --- D5 у setA с живой TP1: TP1 на половину ИСХОДНОГО объёма (6) больше остатка (5) -> TP1 на floor(5/2)=2
+function Scn-D5Tp1Resync {
+  $r = New-Scenario 'd5-tp1-resync'
+  $s = New-BaseState $r
+  $card = New-Card 'setA' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 12 2.9 2.676 7749.12 3.236
+  $card.tp1_order_id = 'tp-live-1'
+  $s.sleeves.setA.positions = @($card)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerFut $r 'uid-NGQ6' 5
+  Write-BrokerStops $r @((New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6' 'SELL' 12),
+    (New-StopOrder 'tp-live-1' 'uid-NGQ6' 'NGQ6' 'SELL' 6 'STOP_ORDER_TYPE_TAKE_PROFIT' 3.236))
+  Set-Queue $r @([pscustomobject]@{ service='StopOrdersService'; method='PostStopOrder'; body_like='TAKE_PROFIT'
+    response=[pscustomobject]@{ stopOrderId='tp-new-1' } })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $c = @($st.sleeves.setA.positions)[0]
+  $tpPosts = @(Get-Calls $r 'PostStopOrder' | Where-Object { $_.body -like '*TAKE_PROFIT*' })
+  $slPosts = @(Get-Calls $r 'PostStopOrder' | Where-Object { $_.body -like '*STOP_LOSS*' })
+  Check 'd5-tp1: лоты 12->5' ([int]$c.lots -eq 5)
+  Check 'd5-tp1: стоп перевыставлен на 5 лот' ($slPosts.Count -eq 1 -and $slPosts[0].body -match '"quantity":"5"')
+  Check 'd5-tp1: TP1 перевыставлена на 2 лота' ($tpPosts.Count -eq 1 -and $tpPosts[0].body -match '"quantity":"2"')
+  Check 'd5-tp1: карточка знает новую TP1 и её объём' ([string]$c.tp1_order_id -eq 'tp-new-1' -and [int]$c.tp1_lots -eq 2)
+  Check 'd5-tp1: сняты старые стоп и TP1' ((Get-Calls $r 'CancelStopOrder').Count -eq 2)
+}
+
+# --- D5 у setA: остаток 1 лот -> TP1 снимается целиком, безубыток по касанию берёт часовой проход
+function Scn-D5Tp1Drop {
+  $r = New-Scenario 'd5-tp1-drop'
+  $s = New-BaseState $r
+  $card = New-Card 'setA' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 4 2.9 2.676 7749.12 3.236
+  $card.tp1_order_id = 'tp-live-1'
+  $s.sleeves.setA.positions = @($card)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerFut $r 'uid-NGQ6' 1
+  Write-BrokerStops $r @((New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6' 'SELL' 4),
+    (New-StopOrder 'tp-live-1' 'uid-NGQ6' 'NGQ6' 'SELL' 2 'STOP_ORDER_TYPE_TAKE_PROFIT' 3.236))
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $c = @($st.sleeves.setA.positions)[0]
+  Check 'd5-tp1-drop: TP1 не перевыставлялась' (@(Get-Calls $r 'PostStopOrder' | Where-Object { $_.body -like '*TAKE_PROFIT*' }).Count -eq 0)
+  Check 'd5-tp1-drop: TP1 снята, включена эмуляция безубытка' (-not [string]$c.tp1_order_id -and [bool]$c.tp1_emulated)
+}
+
+# --- D5R: у брокера позиция в ОБРАТНУЮ сторону (шорт 3 при карточке лонг 19) -> карточка закрыта,
+# обратная позиция выравнивается рынком, стоп не в ту сторону НЕ ставится, входы на паузе
+function Scn-D5Reversal {
+  $r = New-Scenario 'd5-reversal'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerFut $r 'uid-NGQ6' -3
+  Write-BrokerStops $r @(New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6')
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $tr = Get-Trades $r
+  $orders = Get-Calls $r 'PostOrder'
+  Check 'd5r: карточка закрыта' (@($st.sleeves.core.positions).Count -eq 0)
+  Check 'd5r: причина reversal, учёт помечен приблизительным' ($tr.Count -eq 1 -and [string]$tr[0].exitReason -eq 'reversal' -and [string]$tr[0].accounting -eq 'approx-reversal')
+  Check 'd5r: обратная позиция выравнивается рынком BUY 3' ($orders.Count -eq 1 -and $orders[0].body -match 'ORDER_DIRECTION_BUY' -and $orders[0].body -match '"quantity":"3"')
+  Check 'd5r: стоп не выставлялся' ((Get-Calls $r 'PostStopOrder').Count -eq 0)
+  Check 'd5r: стоп карточки снят' (@(Get-Calls $r 'CancelStopOrder' | Where-Object { $_.body -like '*stop-live-1*' }).Count -eq 1)
+  Check 'd5r: новые входы на паузе' ([bool]$st.entries_halt.active -and [string]$st.entries_halt.reason -like 'D5R*')
+}
+
+# --- уборка сирот: заявка по фьючерсу бота, на которую не ссылается ни одна карточка, снимается;
+# заявка своей карточки и заявка на чужую бумагу не трогаются
+function Scn-OrphanSweep {
+  $r = New-Scenario 'orphan-sweep'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerFut $r 'uid-NGQ6' 19
+  Write-BrokerStops $r @((New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6'),
+    (New-StopOrder 'orphan-1' 'uid-NGQ6' 'NGQ6' 'SELL' 19),
+    (New-StopOrder 'user-1' 'uid-SBER' 'SBER' 'SELL' 10 'STOP_ORDER_TYPE_STOP_LOSS' 250))
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $cancels = Get-Calls $r 'CancelStopOrder'
+  Check 'orphan: снята ровно одна заявка - сирота' ($cancels.Count -eq 1 -and $cancels[0].body -like '*orphan-1*')
+  Check 'orphan: стоп карточки на месте' ([string]@($st.sleeves.core.positions)[0].stop_order_id -eq 'stop-live-1')
+  Check 'orphan: новых стопов не ставилось' ((Get-Calls $r 'PostStopOrder').Count -eq 0)
+}
+
+# --- ответ PostStopOrder потерян, но заявка встала -> усыновляется, второй стоп не ставится
+function Scn-StopPostLostAdopt {
+  $r = New-Scenario 'stop-post-lost-adopt'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Set-Queue $r @(
+    [pscustomobject]@{ service='StopOrdersService'; method='GetStopOrders'; response=[pscustomobject]@{ stopOrders=@() } },   # снимок шага 4
+    [pscustomobject]@{ service='StopOrdersService'; method='PostStopOrder'; error='network' },
+    [pscustomobject]@{ service='StopOrdersService'; method='GetStopOrders'; response=[pscustomobject]@{ stopOrders=@(
+      (New-StopOrder 'stop-adopt-1' 'uid-NGQ6' 'NGQ6' 'SELL' 19 'STOP_ORDER_TYPE_STOP_LOSS' 2.676)) } } )
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $pos = @($st.sleeves.core.positions)
+  Check 'stop-adopt: карточка создана' ($pos.Count -eq 1)
+  if ($pos.Count) { Check 'stop-adopt: усыновлена заявка брокера, не дубль' ([string]$pos[0].stop_order_id -eq 'stop-adopt-1') }
+  Check 'stop-adopt: PostStopOrder ровно один раз' ((Get-Calls $r 'PostStopOrder').Count -eq 1)
+}
+
+# --- удаление kill-файла HALT_RF_ENTRIES снимает халт, входы возобновляются
+function Scn-HaltEntriesFileRemoved {
+  $r = New-Scenario 'halt-entries-removed'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  New-Item -ItemType Directory -Force (Join-Path $r 'data') | Out-Null
+  $kill = Join-Path $r 'data\HALT_RF_ENTRIES'
+  Set-Content $kill 'test' -Encoding ASCII
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'halt-removed: при файле халт активен и входа нет' ([bool]$st.entries_halt.active -and (Get-Calls $r 'PostOrder').Count -eq 0)
+  Remove-Item $kill -Force
+  [void](Run-Tick $r '2026-07-15 10:06')
+  $st = Get-State $r
+  Check 'halt-removed: без файла халт снят' (-not [bool]$st.entries_halt.active)
+  Check 'halt-removed: вход исполнен' ((Get-Calls $r 'PostOrder').Count -eq 1 -and @($st.sleeves.core.positions).Count -eq 1)
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -1864,6 +2100,12 @@ $scenarios = @(
   ${function:Scn-BrokerBlockPersisted}, ${function:Scn-BrokerBlockSurvivesEmptySnapshot},
   ${function:Scn-BrokerLedgerFees}, ${function:Scn-BrokerLedgerWindow}, ${function:Scn-BrokerLedgerRetriesUntilClearingSeen},
   ${function:Scn-PendingSettleLifecycle}, ${function:Scn-PendingSettleSurvivesEveningClose}, ${function:Scn-PendingSettleNoStamp},
-  ${function:Scn-GovernorsSkippedInClearing}
+  ${function:Scn-GovernorsSkippedInClearing},
+  ${function:Scn-StopReplaceCancelLost}, ${function:Scn-StopReplaceCancel4xx}, ${function:Scn-StopReplaceStaleIntent},
+  ${function:Scn-D5Tp1Resync}, ${function:Scn-D5Tp1Drop}, ${function:Scn-D5Reversal},
+  ${function:Scn-OrphanSweep}, ${function:Scn-StopPostLostAdopt}, ${function:Scn-HaltEntriesFileRemoved}
 )
+# LRF_ONLY=<regex>: прогнать только сценарии, чьё имя функции ему соответствует (быстрая итерация),
+# например LRF_ONLY='StopReplace|D5'
+if ($env:LRF_ONLY) { $scenarios = @($scenarios | Where-Object { $_.Ast.Name -match $env:LRF_ONLY }) }
 foreach ($fn in $scenarios) { & $fn }

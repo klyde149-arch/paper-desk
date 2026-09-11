@@ -73,6 +73,16 @@ function Test-Converters {
   Check 'Tradeable flag=false -> throw' $threw
   $threw = $false; try { Assert-Tradeable $badc 'fut' | Out-Null } catch { $threw = $true }
   Check 'Tradeable class!=SPBFUT -> throw' $threw
+
+  # направление заявки - только buy|sell. Без защиты вызов ушёл бы в dryrun-транспорт и вернул
+  # «успех» (исключения нет -> проверка краснеет): так потерянный stop_replace (side=long/short)
+  # превращался у брокера в рыночную продажу всего объёма (исправлено 2026-09-11)
+  foreach ($bad in @('long','short','')) {
+    $msg = ''; try { Post-TiMarketOrder 'acc' 'uid' $bad 1 'k' | Out-Null } catch { $msg = [string]$_.Exception.Message }
+    Check "Direction market '$bad' -> TINVEST_BAD_DIRECTION" ($msg -match '^TINVEST_BAD_DIRECTION')
+    $msg = ''; try { Post-TiStopOrder 'acc' 'uid' $bad 1 ([decimal]1) 'stop_loss' | Out-Null } catch { $msg = [string]$_.Exception.Message }
+    Check "Direction stop '$bad' -> TINVEST_BAD_DIRECTION" ($msg -match '^TINVEST_BAD_DIRECTION')
+  }
 }
 
 # ================= 2. сайзинг: пункты->рубли, целые лоты, кэпы =================

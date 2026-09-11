@@ -129,6 +129,7 @@ function RfReasonRu([string]$Reason) {
     'hard-dd'    { return 'аварийная остановка -35%' }
     'emergency*' { return 'аварийное закрытие' }
     'stop-after-entry-fail' { return 'аварийное закрытие (не удалось выставить стоп)' }
+    'reversal'   { return 'позиция перевернулась у брокера (расхождение D5R)' }
     'manual-ext' { return 'закрыто вне бота (стоп-заявка не срабатывала)' }
     'manual*'    { return 'закрыто вручную' }
     default      { return $Reason }
@@ -262,6 +263,15 @@ function Can-PostOrders {
 }
 # инструмент реально торгуется сейчас? (утренний старт плавает: гейт держит интенты до открытия)
 $script:tradingStatusCache = @{}
+# виды интентов, исполняемые РЫНОЧНОЙ заявкой: только их полинг вправе усыновлять и повторять.
+# stop_replace сюда не входит намеренно - см. Resolve-StopReplaceIntent.
+$script:MARKET_KINDS = @('entry','exit','emergency_close','roll_close','roll_open','mom_buy','mom_sell','funding_sell','tp1_fill','reduce')
+# Снимок стоп-заявок (Get-BrokerStopIds, шаг 4) берётся один раз в начале тика и не видит заявок,
+# выставленных или снятых после него. Без этих двух списков перестановка стопа в Invoke-Tp1Sync (идёт
+# ДО сверки) выглядела для Ensure-CardStop как «стоп пропал» -> D6 ставил ВТОРУЮ заявку на тот же
+# объём (две стоп-заявки = переворот позиции при срабатывании обеих).
+$script:freshStopIds = @{}
+$script:cancelledStopIds = @{}
 function Test-InstrumentTrading([string]$Uid) {
   if ($script:tradingStatusCache.ContainsKey($Uid)) { return $script:tradingStatusCache[$Uid] }
   $ok = $false
@@ -391,6 +401,14 @@ function Get-FillPxPerUnit($It, $Resp, [int]$Lots) {
 
 # постановка market-заявки для intent (write-ahead: Save-State ДО вызова API)
 function Post-IntentMarket($It, [string]$Dir, [int]$Lots) {
+  if ($Dir -ne 'buy' -and $Dir -ne 'sell') {
+    # направление стороны позиции (long/short) - не направление заявки; до 2026-09-11 транспорт слал
+    # такое брокеру как SELL на весь объём (потерянный stop_replace). Отказ ДО счётчиков и сети.
+    Set-IntentState $It 'REJECTED' "bad direction '$Dir'"
+    $script:ev.Add("REJECTED(dir) $($It.id) $($It.kind) '$Dir'")
+    Alert ("внутренняя ошибка: заявка {0} ({1}) с направлением '{2}' НЕ отправлена брокеру." -f $It.id, $It.kind, $Dir)
+    return $false
+  }
   if ((Count-OrdersToday) -ge [int]$LIVE.max_orders_day) { Set-EntriesHalt "orders/day > $($LIVE.max_orders_day)"; return $false }
   $It.attempts = [int]$It.attempts + 1
   $It.t_post = $NowMs
@@ -403,7 +421,7 @@ function Post-IntentMarket($It, [string]$Dir, [int]$Lots) {
     # Отказ брокера - судьба ИНТЕНТА, а не смерть тика. Инцидент 2026-07-20: HTTP 400 на
     # funding_sell (серебро) валил каждый тик с 07:00 MSK и замораживал state machine.
     $emsg = [string]$_.Exception.Message
-    if ($emsg -match '^TINVEST_HTTP_4') {
+    if ($emsg -match '^TINVEST_HTTP_4' -or $emsg -match '^TINVEST_BAD_DIRECTION') {
       Set-IntentState $It 'REJECTED' $emsg
       $script:ev.Add("REJECTED(4xx) $($It.id) $($It.kind) $($It.ticker)")
       Alert ("брокер отклонил заявку по {0}: {1}." -f (AssetName ([string]$It.asset) ([string]$It.ticker)), $emsg)
@@ -582,6 +600,10 @@ function Close-CardLedger($Card, [double]$ExitPx, [string]$Reason, [double]$FeeR
     rolls = [int]$Card.rolls
     latency = [pscustomobject]@{ signal_to_post_ms = $Card.lat_sp; post_to_fill_ms = $Card.lat_pf }
   }
+  # пометка приблизительного учёта (переворот D5R: цена выхода карточки восстановлена, а не измерена)
+  if ($Card.PSObject.Properties['accounting'] -and [string]$Card.accounting) {
+    $rec | Add-Member -NotePropertyName accounting -NotePropertyValue ([string]$Card.accounting) -Force
+  }
   $tPath = Join-Path $lrfDir 'trades.json'
   $tr = New-Object System.Collections.Generic.List[object]
   foreach ($x in @((Read-JsonFile $tPath))) { if ($null -ne $x) { $tr.Add($x) } }
@@ -632,7 +654,21 @@ function Post-CardStop($Card) {
       $Card.stop_order_id = $sid
       $Card.stop_lots = [int]$Card.lots
       $Card.last_stop_update = MsToUtcStr $NowMs
+      if ($sid) { $script:freshStopIds[$sid] = $true }
       return $true
+    }
+    if ($null -ne $r -and $r.PSObject.Properties['__lost'] -and $r.__lost) {
+      # ответ потерян, но заявка МОГЛА встать у брокера. Прежде чем ставить ещё одну - ищем её:
+      # иначе на позиции окажутся две стоп-заявки на полный объём (переворот при срабатывании обеих)
+      $adopted = Find-LiveStopOrder ([string]$Card.uid) $dir ([int]$Card.lots) $px
+      if ($adopted) {
+        $Card.stop_order_id = $adopted
+        $Card.stop_lots = [int]$Card.lots
+        $Card.last_stop_update = MsToUtcStr $NowMs
+        $script:freshStopIds[$adopted] = $true
+        $script:ev.Add("STOP ADOPT $($Card.id): ответ потерян, заявка $adopted найдена у брокера")
+        return $true
+      }
     }
   }
   return $false
@@ -640,7 +676,16 @@ function Post-CardStop($Card) {
 function Ensure-CardStop($Card, $BrokerStopIds) {
   # D6-watchdog: карточка без живой стоп-заявки -> немедленный перевзвод; 2 подряд неудачи -> аварийное закрытие
   if ($LIVE.emulate_stops) { return $true }   # sandbox: стопы эмулируются в Run-HourlyPass
-  if ([string]$Card.stop_order_id -and $BrokerStopIds.ContainsKey([string]$Card.stop_order_id)) { return $true }
+  $sid = [string]$Card.stop_order_id
+  if ($sid -and ($BrokerStopIds.ContainsKey($sid) -or $script:freshStopIds.ContainsKey($sid))) {
+    # стоп жив, но покрывает НЕ тот объём (позиция уменьшилась мимо бота - D5, и т.п.): заявка на
+    # больший объём при срабатывании перевернула бы позицию -> перевыставить на том же уровне
+    if ($Card.PSObject.Properties['stop_lots'] -and [int]$Card.stop_lots -gt 0 -and [int]$Card.stop_lots -ne [int]$Card.lots) {
+      $script:ev.Add("STOP-QTY $($Card.id): стоп на $([int]$Card.stop_lots) лот при позиции $([int]$Card.lots) - перевыставляю")
+      [void](Replace-CardStop $Card ([double]$Card.stop_px_pts))
+    }
+    return $true
+  }
   $st.drift.D6 = [int]$st.drift.D6 + 1
   $st.drift.last = "D6 $($Card.id) $($Card.asset)"
   $ok = Post-CardStop $Card
@@ -668,16 +713,22 @@ function Replace-CardStop($Card, [double]$NewStopPts) {
     $rc = $null
     try { $rc = Cancel-TiStopOrder ([string]$st.account_id) ([string]$Card.stop_order_id) }
     catch {
-      # 4xx на отмене (например, стоп уже исполнился/снят) - как cancel lost: D6 следующего тика разрулит
+      # 4xx на отмене (например, стоп уже исполнился/снят). Интент НЕ оставляем в LOST: полинг
+      # повторял бы его рыночной заявкой. Защиту решает D6 следующего тика по свежему списку
+      # заявок, желаемый уровень остаётся в stop_deferred (пакетный проход перестановок).
       Write-LiveLog "Cancel stop $($Card.id): $($_.Exception.Message)"
-      Set-IntentState $it 'LOST' "cancel: $($_.Exception.Message)"
+      $Card | Add-Member -NotePropertyName stop_deferred -NotePropertyValue ([math]::Round($NewStopPts, 6)) -Force
+      Remove-Intent $it
       return $false
     }
     if ($null -ne $rc -and $rc.PSObject.Properties['__lost'] -and $rc.__lost) {
-      # отмена потерялась: стоп либо жив, либо отменён - D6-watchdog следующего тика разрулит
-      Set-IntentState $it 'LOST' 'cancel lost'
+      # отмена потерялась: стоп либо жив, либо отменён - D6 следующего тика разрулит, уровень ждёт в stop_deferred
+      Write-LiveLog "Cancel stop $($Card.id): ответ потерян"
+      $Card | Add-Member -NotePropertyName stop_deferred -NotePropertyValue ([math]::Round($NewStopPts, 6)) -Force
+      Remove-Intent $it
       return $false
     }
+    $script:cancelledStopIds[[string]$Card.stop_order_id] = $true
   }
   $Card.stop_px_pts = [math]::Round($NewStopPts, 6)
   $Card.stop_order_id = ''
@@ -695,6 +746,7 @@ function Invoke-EmergencyClose($Card, [string]$Why) {
   $script:ev.Add("EMERGENCY CLOSE $($Card.id) $($Card.asset) ($Why)")
   Alert -Client ("аварийное закрытие позиции {0} ({1}). Причина: {2}." -f $Card.id, (RfName $Card), (RfReasonRu $Why))
   if ([string]$Card.stop_order_id -and -not $LIVE.emulate_stops) {
+    $script:cancelledStopIds[[string]$Card.stop_order_id] = $true
     try { Cancel-TiStopOrder ([string]$st.account_id) ([string]$Card.stop_order_id) | Out-Null } catch {}
   }
   $dir = if ($Card.side -eq 'long') { 'sell' } else { 'buy' }
@@ -703,6 +755,174 @@ function Invoke-EmergencyClose($Card, [string]$Why) {
     ctx = [pscustomobject]@{ card_id = [string]$Card.id; why = $Why } }
   [void](Post-IntentMarket $it $dir ([int]$Card.lots))
   Set-EntriesHalt "emergency close $($Card.id): $Why"
+}
+
+# ================= гигиена стоп-заявок (2026-09-11) =================
+# Снять стоп-заявку и запомнить попытку в тике: уборка сирот не должна снимать её повторно.
+function Cancel-CardStopOrder([string]$Sid, [string]$Why) {
+  if (-not $Sid) { return $true }
+  $script:cancelledStopIds[$Sid] = $true
+  try {
+    $rc = Cancel-TiStopOrder ([string]$st.account_id) $Sid
+    if ($null -ne $rc -and $rc.PSObject.Properties['__lost'] -and $rc.__lost) {
+      Write-LiveLog "cancel stop $Sid ($Why): ответ потерян"
+      return $false
+    }
+    return $true
+  } catch {
+    Write-LiveLog "cancel stop $Sid ($Why): $($_.Exception.Message)"
+    return $false
+  }
+}
+# id всех заявок (стоп и TP1), на которые ссылаются живые карточки
+function Get-CardOrderRefs {
+  $ref = @{}
+  foreach ($sn in 'core','setA') {
+    foreach ($c in @($st.sleeves.$sn.positions)) {
+      if ($null -eq $c) { continue }
+      if ([string]$c.stop_order_id) { $ref[[string]$c.stop_order_id] = $true }
+      if ([string]$c.tp1_order_id) { $ref[[string]$c.tp1_order_id] = $true }
+    }
+  }
+  return $ref
+}
+# Живая стоп-заявка у брокера, совпадающая с только что поставленной (усыновление после потерянного
+# ответа PostStopOrder). Сравнение строгое: инструмент, направление, тип, объём, цена; чужие id
+# (уже принадлежащие карточкам или снятые в этом тике) не берём.
+function Find-LiveStopOrder([string]$Uid, [string]$Dir, [int]$Lots, [decimal]$Px) {
+  $wantDir = if ($Dir -eq 'buy') { 'STOP_ORDER_DIRECTION_BUY' } else { 'STOP_ORDER_DIRECTION_SELL' }
+  $ref = Get-CardOrderRefs
+  $list = @()
+  try { $list = @(Get-TiStopOrders ([string]$st.account_id)) }
+  catch { Write-LiveLog "stop adopt: список заявок недоступен: $($_.Exception.Message)"; return '' }
+  foreach ($so in $list) {
+    if ($null -eq $so) { continue }
+    $sid = [string](Get-TiField $so 'stop_order_id')
+    if (-not $sid -or $ref.ContainsKey($sid) -or $script:cancelledStopIds.ContainsKey($sid)) { continue }
+    if ([string](Get-TiField $so 'instrument_uid') -ne $Uid) { continue }
+    if ([string](Get-TiField $so 'direction') -ne $wantDir) { continue }
+    if ([string](Get-TiField $so 'order_type') -ne 'STOP_ORDER_TYPE_STOP_LOSS') { continue }
+    $q = -1; try { $q = [int][string](Get-TiField $so 'lots_requested') } catch {}
+    if ($q -ne $Lots) { continue }
+    $sp = [decimal]-1; try { $sp = [decimal](Q2D (Get-TiField $so 'stop_price')) } catch {}
+    if ($sp -ne $Px) { continue }
+    return $sid
+  }
+  return ''
+}
+# Объём TP1-заявки setA: половина ИСХОДНОГО объёма, либо столько, сколько перевыставлено (tp1_lots).
+function Get-Tp1Lots($Card) {
+  if ($Card.PSObject.Properties['tp1_lots'] -and [int]$Card.tp1_lots -gt 0) { return [int]$Card.tp1_lots }
+  return [int][math]::Floor([int]$Card.lots_initial / 2)
+}
+# Позиция уменьшилась мимо бота (D5) -> TP1 на половину ИСХОДНОГО объёма может оказаться больше
+# остатка, и её срабатывание перевернуло бы позицию. Приводим к floor(lots/2); если это 0 - TP1
+# снимаем, безубыток по касанию цели берёт часовой проход (флаг tp1_emulated, как у позиций в 1 лот).
+function Sync-Tp1Qty($Card, $BrokerStopIds) {
+  if ($LIVE.emulate_stops -or [string]$Card.sleeve -ne 'setA' -or $Card.tp1_done) { return }
+  $tid = [string]$Card.tp1_order_id
+  if (-not $tid -or -not $BrokerStopIds.ContainsKey($tid)) { return }   # исчезновение TP1 разбирает Invoke-Tp1Sync
+  $want = [int][math]::Floor([int]$Card.lots / 2)
+  $have = Get-Tp1Lots $Card
+  if ($have -le $want) { return }
+  if (-not (Can-PostOrders)) { return }   # вне сессии заявки не срабатывают - поправим на торговом тике
+  if (-not (Cancel-CardStopOrder $tid 'tp1-qty')) { return }   # не снялась - повтор следующим тиком
+  $Card.tp1_order_id = ''
+  if ($want -ge 1) {
+    $dirTp = if ($Card.side -eq 'long') { 'sell' } else { 'buy' }
+    $inst = Get-Inst ([string]$Card.secid) 'fut'
+    $tpPx = Round-ToIncrement ([decimal][double]$Card.tp1_px_pts) ([pscustomobject]@{
+      min_price_increment = [pscustomobject](D2Q ([decimal][double]$inst.min_price_increment)) })
+    $rtp = $null
+    try { $rtp = Post-TiStopOrder ([string]$st.account_id) ([string]$Card.uid) $dirTp $want $tpPx 'take_profit' }
+    catch { Write-LiveLog "TP1 qty $($Card.id): $($_.Exception.Message)" }
+    if ($null -ne $rtp -and $rtp.PSObject.Properties['stopOrderId'] -and [string]$rtp.stopOrderId) {
+      $Card.tp1_order_id = [string]$rtp.stopOrderId
+      $script:freshStopIds[[string]$Card.tp1_order_id] = $true
+      $Card | Add-Member -NotePropertyName tp1_lots -NotePropertyValue $want -Force
+    }
+  }
+  if (-not [string]$Card.tp1_order_id) {
+    $Card | Add-Member -NotePropertyName tp1_emulated -NotePropertyValue $true -Force
+  }
+  $script:ev.Add("TP1-QTY $($Card.id): $have -> $want")
+  Alert ("заявка на первую цель по позиции {0} ({1}) приведена к остатку позиции: {2} -> {3} лот." -f $Card.id, (RfName $Card), $have, $want)
+}
+# D5R: у брокера позиция В ОБРАТНУЮ сторону от карточки (стоп на больший объём сработал поверх
+# ручного закрытия, двойное закрытие и т.п.). Позиции карточки больше нет; остаток - чужая для бота
+# позиция. Стоп/TP1 карточки снимаем (иначе D6 поставил бы стоп не в ту сторону и нарастил бы
+# переворот), карточку закрываем, обратную позицию выравниваем как D2, входы на паузу до сверки.
+function Invoke-ReversalDrift($Card, [double]$Real, $StopIds) {
+  $st.drift.D5 = [int]$st.drift.D5 + 1; $st.drift.last = "D5R $($Card.id) real=$Real"
+  foreach ($oid in @([string]$Card.stop_order_id, [string]$Card.tp1_order_id)) {
+    if ($oid -and $StopIds.ContainsKey($oid)) { [void](Cancel-CardStopOrder $oid 'reversal') }
+  }
+  $Card.stop_order_id = ''; $Card.tp1_order_id = ''
+  # цена выхода карточки: исполнение её стоп-заявки, если нашлось (объём = stop_lots), иначе текущая
+  $dirOut = if ([string]$Card.side -eq 'long') { 'sell' } else { 'buy' }
+  $px = 0.0
+  try {
+    $qty = if ([int]$Card.stop_lots -gt 0) { [int]$Card.stop_lots } else { [int]$Card.lots }
+    $op = Find-FillOperation ([string]$Card.uid) $dirOut $qty ([long]$Card.entry_ts) 1 -FullHistory
+    if ($null -ne $op) { $px = [double](M2D $op.price).value }
+  } catch { Write-LiveLog "D5R $($Card.id): операции недоступны ($($_.Exception.Message)) - выход по текущей цене" }
+  if ($px -le 0) { $px = if ($Card.PSObject.Properties['cur_px'] -and [double]$Card.cur_px -gt 0) { [double]$Card.cur_px } else { [double]$Card.entry_px_pts } }
+  $Card | Add-Member -NotePropertyName accounting -NotePropertyValue 'approx-reversal' -Force
+  $fee = [int]$Card.lots * $px * [double]$Card.rub_per_pt * [double]$LIVE.fee_est
+  Alert ("по позиции {0} ({1}) у брокера позиция в ОБРАТНУЮ сторону ({2} лот) - вероятно, стоп сработал поверх ручного закрытия (расхождение D5R). Позиция бота закрыта, обратная закрывается по рынку, новые входы приостановлены." -f $Card.id, (RfName $Card), $Real)
+  Close-CardLedger $Card $px 'reversal' $fee
+  $dirFlat = if ($Real -gt 0) { 'sell' } else { 'buy' }
+  $n = [int][math]::Abs($Real)
+  $it = New-Intent 'emergency_close' @{ uid = [string]$Card.uid; ticker = [string]$Card.secid; asset = [string]$Card.asset
+    side = $dirFlat; lots = $n; ctx = [pscustomobject]@{ card_id = ''; why = "D5R reversal $($Card.id)" } }
+  Save-State
+  [void](Post-IntentMarket $it $dirFlat $n)
+  Set-EntriesHalt "D5R $($Card.id)"
+}
+# uid фьючерсов, которыми торгует бот: живые карточки + кэш инструментов. Только по ним уборка
+# сирот вправе снимать заявки - заявки на бумаги пользователя не трогаются никогда.
+function Get-BotFutUids {
+  $u = @{}
+  foreach ($sn in 'core','setA') { foreach ($c in @($st.sleeves.$sn.positions)) { if ($null -ne $c -and [string]$c.uid) { $u[[string]$c.uid] = $true } } }
+  foreach ($p in @($script:INST.PSObject.Properties)) {
+    if ($null -ne $p.Value -and [string]$p.Value.kind -eq 'fut' -and [string]$p.Value.uid) { $u[[string]$p.Value.uid] = $true }
+  }
+  return $u
+}
+# Стоп-заявка бота у брокера, на которую не ссылается ни одна карточка, - дубль после потерянного
+# ответа/убитого тика или хвост закрытой позиции. При срабатывании она откроет позицию, о которой
+# бот не знает (D2). Снимаем с алертом.
+function Invoke-OrphanStopSweep($StopIds) {
+  if ($LIVE.emulate_stops -or $null -eq $StopIds -or $StopIds.Count -eq 0) { return }
+  $ref = Get-CardOrderRefs
+  $futUids = Get-BotFutUids
+  foreach ($sid in @($StopIds.Keys)) {
+    if (-not $sid -or $ref.ContainsKey($sid) -or $script:cancelledStopIds.ContainsKey($sid) -or $script:freshStopIds.ContainsKey($sid)) { continue }
+    $so = $StopIds[$sid]
+    $uid = [string](Get-TiField $so 'instrument_uid')
+    if (-not $uid -or -not $futUids.ContainsKey($uid)) { continue }
+    $tk = [string](Get-TiField $so 'ticker')
+    if (Cancel-CardStopOrder $sid 'orphan') {
+      $script:ev.Add("ORPHAN stop $sid $tk снята")
+      Alert ("снята стоп-заявка {0} по {1}: на неё не ссылается ни одна позиция бота (дубль или хвост закрытой позиции) — при срабатывании она открыла бы позицию, о которой бот не знает." -f $sid, $tk)
+    }
+  }
+}
+# stop_replace - НЕ рыночная заявка, повторять её через Post-IntentMarket нельзя. Защиту позиции
+# решает D6 в Invoke-Reconcile (в этом тике он уже отработал по свежему списку заявок), желаемый
+# уровень переносим в stop_deferred, если он теснее текущего, - его применит пакетный проход.
+function Resolve-StopReplaceIntent($It) {
+  $card = Find-Card ([string]$It.ctx.card_id)
+  if ($null -ne $card -and $null -ne $It.ctx -and $It.ctx.PSObject.Properties['new_stop']) {
+    $ns = [double]$It.ctx.new_stop
+    $sm = if ([string]$card.side -eq 'long') { 1.0 } else { -1.0 }
+    $cur = if ($card.PSObject.Properties['stop_deferred'] -and $null -ne $card.stop_deferred) { [double]$card.stop_deferred } else { [double]$card.stop_px_pts }
+    if ($sm * ($ns - $cur) -gt 0) {
+      $card | Add-Member -NotePropertyName stop_deferred -NotePropertyValue ([math]::Round($ns, 6)) -Force
+    }
+  }
+  Write-LiveLog "stop_replace $($It.id) ($($It.state)) снят без повтора; желаемый уровень - в stop_deferred карточки"
+  Remove-Intent $It
 }
 
 # ================= авто-финансирование (продажа USD/серебра под сделку) =================
@@ -1317,6 +1537,7 @@ function Invoke-Reconcile($stopIds) {
           if ($extClose) {
             # осиротевшая стоп-заявка без позиции откроет обратную -> D2 -> аварийное закрытие + halt
             if ($stopAlive -and -not $LIVE.emulate_stops) {
+              $script:cancelledStopIds[[string]$c.stop_order_id] = $true
               try { Cancel-TiStopOrder ([string]$st.account_id) ([string]$c.stop_order_id) | Out-Null }
               catch { Write-LiveLog "D4 $($c.id): не удалось снять осиротевшую стоп-заявку: $($_.Exception.Message)" }
             }
@@ -1354,6 +1575,16 @@ function Invoke-Reconcile($stopIds) {
       $c.d4_fails = 0
       if ($c.PSObject.Properties['reconcile_status']) { $c.reconcile_status = '' }
       if ($c.PSObject.Properties['reconcile_since_ts']) { $c.reconcile_since_ts = 0 }
+      if ([math]::Sign($real) -ne [math]::Sign($want)) {
+        # D5R: знак позиции у брокера противоположен карточке (D5 раньше просто брал |real| и
+        # записывал «лонг N» при фактическом шорте). Живые интенты по инструменту могут это объяснять.
+        $explainR = @($st.pending_intents | Where-Object { $_.uid -eq $c.uid -and $_.state -in @('POSTED','PARTIAL','LOST') }).Count
+        if (-not $explainR) {
+          Invoke-ReversalDrift $c $real $stopIds
+          $driftHaltThisTick = $true
+          continue
+        }
+      }
       if ([math]::Abs($real - $want) -gt 0.0001) {
         $explain = @($st.pending_intents | Where-Object { $_.uid -eq $c.uid -and $_.state -in @('POSTED','PARTIAL','LOST') }).Count
         if (-not $explain) {
@@ -1366,8 +1597,12 @@ function Invoke-Reconcile($stopIds) {
       }
       # D6: стоп-заявка жива?
       if (-not $c.quarantine) { [void](Ensure-CardStop $c $stopIds) }
+      # TP1 не больше половины текущего объёма (иначе её срабатывание перевернёт позицию)
+      if (-not $c.quarantine) { Sync-Tp1Qty $c $stopIds }
     }
   }
+  # --- уборка стоп-заявок-сирот (после всех карточек: их стопы уже перевыставлены/сняты) ---
+  Invoke-OrphanStopSweep $stopIds
   # --- акции: bot-owned lots (real >= bot - норма; меньше - усечь + алерт) ---
   foreach ($h in @($st.sleeves.mom.holdings)) {
     $realShares = if ($brokerStk.ContainsKey([string]$h.uid)) { [double]$brokerStk[[string]$h.uid] } else { 0.0 }
@@ -1459,14 +1694,20 @@ function Invoke-IntentCleanup {
 }
 
 function Invoke-IntentPolling {
+  # stop_replace разбираем отдельно и ДО всего: это не рыночная заявка (см. Resolve-StopReplaceIntent)
+  foreach ($it in @($st.pending_intents | Where-Object { [string]$_.kind -eq 'stop_replace' })) { Resolve-StopReplaceIntent $it }
   # нормализация хвостов краша ДО обработки (write-ahead: postOrder мог уйти без записи ответа)
   foreach ($it in @($st.pending_intents)) {
+    if ($script:MARKET_KINDS -notcontains [string]$it.kind) { continue }
     if ([string]$it.state -eq 'POSTED' -and -not [string]$it.broker_order_id) { Set-IntentState $it 'LOST' 'no broker id' }
     elseif ([string]$it.state -eq 'INTENT' -and [int]$it.attempts -gt 0 -and ([long]$NowMs - [long]$it.state_ts) -gt 90000) {
       Set-IntentState $it 'LOST' 'stale INTENT after crash'
     }
   }
   foreach ($it in @($st.pending_intents)) {
+    # усыновлять/повторять полинг вправе ТОЛЬКО рыночные заявки: иной вид с направлением
+    # стороны позиции (long/short) раньше уходил брокеру как SELL на весь объём
+    if ($script:MARKET_KINDS -notcontains [string]$it.kind) { continue }
     if ([string]$it.state -eq 'POSTED') {
       $os = $null
       try { $os = Get-TiOrderState ([string]$st.account_id) ([string]$it.broker_order_id) } catch { continue }
@@ -2286,8 +2527,9 @@ function Invoke-HourlyPass {
           # MFE по часовикам (трейл применяется на дневном хуке - как paper)
           if ($c.side -eq 'long' -and [double]$b.h -gt [double]$c.mfe_pts) { $c.mfe_pts = [double]$b.h }
           if ($c.side -eq 'short' -and [double]$b.l -lt [double]$c.mfe_pts) { $c.mfe_pts = [double]$b.l }
-          # BE-эмуляция TP1 для lots==1 (брокерский TP невозможен на пол-лота)
-          if ($sn -eq 'setA' -and -not $c.tp1_done -and [int]$c.lots_initial -eq 1 -and $null -ne $c.tp1_px_pts -and -not $c.be_moved) {
+          # BE-эмуляция TP1 для lots==1 (брокерский TP невозможен на пол-лота) и для позиций, у которых
+          # TP1 снята из-за уменьшения объёма мимо бота (tp1_emulated, см. Sync-Tp1Qty)
+          if ($sn -eq 'setA' -and -not $c.tp1_done -and ([int]$c.lots_initial -eq 1 -or $c.tp1_emulated) -and $null -ne $c.tp1_px_pts -and -not $c.be_moved) {
             $hit = if ($c.side -eq 'long') { [double]$b.h -ge [double]$c.tp1_px_pts } else { [double]$b.l -le [double]$c.tp1_px_pts }
             if ($hit) {
               $c.be_moved = $true; $c.tp1_done = $true
@@ -2359,7 +2601,7 @@ function Invoke-Tp1Sync($StopIds) {
     if ($StopIds.ContainsKey([string]$c.tp1_order_id)) { continue }   # ещё жив
     # TP1-заявки больше нет: сработала (ищем операцию) или снята
     $dirTp = if ($c.side -eq 'long') { 'sell' } else { 'buy' }
-    $half = [math]::Floor([int]$c.lots_initial / 2)
+    $half = Get-Tp1Lots $c   # фактический объём заявки (после Sync-Tp1Qty может быть меньше половины исходного)
     $op = Find-FillOperation ([string]$c.uid) $dirTp ([int]$half) ([long]$c.entry_ts)
     if ($null -ne $op) {
       $px = [double](M2D $op.price).value
