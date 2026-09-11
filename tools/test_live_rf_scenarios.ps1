@@ -2072,6 +2072,241 @@ function Scn-HaltEntriesFileRemoved {
   Check 'halt-removed: вход исполнен' ((Get-Calls $r 'PostOrder').Count -eq 1 -and @($st.sleeves.core.positions).Count -eq 1)
 }
 
+# ================= риск-политика rf-early-exit-v1: движок (2026-09-11) =================
+function New-RpConfig([string]$Mode = 'shadow', [double]$CoreRisk = 0.005, [double]$SetARisk = 0.005) {
+  [pscustomobject]@{ rf_risk_policy = [pscustomobject]@{ schema_version = 1; policy_id = 'rf-early-exit-v1'; mode = $Mode
+    apply_to = 'new_entries'; capital_source = 'broker_verified'
+    core = [pscustomobject]@{ stop_cap_pct = 0.02; risk_pct = $CoreRisk }
+    setA = [pscustomobject]@{ stop_cap_pct = $null; risk_pct = $SetARisk }
+    futures_open_risk_cap_pct = 0.03; fx_same_direction_cap_pct = 0.015; daily_entry_loss_halt_pct = 0.02
+    sizing_rule = 'min_original_and_capped_same_budget'; quote_max_age_sec = 60; capital_max_age_sec = 180 } }
+}
+# снимок портфеля с итогами счёта (без totalAmount* Set-BotCapital капитал не считает) и фьючерсными строками
+function Write-BrokerCapital([string]$Root, [double]$Rub, $FutRows = @()) {
+  $m = [pscustomobject]@{ currency = 'rub'; units = ([string][long]$Rub); nano = 0 }
+  $rows = @([pscustomobject]@{ instrumentUid = 'uid-RUB'; instrumentType = 'currency'; quantityLots = [pscustomobject]@{ units = ([string][long]$Rub); nano = 0 } })
+  foreach ($fr in @($FutRows)) { if ($null -ne $fr) { $rows += $fr } }
+  Write-Json (Join-Path $Root 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = $rows
+    totalAmountCurrencies = $m; totalAmountPortfolio = $m })
+}
+# Тело запроса сравниваем в каноническом виде: ключи хеш-таблиц .NET Core перемешиваются от процесса
+# к процессу (рандомизация хеша строк), поэтому порядок полей в JSON у двух одинаковых прогонов
+# различается. Сравнивать надо состав вызова, а не порядок ключей.
+function ConvertTo-CallCanon($o) {
+  if ($null -eq $o) { return 'null' }
+  if ($o -is [System.Collections.IDictionary]) {
+    return '{' + ((@($o.Keys) | Sort-Object | ForEach-Object { "$_=" + (ConvertTo-CallCanon $o[$_]) }) -join ';') + '}'
+  }
+  if ($o -is [pscustomobject]) {
+    return '{' + ((@($o.PSObject.Properties) | Sort-Object Name | ForEach-Object { "$($_.Name)=" + (ConvertTo-CallCanon $_.Value) }) -join ';') + '}'
+  }
+  if ($o -is [System.Collections.IList] -and $o -isnot [string]) {
+    return '[' + ((@($o) | ForEach-Object { ConvertTo-CallCanon $_ }) -join ',') + ']'
+  }
+  return [string]$o
+}
+function Get-CallSeq([string]$Root) {
+  $c = Get-Calls $Root
+  return ,@($c | ForEach-Object {
+    $b = $_.body
+    $canon = if ($b) { try { ConvertTo-CallCanon ($b | ConvertFrom-Json) } catch { [string]$b } } else { '' }
+    "$($_.service).$($_.method) $canon"
+  })
+}
+function Get-TickLog([string]$Root) { Get-Content (Join-Path $Root 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue }
+
+# --- нет блока политики ≡ mode:off: брокерские вызовы и состояние байт-в-байт, следов политики нет
+function Scn-RpOffParity {
+  $roots = @()
+  foreach ($variant in 'nokey', 'off') {
+    $r = New-Scenario "rp-off-parity-$variant"
+    $s = New-BaseState $r
+    $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+    Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+    Write-BrokerCapital $r 1600000
+    if ($variant -eq 'off') { Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{ rf_risk_policy = [pscustomobject]@{ mode = 'off' } }) }
+    [void](Run-Tick $r '2026-07-15 10:05')
+    $roots += $r
+  }
+  $a = Get-CallSeq $roots[0]; $b = Get-CallSeq $roots[1]
+  Check 'rp-off: брокерские вызовы идентичны (нет блока = mode off)' ($a.Count -gt 0 -and ($a -join "`n") -eq ($b -join "`n"))
+  $pa = Get-Content (Join-Path $roots[0] 'data\live_rf\portfolio.json') -Raw -Encoding UTF8
+  $pb = Get-Content (Join-Path $roots[1] 'data\live_rf\portfolio.json') -Raw -Encoding UTF8
+  Check 'rp-off: состояние байт-в-байт' ($pa -eq $pb)
+  Check 'rp-off: в состоянии нет следов политики' ($pa -notmatch 'risk_policy|risk_budget|risk_day|cur_px_ms')
+  Check 'rp-off: журнала политики нет' (-not (Test-Path (Join-Path $roots[0] 'data\live_rf\risk_log.json')) -and -not (Test-Path (Join-Path $roots[1] 'data\live_rf\risk_log.json')))
+}
+
+# --- shadow: брокерские вызовы те же, что без политики; кандидат - в журнале, реальный вход прежний
+function Scn-RpShadowNoMutation {
+  $roots = @{}
+  foreach ($variant in 'off', 'shadow') {
+    $r = New-Scenario "rp-shadow-$variant"
+    $s = New-BaseState $r
+    $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+    Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+    Write-BrokerCapital $r 1600000
+    if ($variant -eq 'shadow') { Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'shadow') }
+    [void](Run-Tick $r '2026-07-15 10:05')
+    $roots[$variant] = $r
+  }
+  $a = Get-CallSeq $roots['off']; $b = Get-CallSeq $roots['shadow']
+  Check 'rp-shadow: брокерские вызовы те же, что без политики' ($a.Count -gt 0 -and ($a -join "`n") -eq ($b -join "`n"))
+  $st = Get-State $roots['shadow']
+  $pos = @($st.sleeves.core.positions)
+  Check 'rp-shadow: реальный вход по прежним правилам (19 лот, стоп 2.676)' ($pos.Count -eq 1 -and [int]$pos[0].lots -eq 19 -and [math]::Abs([double]$pos[0].stop_px_pts - 2.676) -lt 1e-9)
+  Check 'rp-shadow: применение политики опубликовано' ([string]$st.risk_policy.mode -eq 'shadow' -and [string]$st.risk_policy.applied_hash -match '^[0-9a-f]{64}$' -and -not [string]$st.risk_policy.rejected_reason)
+  Check 'rp-shadow: сводка бюджета заполнена (капитал 1.6 млн, потолок 3% = 48 000)' ($null -ne $st.risk_budget -and [double]$st.risk_budget.capital_rub -eq 1600000 -and [double]$st.risk_budget.total_cap_rub -eq 48000)
+  $log = @((Read-JsonFile (Join-Path $roots['shadow'] 'data\live_rf\risk_log.json')))
+  $dec = @($log | Where-Object { $null -ne $_ -and $_.kind -eq 'decision' })
+  Check 'rp-shadow: кандидат записан в журнал' ($dec.Count -eq 1)
+  if ($dec.Count) {
+    $d = $dec[0].data
+    Check 'rp-shadow: кандидат - 4 лота при прежних 19, стоп по пределу 2.842' ([int]$d.q_reference -eq 4 -and [int]$d.q_final -eq 4 -and [int]$d.legacy_lots -eq 19 -and [math]::Abs([double]$d.stop - 2.842) -lt 1e-9 -and [bool]$d.allow)
+  }
+}
+
+# --- pilot: объём по политике и стоп от фактического входа, округлённый к цене входа
+function Scn-RpPilotSizing {
+  $r = New-Scenario 'rp-pilot-sizing'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  # филл 4 лота по 2.9012: 4 x 2.9012 x 7749.12 = 89 926.987776 ₽ (оба поля ответа описывают одну сделку)
+  Set-Queue $r @([pscustomobject]@{ service = 'OrdersService'; method = 'PostOrder'
+    response = [pscustomobject]@{ orderId = 'ord-rp'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '4'
+      initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 901200000 }
+      executedOrderPrice = [pscustomobject]@{ units = '89926'; nano = 987776000; currency = 'rub' } } })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $orders = Get-Calls $r 'PostOrder'
+  Check 'rp-pilot: объём по политике 4 лота (q_reference от исходного стопа), а не 19' ($orders.Count -eq 1 -and $orders[0].body -match '"quantity":"4"')
+  $pos = @($st.sleeves.core.positions)
+  Check 'rp-pilot: карточка создана' ($pos.Count -eq 1)
+  if ($pos.Count) {
+    $c = $pos[0]
+    Check 'rp-pilot: стоп - предел 2% от ФАКТИЧЕСКОГО входа, округлён к входу (2.843176 -> 2.844)' ([math]::Abs([double]$c.stop_px_pts - 2.844) -lt 1e-9)
+    Check 'rp-pilot: исходный стратегический стоп сохранён рядом (2.9012-0.229)' ([math]::Abs([double]$c.stop_strategy_px - 2.6722) -lt 1e-9)
+    Check 'rp-pilot: параметры политики закреплены на карточке' ([string]$c.risk_policy.policy_id -eq 'rf-early-exit-v1' -and [string]$c.risk_policy.hash -match '^[0-9a-f]{64}$' -and [int]$c.q_reference -eq 4)
+    Check 'rp-pilot: цена входа пока предварительная' ([string]$c.entry_px_status -eq 'provisional')
+    Check 'rp-pilot: убыток при стопе в пределах бюджета 8 000' ([double]$c.risk_at_stop_rub -gt 0 -and [double]$c.risk_at_stop_rub -le 8000)
+    Check 'rp-pilot: легаси-поле risk_rub = бюджет 8 000' ([math]::Abs([double]$c.risk_rub - 8000) -lt 0.01)
+  }
+  $stops = Get-Calls $r 'PostStopOrder'
+  Check 'rp-pilot: стоп-заявка по 2.844 (к ближайшему было бы 2.843)' ($stops.Count -eq 1 -and $stops[0].body -match '"units":"2"' -and $stops[0].body -match '"nano":844000000')
+}
+
+# --- pilot: q_reference = 0 (убыток на лот при исходном стопе больше бюджета) -> вход отменён
+function Scn-RpPilotQrefZero {
+  $r = New-Scenario 'rp-pilot-qref0'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 2.0 1.0 2.9 0.05)   # 2 пункта = 15 498 ₽ на лот при бюджете 8 000
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'rp-qref0: заявки нет' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  Check 'rp-qref0: интент снят' (@($st.pending_intents).Count -eq 0)
+  Check 'rp-qref0: причина в логе тика' ([string](Get-TickLog $r) -match 'SKIP RP \[core\] NG: q_reference=0')
+}
+
+# --- невалидный конфиг держит входы (молчаливого возврата к 5% нет), исправленный - отпускает
+function Scn-RpInvalidConfig {
+  $r = New-Scenario 'rp-invalid-config'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  $bad = New-RpConfig 'shadow'; $bad.rf_risk_policy.mode = 'pilott'
+  Write-Json (Join-Path $r 'data\live_rf\config.json') $bad
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'rp-invalid: входы остановлены, заявки нет' ([bool]$st.entries_halt.active -and [string]$st.entries_halt.reason -like 'RP конфиг*' -and (Get-Calls $r 'PostOrder').Count -eq 0)
+  Check 'rp-invalid: отказ опубликован' ([string]$st.risk_policy.mode -eq 'invalid' -and [string]$st.risk_policy.rejected_reason)
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'shadow')
+  [void](Run-Tick $r '2026-07-15 10:06')
+  $st = Get-State $r
+  Check 'rp-invalid: исправленный конфиг снимает халт' (-not [bool]$st.entries_halt.active -and [string]$st.risk_policy.mode -eq 'shadow')
+  Check 'rp-invalid: вход прошёл (shadow - прежние правила)' ((Get-Calls $r 'PostOrder').Count -eq 1)
+}
+
+# --- pilot без проверенного капитала: интент ждёт, заявки нет
+function Scn-RpCapitalStale {
+  $r = New-Scenario 'rp-capital-stale'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  [void](Run-Tick $r '2026-07-15 10:05')   # дефолтный снимок портфеля без итогов счёта - капитала нет
+  $st = Get-State $r
+  Check 'rp-capital: без капитала заявки нет' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  Check 'rp-capital: интент ждёт, а не отменён' (@($st.pending_intents | Where-Object { $_.state -eq 'INTENT' }).Count -eq 1)
+  Check 'rp-capital: причина в логе тика' ([string](Get-TickLog $r) -match 'WAIT RP')
+}
+
+# --- старая позиция (до политики) занимает бюджет больше потолка: новый вход отменён, её стоп не тронут
+function Scn-RpTotalCapLegacyBlocks {
+  $r = New-Scenario 'rp-total-cap-legacy'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  $s.pending_intents = @(New-EntryIntent 'setA' 'NG' 'buy' 0 0.1145 2.9 0.02 2.7)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 700000 @([pscustomobject]@{ instrumentUid = 'uid-NGQ6'; instrumentType = 'futures'; quantityLots = [pscustomobject]@{ units = '19'; nano = 0 } })
+  Write-BrokerStops $r @(New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6')
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @(
+    [pscustomobject]@{ instrumentUid = 'uid-NGQ6'; price = [pscustomobject]@{ units = '2'; nano = 900000000 }; time = '2026-07-15T07:04:55Z' }) })
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot' 0.005 0.02)
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'rp-total: риск старой позиции ~33,7 тыс. больше потолка 3% = 21 тыс. -> вход отменён' ((Get-Calls $r 'PostOrder').Count -eq 0 -and @($st.pending_intents).Count -eq 0 -and [string](Get-TickLog $r) -match 'SKIP RP \[setA\] NG: бюджет исчерпан')
+  Check 'rp-total: стоп старой позиции не тронут' ((Get-Calls $r 'CancelStopOrder').Count -eq 0 -and (Get-Calls $r 'PostStopOrder').Count -eq 0)
+  Check 'rp-total: сводка бюджета видит старую позицию, неизвестного риска нет' ([double]$st.risk_budget.total_used_rub -gt 21000 -and @($st.risk_budget.unknown).Count -eq 0)
+}
+
+# --- два входа в одном тике: резерв первой заявки (ещё не исполнена) виден второй и режет её
+function Scn-RpTwoEntriesReserve {
+  $r = New-Scenario 'rp-two-entries'
+  $s = New-BaseState $r
+  $i1 = New-EntryIntent 'setA' 'NG' 'buy' 0 0.1145 2.9 0.02 2.7
+  $i2 = New-EntryIntent 'setA' 'NG' 'buy' 0 0.1145 2.9 0.02 2.7
+  $i2.id = 'i00002'; $i2.order_key = (New-TiOrderKey 'i00002' 'entry')
+  $s.pending_intents = @($i1, $i2)
+  $s.day_start_eq = 90000   # иначе прежний губернатор «день -8%» (капитал против базы дня) остановит входы до политики
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 90000   # setA 2% = 1 800 (1 лот), общий потолок 3% = 2 700 - на второй лот места нет
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot' 0.005 0.02)
+  Set-Queue $r @([pscustomobject]@{ service = 'OrdersService'; method = 'PostOrder'
+    response = [pscustomobject]@{ orderId = 'ord-1'; executionReportStatus = 'EXECUTION_REPORT_STATUS_NEW' } })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $orders = Get-Calls $r 'PostOrder'
+  Check 'rp-two: ушла ровно одна заявка на 1 лот' ($orders.Count -eq 1 -and $orders[0].body -match '"quantity":"1"')
+  $p1 = @($st.pending_intents | Where-Object { $_.id -eq 'i00001' })
+  Check 'rp-two: у первой заявки резерв записан' ($p1.Count -eq 1 -and [string]$p1[0].state -eq 'POSTED' -and [double]$p1[0].ctx.risk.reserved_rub -gt 1500)
+  Check 'rp-two: вторая отменена - бюджет занят резервом первой' (@($st.pending_intents | Where-Object { $_.id -eq 'i00002' }).Count -eq 0 -and [string](Get-TickLog $r) -match 'SKIP RP \[setA\] NG: бюджет исчерпан')
+}
+
+# --- карточка политики: более свободный стоп отвергается до обращения к брокеру
+function Scn-RpNoLoosen {
+  $r = New-Scenario 'rp-no-loosen'
+  $s = New-BaseState $r
+  $card = New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 4 2.9012 2.844 7749.12
+  $card | Add-Member -NotePropertyName risk_policy -NotePropertyValue ([pscustomobject]@{ policy_id = 'rf-early-exit-v1'; version = 1
+    hash = ('a' * 64); mode = 'pilot'; stop_cap_pct = 0.02; risk_pct = 0.005 })
+  $card.stop_deferred = 2.80   # попытка ОСЛАБИТЬ стоп лонга (ниже текущего 2.844)
+  $s.sleeves.core.positions = @($card)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerFut $r 'uid-NGQ6' 4
+  Write-BrokerStops $r @(New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6' 'SELL' 4 'STOP_ORDER_TYPE_STOP_LOSS' 2.844)
+  [void](Run-Tick $r '2026-07-15 10:00')
+  $c = @((Get-State $r).sleeves.core.positions)[0]
+  Check 'rp-noloosen: ослабление отвергнуто до брокера' ((Get-Calls $r 'CancelStopOrder').Count -eq 0 -and (Get-Calls $r 'PostStopOrder').Count -eq 0)
+  Check 'rp-noloosen: стоп прежний 2.844' ([math]::Abs([double]$c.stop_px_pts - 2.844) -lt 1e-9)
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -2103,7 +2338,10 @@ $scenarios = @(
   ${function:Scn-GovernorsSkippedInClearing},
   ${function:Scn-StopReplaceCancelLost}, ${function:Scn-StopReplaceCancel4xx}, ${function:Scn-StopReplaceStaleIntent},
   ${function:Scn-D5Tp1Resync}, ${function:Scn-D5Tp1Drop}, ${function:Scn-D5Reversal},
-  ${function:Scn-OrphanSweep}, ${function:Scn-StopPostLostAdopt}, ${function:Scn-HaltEntriesFileRemoved}
+  ${function:Scn-OrphanSweep}, ${function:Scn-StopPostLostAdopt}, ${function:Scn-HaltEntriesFileRemoved},
+  ${function:Scn-RpOffParity}, ${function:Scn-RpShadowNoMutation}, ${function:Scn-RpPilotSizing}, ${function:Scn-RpPilotQrefZero},
+  ${function:Scn-RpInvalidConfig}, ${function:Scn-RpCapitalStale}, ${function:Scn-RpTotalCapLegacyBlocks},
+  ${function:Scn-RpTwoEntriesReserve}, ${function:Scn-RpNoLoosen}
 )
 # LRF_ONLY=<regex>: прогнать только сценарии, чьё имя функции ему соответствует (быстрая итерация),
 # например LRF_ONLY='StopReplace|D5'
