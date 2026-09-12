@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9292.48,
-    "equity_usd":  9297.23,
+    "balance_usd":  9289.27,
+    "equity_usd":  9291.06,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9289.69,
     "day_start_date_utc":  "2026-09-12",
@@ -102,6 +102,49 @@
                                                              "atrCapLong":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T41",
+                               "symbol":  "SOL-USDT",
+                               "side":  "short",
+                               "qty":  57.6188,
+                               "qty_initial":  57.6188,
+                               "entry_price":  101.276608,
+                               "stop":  102.890491,
+                               "stop0":  102.890491,
+                               "tp1":  98.855783,
+                               "entry_utc":  "2026-09-12 20:00",
+                               "entry_ts":  1789243239783,
+                               "risk_usd":  92.99,
+                               "notional_usd":  5835.44,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  3.2094901383976859,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  101.276608,
+                               "mae_px":  101.276608,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h down; SOL-USDT 4h down; F\u0026G 63",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-09-12 16:00 UTC",
+                                              "indicators":  "RSI 46.9, ATR 1.64% (кэп 3%), фандинг 7.3E-05/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~101.276608, стоп 102.890491 (1.64%), TP1 98.855783 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $92.99",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -112,17 +155,17 @@
                   "total_funding_usd":  29.31,
                   "realized_pnl_usd":  -702.81
               },
-    "last_check_utc":  "2026-09-12 19:58",
+    "last_check_utc":  "2026-09-12 20:00",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1789243020000,
-                 "last_4h_ts":  1789214400000,
+                 "last_1m_ts":  1789243140000,
+                 "last_4h_ts":  1789228800000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
-                 "next_trade_id":  41,
-                 "ticks_since_viz":  1,
+                 "next_trade_id":  42,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-09-11",
-                 "last_tick_utc":  "2026-09-12 19:58"
+                 "last_tick_utc":  "2026-09-12 20:00"
              }
 }
