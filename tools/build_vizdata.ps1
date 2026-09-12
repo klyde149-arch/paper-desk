@@ -6,6 +6,7 @@ param([switch]$SkipLive, [switch]$NoDeploy)
 $ErrorActionPreference = 'Stop'
 $dir = Split-Path $PSScriptRoot -Parent   # портируемо: локально и в GitHub Actions
 . (Join-Path $PSScriptRoot 'lib_engine.ps1')  # Get-Klines (Bybit + фолбэки)
+. (Join-Path $PSScriptRoot 'lib_rf_riskdto.ps1')  # риск-политика: risk_view/risk_budget -> DTO
 
 $syms = @('BTC-USDT','ETH-USDT','SOL-USDT','BNB-USDT','XRP-USDT','DOGE-USDT','ADA-USDT','AVAX-USDT','LINK-USDT',
           'DOT-USDT','LTC-USDT','BCH-USDT','UNI-USDT','ATOM-USDT','NEAR-USDT','OP-USDT','APT-USDT','ARB-USDT','SUI-USDT','AAVE-USDT')
@@ -271,7 +272,8 @@ if ($rfPresentation -and [int]$rfPresentation.schema -eq 1) {
     if (Test-Path $cf) { try { $c1h = [object[]]@((Get-Content $cf -Raw -Encoding UTF8 | ConvertFrom-Json)) } catch {} }
     [ordered]@{ id=$_.id; sleeve=$_.sleeve; asset=$_.asset; secid=$_.secid; side=$_.side; lots=$_.lots; entry=$_.entry; stop=$_.stop; tp1=$_.tp1; cur=$_.cur; upnl=$_.upnl; riskRub=$_.risk; entryDay=$_.entryDay; entryTs=$_.entryTs; rolls=$_.rolls; rubPerPt=$_.rubPerPt; notional=$_.notional; pctChg=$_.pctChg; candles1h=$c1h; reconcileStatus=$_.reconcileStatus; reconcileSinceTs=$_.reconcileSinceTs
       brokerPnl=$_.brokerPnl; goRub=$_.goRub; pnlPctGo=$_.pnlPctGo; brokerVarMargin=$_.brokerVarMargin
-      brokerVarMarginSettled=$_.brokerVarMarginSettled; brokerAvgPx=$_.brokerAvgPx; brokerCurPx=$_.brokerCurPx; brokerLots=$_.brokerLots }
+      brokerVarMarginSettled=$_.brokerVarMarginSettled; brokerAvgPx=$_.brokerAvgPx; brokerCurPx=$_.brokerCurPx; brokerLots=$_.brokerLots
+      riskView=$_.riskView }
   })
   $s = $rfPresentation.summary; $op = $rfPresentation.operational
   # Снапшот отдаёт сделки в DTO Mini App (pnl/fees) - фронт дашборда читает pnlRub/feesRub/sleeve,
@@ -286,6 +288,7 @@ if ($rfPresentation -and [int]$rfPresentation.schema -eq 1) {
     feesBrokerRub=$s.feesBrokerRub; openPnlBroker=$s.openPnlBroker
     allTimeAmt=$s.allTimeAmt; allTimePct=$s.allTimePct; allTimeNote=[string]$s.allTimeNote; allTimeSource=[string]$s.allTimeSource
     pendingSettleRub=$s.pendingSettleRub; pendingSettleTodayRub=$s.pendingSettleTodayRub; ledgerUntilMs=$s.ledgerUntilMs; manualAdjustmentRub=$s.manualAdjustmentRub
+    riskBudget=$s.riskBudget
     broker=$rfPresentation.broker; capitalCurveJoinTs=$rfPresentation.capitalCurveJoinTs }
 }
 elseif (Test-Path $lrPf) {
@@ -363,7 +366,8 @@ elseif (Test-Path $lrPf) {
         brokerVarMarginSettled = $(if ($null -ne $bPos) { $bPos.var_margin_settled } else { $null })
         brokerAvgPx = $(if ($null -ne $bPos) { $bPos.avg_px } else { $null })
         brokerCurPx = $(if ($null -ne $bPos) { $bPos.cur_px } else { $null })
-        brokerLots = $(if ($null -ne $bPos) { $bPos.lots } else { $null }) } })
+        brokerLots = $(if ($null -ne $bPos) { $bPos.lots } else { $null })
+        riskView = (ConvertTo-RfRiskViewDto $_.risk_view) } })
   }
   $lrHold = [object[]]@(@($lp.sleeves.mom.holdings) | Where-Object { $null -ne $_ } | ForEach-Object {
     [ordered]@{ sym = $_.sym; lots = $_.lots; lotSize = $_.lot_size; avg = $_.avg_px; last = $_.last_px } })
@@ -371,6 +375,9 @@ elseif (Test-Path $lrPf) {
     mode = [string]$lp.mode
     entriesHalt = [bool]$lp.entries_halt.active
     haltReason = [string]$lp.entries_halt.reason
+    # риск-политика: то же поле, что в ветке снапшота выше - иначе dashboard в фолбэке терял
+    # сводку бюджета целиком (тот же класс дефекта, что с goRub/pnlPctGo в 2026-09)
+    riskBudget = (ConvertTo-RfRiskBudgetDto $lp.risk_budget)
     goUsed = [double]$lp.go.used_rub
     goBudget = [double]$lp.go.budget_rub
     accountLiquid = $(if ($lp.go.PSObject.Properties['account_liquid_rub']) { [double]$lp.go.account_liquid_rub } else { $null })

@@ -46,6 +46,7 @@ function presentationSummary(snapshot) {
     capitalModel: s.capitalModel ?? '',
     peakStale: Boolean(s.peakStale),
     feesBrokerRub: round(s.feesBrokerRub),
+    riskBudget: s.riskBudget ?? null,
     openPnlBroker: round(s.openPnlBroker),
     openPositions: Number(s.openPositions ?? 0),
     tradesPnl: round(s.tradesPnl),
@@ -93,6 +94,32 @@ const capitalCurve = (rows) =>
 const profileCurve = (rows) =>
   rows.filter((r) => r && num(r.ts) !== null && num(r.total) > 0).map((r) => [num(r.ts), num(r.total)]);
 
+// risk_view карточки (движок, snake_case) -> поле DTO. Отсутствует (режим off или карточка до
+// политики) - null: дашборд рисует прочерк, а не ноль.
+function rfRiskView(v) {
+  if (!v) return null;
+  return {
+    policyId: v.policy_id ?? '', mode: v.mode ?? '',
+    stopPx: num(v.stop_px), stopDistPct: round(v.stop_dist_pct),
+    riskRub: round(v.risk_rub, 0), riskPctAccount: round(v.risk_pct_account),
+    feesEstimated: Boolean(v.fees_estimated), protection: v.protection ?? '',
+    entryPxStatus: v.entry_px_status ?? '', budgetLeftRub: round(v.budget_left_rub, 0)
+  };
+}
+// st.risk_budget (движок) -> поле DTO. Здесь только перевод имён: ни одного расчёта, иначе
+// поверхности снова разойдутся на одной позиции.
+function rfRiskBudget(b) {
+  if (!b) return null;
+  return {
+    mode: b.mode ?? '', policyId: b.policy_id ?? '', updatedMs: num(b.updated_ms),
+    capitalRub: round(b.capital_rub, 0), capitalOk: Boolean(b.capital_ok), capitalReason: b.capital_reason ?? '',
+    totalUsedRub: round(b.total_used_rub, 0), totalCapRub: round(b.total_cap_rub, 0),
+    fxLongRub: round(b.fx_long_rub, 0), fxShortRub: round(b.fx_short_rub, 0), fxCapRub: round(b.fx_cap_rub, 0),
+    dayOk: Boolean(b.day_ok), dayPnlRub: round(b.day_pnl_rub, 0), dayLimitRub: round(b.day_limit_rub, 0),
+    dayReason: b.day_reason ?? '', unknown: Array.isArray(b.unknown) ? b.unknown : [],
+    reasons: Array.isArray(b.reasons) ? b.reasons : []
+  };
+}
 function positionsOf(portfolio, names, dataDir) {
   const out = [];
   for (const sleeve of ['core', 'setA']) {
@@ -127,7 +154,8 @@ function positionsOf(portfolio, names, dataDir) {
         brokerPnl: round(portfolio?.broker_pnl_by_card?.[p.id]),
         goRub: num(p.go_per_lot) !== null ? round(num(p.lots) * num(p.go_per_lot), 0) : null,
         pnlPctGo: null,
-        brokerVarMargin: null
+        brokerVarMargin: null,
+        riskView: rfRiskView(p.risk_view)
       });
       const last = out[out.length - 1];
       if (last.brokerPnl !== null && last.goRub > 0) last.pnlPctGo = round((last.brokerPnl / last.goRub) * 100);
@@ -224,7 +252,11 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
         // контракту); upnl — наша переоценка открытых лотов. Процент считаем от ГО, а не от
         // движения цены: pctChg оставлен только ради обратной совместимости DTO.
         brokerPnl: round(p.brokerPnl), goRub: round(p.goRub, 0), pnlPctGo: round(p.pnlPctGo),
-        brokerVarMargin: round(p.brokerVarMargin)
+        brokerVarMargin: round(p.brokerVarMargin),
+        // riskView целиком считает движок (риск-политика): расстояние до стопа, убыток при стопе,
+        // состояние защиты. UI своей версии риска не выводит - три поверхности уже расходились на
+        // одной позиции, пока каждая считала проценты сама.
+        riskView: p.riskView ?? null
       })),
       closedTrades: (snapshot.closedTrades ?? []).map((t) => ({
         id: t.id, asset: t.asset, secid: t.secid, title: t.title ?? t.asset, side: t.side,
@@ -310,6 +342,7 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
       peakStale: Boolean(num(portfolio.go?.bot_capital_account_rub) !== null
         && (portfolio.capital_breakdown?.model ?? 'legacy') === 'legacy'),
       feesBrokerRub: ledger !== null ? round(Math.abs(num(ledger.fees_rub) ?? 0)) : null,
+      riskBudget: rfRiskBudget(portfolio.risk_budget),
       openPnlBroker: round(positions.reduce((sum, x) => sum + (num(x.brokerPnl) ?? num(x.upnl) ?? 0), 0)),
       pendingSettleRub: round(pendAll),
       pendingSettleTodayRub: round(pendToday),

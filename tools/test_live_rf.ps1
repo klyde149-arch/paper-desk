@@ -231,8 +231,20 @@ function Test-VizDtoMirror {
   $keys = @($dto | ForEach-Object { ,(@($_.KeyValuePairs | ForEach-Object { $_.Item1.Extent.Text }) | Sort-Object) })
   $diff = @(Compare-Object $keys[0] $keys[1] | ForEach-Object { $_.InputObject })
   Check "наборы ключей совпадают$(if ($diff.Count) { ' (разошлись: ' + ($diff -join ', ') + ')' })" ($diff.Count -eq 0)
-  foreach ($k in 'pnlPctGo', 'goRub', 'brokerPnl', 'upnl') {
+  foreach ($k in 'pnlPctGo', 'goRub', 'brokerPnl', 'upnl', 'riskView') {
     Check "обе ветки отдают $k" (($keys[0] -contains $k) -and ($keys[1] -contains $k))
+  }
+  # Сводка rfReal раньше тестом не покрывалась вовсе: поле, добавленное только в ветку снапшота,
+  # молча пропадало бы в фолбэке (ровно так дашборд терял goRub/pnlPctGo в 2026-09). Обе ветки
+  # ищем по паре ключей haltReason+goUsed: одного haltReason мало - он есть и в сводке крипто-контура.
+  # Равенства ключей тут НЕ требуем: фолбэк-DTO намеренно уже (19 полей против 41), лишние там
+  # когда-то были мёртвыми и удалены. Инвариант другой - сводка политики обязана быть в обеих.
+  $sum = @($all | Where-Object { $k = @($_.KeyValuePairs | ForEach-Object { $_.Item1.Extent.Text })
+    ($k -contains 'haltReason') -and ($k -contains 'goUsed') })
+  Check 'rfReal: найдены обе ветки сводки' ($sum.Count -eq 2)
+  if ($sum.Count -eq 2) {
+    $sk = @($sum | ForEach-Object { ,(@($_.KeyValuePairs | ForEach-Object { $_.Item1.Extent.Text })) })
+    Check 'rfReal: обе ветки отдают riskBudget' (($sk[0] -contains 'riskBudget') -and ($sk[1] -contains 'riskBudget'))
   }
 }
 

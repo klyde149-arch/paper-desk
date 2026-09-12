@@ -127,6 +127,8 @@ function AssetName([string]$Asset, [string]$Secid = '') { if ($Asset) { RuName $
 function RfReasonRu([string]$Reason) {
   switch -Wildcard ($Reason) {
     'be*'        { return 'стоп на цене входа (без убытка)' }
+    'stop-cap-breach' { return 'выход по пределу стопа от подтверждённой цены входа' }
+    'risk-excess' { return 'выход по превышению бюджета риска' }
     'stop*'      { return 'сработала стоп-заявка' }
     'tp*'        { return 'достигнута цель' }
     'exit*'      { return 'закрытие по сигналу стратегии' }
@@ -612,6 +614,47 @@ function Close-CardLedger($Card, [double]$ExitPx, [string]$Reason, [double]$FeeR
   # пометка приблизительного учёта (переворот D5R: цена выхода карточки восстановлена, а не измерена)
   if ($Card.PSObject.Properties['accounting'] -and [string]$Card.accounting) {
     $rec | Add-Member -NotePropertyName accounting -NotePropertyValue ([string]$Card.accounting) -Force
+  }
+  # Аддитивные поля риск-политики: ТОЛЬКО для её карточек. Смысл легаси-полей (riskRub, rMultiple)
+  # не меняется - иначе сравнение с историей контура поехало бы. ТЗ §12: расходы по ногам раздельно,
+  # результат в трёх базах (цена, нотионал, ГО), MAE/MFE и источник выхода.
+  if ($Card.PSObject.Properties['risk_policy'] -and $null -ne $Card.risk_policy) {
+    $rk = $Card.risk_policy
+    $smT = if ([string]$Card.side -eq 'long') { 1.0 } else { -1.0 }
+    $entryT = [double]$Card.entry_px_pts
+    $notionalT = [int]$Card.lots_initial * $entryT * [double]$Card.rub_per_pt
+    $goT = if ($null -ne $Card.go_per_lot) { [int]$Card.lots_initial * [double]$Card.go_per_lot } else { 0.0 }
+    $riskAtStopT = if ($Card.PSObject.Properties['risk_at_stop_rub'] -and $null -ne $Card.risk_at_stop_rub) { [double]$Card.risk_at_stop_rub } else { $null }
+    $feesRollT = if ($Card.PSObject.Properties['fees_roll_rub']) { [double]$Card.fees_roll_rub } else { 0.0 }
+    $feesEntryT = if ($Card.PSObject.Properties['fees_entry_rub']) { [double]$Card.fees_entry_rub } else { $null }
+    # источник выхода: заявка брокера, решение движка или внешнее закрытие. Мотив ручного выхода
+    # НЕ выводим из результата (паспорт эксперимента, §4) - он засчитывается только вашей отметкой.
+    $srcT = if ([string]$Reason -eq 'manual-ext') { 'external' }
+            elseif (@('stop', 'stop-emu') -contains [string]$Reason) { 'broker-stop' }
+            else { 'engine' }
+    $addT = [ordered]@{
+      policyId = [string]$rk.policy_id; policyHash = [string]$rk.hash; policyMode = [string]$rk.mode
+      stopStrategyPx = $(if ($Card.PSObject.Properties['stop_strategy_px']) { [double]$Card.stop_strategy_px } else { $null })
+      stopInitialPx = $(if ($Card.PSObject.Properties['stop_initial_px']) { [double]$Card.stop_initial_px } else { $null })
+      riskBudgetRub = $(if ($Card.PSObject.Properties['risk_budget_rub']) { [double]$Card.risk_budget_rub } else { $null })
+      riskAtStopRub = $riskAtStopT
+      rAtStop = $(if ($null -ne $riskAtStopT -and $riskAtStopT -gt 0) { [math]::Round($net / $riskAtStopT, 2) } else { $null })
+      entryPxStatus = $(if ($Card.PSObject.Properties['entry_px_status']) { [string]$Card.entry_px_status } else { '' })
+      maePts = $(if ($Card.PSObject.Properties['mae_pts']) { [double]$Card.mae_pts } else { $null })
+      mfePts = [double]$Card.mfe_pts
+      feesEntryRub = $feesEntryT; feesExitRub = [math]::Round($FeeRub, 2); feesRollRub = $feesRollT
+      pxMovePct = $(if ($entryT -gt 0) { [math]::Round(100.0 * $smT * ($ExitPx - $entryT) / $entryT, 3) } else { $null })
+      netPctNotional = $(if ($notionalT -gt 0) { [math]::Round(100.0 * $net / $notionalT, 3) } else { $null })
+      pctGo = $(if ($goT -gt 0) { [math]::Round(100.0 * $net / $goT, 2) } else { $null })
+      holdHours = [math]::Round(($NowMs - [long]$Card.entry_ts) / 3600000.0, 2)
+      exitSource = $srcT
+      virtual = $(if ($Card.PSObject.Properties['virtual'] -and $null -ne $Card.virtual) { $Card.virtual } else { $null })
+    }
+    foreach ($kT in $addT.Keys) { $rec | Add-Member -NotePropertyName $kT -NotePropertyValue $addT[$kT] -Force }
+    # пометка учёта: у переворота (D5R) уже стоит своя - её не затираем, она честнее
+    if (-not ($Card.PSObject.Properties['accounting'] -and [string]$Card.accounting)) {
+      $rec | Add-Member -NotePropertyName accounting -NotePropertyValue 'rf-risk-v1' -Force
+    }
   }
   $tPath = Join-Path $lrfDir 'trades.json'
   $tr = New-Object System.Collections.Generic.List[object]
@@ -1253,6 +1296,8 @@ function Set-RpCardAtEntry($Card, $It, $Inst, [double]$StopDist) {
   $Card | Add-Member -NotePropertyName capital_rub -NotePropertyValue $capRub -Force
   $Card | Add-Member -NotePropertyName capital_ms -NotePropertyValue $rk.capital_ms -Force
   $Card | Add-Member -NotePropertyName entry_px_status -NotePropertyValue 'provisional' -Force
+  # комиссия ВХОДА фиксируется здесь: дальше fees_rub растёт за счёт TP1, роллов и выхода
+  $Card | Add-Member -NotePropertyName fees_entry_rub -NotePropertyValue ([double]$Card.fees_rub) -Force
   $Card | Add-Member -NotePropertyName mae_pts -NotePropertyValue $px -Force
 }
 # ---------------- цена входа: статус и VWAP частичных исполнений ----------------
@@ -1351,12 +1396,9 @@ function Invoke-RpCardGuard($C) {
   # 2. рынок уже за стопом: стоп-заявка на пересечённом уровне ненадёжна - выходим сами. Это
   # ПЛАНОВЫЙ выход политики, а не расхождение, поэтому без паузы входов (-NoEntriesHalt).
   $mark = if ($C.PSObject.Properties['cur_px'] -and [double]$C.cur_px -gt 0) { [double]$C.cur_px } else { 0.0 }
-  if ($mark -gt 0 -and ($sm * ($mark - $guardStop)) -lt 0) {
-    Write-RpLog 'stop_cap_breach' ([pscustomobject]@{ card = [string]$C.id; mark = $mark; stop = $guardStop; entry = $px })
-    Invoke-EmergencyClose $C 'stop-cap-breach' -NoEntriesHalt
-    return
-  }
-  # 3. бюджет: риск позиции с допуском выше заложенного при входе -> сокращение (один раз на карточку)
+  # «Убыток при стопе» обновляем ДО любого выхода: это число уходит в отчётность и в трейд-лог,
+  # и если карточка закроется здесь же на пробое, в логе должно стоять актуальное значение, а не
+  # то, что было при входе - иначе результат сделки не с чем сравнивать (rAtStop не посчитать).
   $refPx = if ($mark -gt 0) { $mark } else { $px }
   $exitCost = Get-RfCostPerLot $refPx ([double]$C.rub_per_pt) $rk.cost.fee_pct_side $rk.cost.stop_slip_pct -ExitOnly
   $pr = Get-RfPositionRisk $side ([int]$C.lots) $px ([double]$C.stop_px_pts) $mark ([double]$C.rub_per_pt) $exitCost
@@ -1364,6 +1406,12 @@ function Invoke-RpCardGuard($C) {
   if ($C.PSObject.Properties['capital_rub'] -and [double]$C.capital_rub -gt 0) {
     $C | Add-Member -NotePropertyName risk_pct_account -NotePropertyValue ([math]::Round(100.0 * [double]$pr.r_charge / [double]$C.capital_rub, 3)) -Force
   }
+  if ($mark -gt 0 -and ($sm * ($mark - $guardStop)) -lt 0) {
+    Write-RpLog 'stop_cap_breach' ([pscustomobject]@{ card = [string]$C.id; mark = $mark; stop = $guardStop; entry = $px })
+    Invoke-EmergencyClose $C 'stop-cap-breach' -NoEntriesHalt
+    return
+  }
+  # 3. бюджет: риск позиции с допуском выше заложенного при входе -> сокращение (один раз на карточку)
   $B = [double]$C.risk_budget_rub
   if ($B -le 0 -or [int]$C.lots -le 0) { return }
   $tol = if ($null -ne $rk.excess_tolerance_pct) { [double]$rk.excess_tolerance_pct } else { 0.10 }
@@ -1479,6 +1527,51 @@ function Update-RpBudgetView {
     day_ok = [bool]$day.ok; day_pnl_rub = $(if ($day.ok) { [math]::Round([double]$day.pnl, 2) } else { $null })
     day_limit_rub = $(if ($day.ok -and $null -ne $day.e_base) { [math]::Round([double]$day.e_base * [double]$P.daily_entry_loss_halt_pct, 2) } else { $null })
     day_reason = [string]$day.reason }) -Force
+}
+
+# risk_view карточки - ГОТОВЫЕ числа для отчётных поверхностей (дашборд, снапшот, Mini App,
+# ассистент). Ни одна поверхность больше не считает риск сама: до 2026-09 три из них считали
+# проценты по-своему и на одну позицию давали три разных ответа (BACKLOG №24).
+# fees_estimated всегда true: в риск включён МОДЕЛЬНЫЙ резерв расходов (комиссии+проскальзывание),
+# а не фактические комиссии брокера - поверхность обязана сказать это вслух.
+function Update-RpCardViews {
+  if (-not (Test-RpOn) -or -not $script:RP.ok) { return }
+  $P = $script:RP.p
+  $fee = [decimal]$P.cost.fee_pct_side; $slip = [decimal]$P.cost.stop_slip_pct
+  $left = $null
+  if ($st.PSObject.Properties['risk_budget'] -and $null -ne $st.risk_budget -and $null -ne $st.risk_budget.total_cap_rub) {
+    $left = [math]::Round([double]$st.risk_budget.total_cap_rub - [double]$st.risk_budget.total_used_rub, 2)
+  }
+  foreach ($sn in 'core', 'setA') {
+    foreach ($c in @($st.sleeves.$sn.positions)) {
+      if ($null -eq $c) { continue }
+      $mark = if ($c.PSObject.Properties['cur_px'] -and [double]$c.cur_px -gt 0) { [double]$c.cur_px } else { $null }
+      $pxC = if ($null -ne $mark) { $mark } else { [double]$c.entry_px_pts }
+      $exitCost = Get-RfCostPerLot $pxC ([double]$c.rub_per_pt) $fee $slip -ExitOnly
+      $r = Get-RfPositionRisk ([string]$c.side) ([int]$c.lots) ([double]$c.entry_px_pts) ([double]$c.stop_px_pts) $mark ([double]$c.rub_per_pt) $exitCost
+      $sid = [string]$c.stop_order_id
+      $prot = if ($c.quarantine) { 'quarantine' }
+              elseif ($null -ne $c.stop_deferred) { 'deferred' }
+              elseif ($LIVE.emulate_stops) { 'ok' }
+              elseif ($sid -and ($script:stopIdsThisTick.ContainsKey($sid) -or $script:freshStopIds.ContainsKey($sid))) { 'ok' }
+              else { 'missing' }
+      $entry = [double]$c.entry_px_pts
+      $distPct = if ($entry -gt 0) { [math]::Round(100.0 * [math]::Abs($entry - [double]$c.stop_px_pts) / $entry, 3) } else { $null }
+      $capRub = if ($c.PSObject.Properties['capital_rub'] -and [double]$c.capital_rub -gt 0) { [double]$c.capital_rub }
+                elseif ($null -ne $st.risk_budget -and $null -ne $st.risk_budget.capital_rub) { [double]$st.risk_budget.capital_rub }
+                else { 0.0 }
+      $isRp = ($c.PSObject.Properties['risk_policy'] -and $null -ne $c.risk_policy)
+      $c | Add-Member -NotePropertyName risk_view -NotePropertyValue ([pscustomobject]@{
+        policy_id = $(if ($isRp) { [string]$c.risk_policy.policy_id } else { '' })
+        mode = [string]$script:RP.mode
+        stop_px = [double]$c.stop_px_pts; stop_dist_pct = $distPct
+        risk_rub = [math]::Round([double]$r.r_charge, 2)
+        risk_pct_account = $(if ($capRub -gt 0) { [math]::Round(100.0 * [double]$r.r_charge / $capRub, 3) } else { $null })
+        fees_estimated = $true; protection = $prot
+        entry_px_status = $(if ($c.PSObject.Properties['entry_px_status']) { [string]$c.entry_px_status } else { '' })
+        budget_left_rub = $left }) -Force
+    }
+  }
 }
 
 # ================= авто-финансирование (продажа USD/серебра под сделку) =================
@@ -2518,6 +2611,12 @@ function Apply-RollClose($Card, [double]$Px, [string]$ToSecid) {
   $sl.eq_rub = [double]$sl.eq_rub + $pnl
   $Card.realized_rub = [double]$Card.realized_rub + $pnl
   $Card.fees_rub = [double]$Card.fees_rub + $fee
+  # комиссии ОБЕИХ ног ролла - отдельным счётчиком: внутри общей fees_rub эффект переносов
+  # не отделить от эффекта самой сделки, а ТЗ §12 требует считать их раздельно
+  if ($Card.PSObject.Properties['risk_policy'] -and $null -ne $Card.risk_policy) {
+    $prevRollFee = if ($Card.PSObject.Properties['fees_roll_rub']) { [double]$Card.fees_roll_rub } else { 0.0 }
+    $Card | Add-Member -NotePropertyName fees_roll_rub -NotePropertyValue ([math]::Round($prevRollFee + $fee, 2)) -Force
+  }
   # ролл закрывает СТАРЫЙ контракт у брокера точно так же, как обычный выход - его несведённая
   # маржа исчезает из capital_breakdown.futures в этот же тик (Card.uid пока ещё старый,
   # переприсвоится только в Apply-RollOpen ногой 2)
@@ -2556,6 +2655,12 @@ function Apply-RollOpen($Card, [double]$Px, [int]$Lots = 0) {
   $sl = Get-SleeveRef ([string]$Card.sleeve)
   $sl.eq_rub = [double]$sl.eq_rub - $fee
   $Card.fees_rub = [double]$Card.fees_rub + $fee
+  # комиссии ОБЕИХ ног ролла - отдельным счётчиком: внутри общей fees_rub эффект переносов
+  # не отделить от эффекта самой сделки, а ТЗ §12 требует считать их раздельно
+  if ($Card.PSObject.Properties['risk_policy'] -and $null -ne $Card.risk_policy) {
+    $prevRollFee = if ($Card.PSObject.Properties['fees_roll_rub']) { [double]$Card.fees_roll_rub } else { 0.0 }
+    $Card | Add-Member -NotePropertyName fees_roll_rub -NotePropertyValue ([math]::Round($prevRollFee + $fee, 2)) -Force
+  }
   $Card.secid = [string]$Card.roll_pending_to
   $Card.uid = [string]$inst.uid
   $Card.rub_per_pt = [double]$inst.rub_per_pt
@@ -3666,6 +3771,23 @@ function Invoke-DailyReport([switch]$Preview) {
   if ($dsum -eq 0) { $L.Add("Расхождений с брокером нет (D2/D4/D5/D6 = $($st.drift.D2)/$($st.drift.D4)/$($st.drift.D5)/$($st.drift.D6))") }
   else { $L.Add("Внимание, расхождения с брокером: D2/D4/D5/D6 = $($st.drift.D2)/$($st.drift.D4)/$($st.drift.D5)/$($st.drift.D6)") }
   [void]$opsIdx.Add($L.Count - 1)
+  # Риск-политика - строка ТОЛЬКО для владельца ($opsIdx): это диагностика расчёта, а не деньги
+  # клиента. В факты Invoke-ReportVerify она не идёт и в клиентскую версию не попадает.
+  if ($st.PSObject.Properties['risk_budget'] -and $null -ne $st.risk_budget) {
+    $rb = $st.risk_budget
+    if ([string]$rb.mode -eq 'invalid') {
+      $L.Add("Риск-политика: конфиг отклонён — $(@($rb.reasons) -join '; ')")
+    } else {
+      $usedTxt = if ($null -ne $rb.total_used_rub) { Fmt-Money ([double]$rb.total_used_rub) '₽' 0 } else { '—' }
+      $capTxt = if ($null -ne $rb.total_cap_rub) { Fmt-Money ([double]$rb.total_cap_rub) '₽' 0 } else { '—' }
+      $dayTxt = if ([bool]$rb.day_ok) {
+        "результат дня $(Fmt-Money ([double]$rb.day_pnl_rub) '₽' 0 -Sign) при пределе $(Fmt-Money ([double]$rb.day_limit_rub) '₽' 0)"
+      } else { "результат дня не проверен ($([string]$rb.day_reason))" }
+      $unkTxt = if (@($rb.unknown).Count) { "; неизвестный риск: $(@($rb.unknown) -join '; ')" } else { '' }
+      $L.Add("Риск-политика «$([string]$rb.mode)»: занято $usedTxt из $capTxt; валюты $(Fmt-Money ([double]$rb.fx_long_rub) '₽' 0) лонг / $(Fmt-Money ([double]$rb.fx_short_rub) '₽' 0) шорт при потолке $(Fmt-Money ([double]$rb.fx_cap_rub) '₽' 0); $dayTxt$unkTxt")
+    }
+    [void]$opsIdx.Add($L.Count - 1)
+  }
   if ($st.entries_halt.active) { $L.Add("Новые входы остановлены: $([string]$st.entries_halt.reason)") }
   else { $L.Add('Входы разрешены, торговля идёт штатно.') }
   if ($open.Count -gt 0) { $L.Add('Проценты по позициям — от задействованного ГО (вложенной маржи), P&L — по данным брокера.') }
@@ -3979,6 +4101,7 @@ try {
   # окон входа (шаг 7), только из данных этого тика
   if ((Test-RpOn) -and $script:RP.ok) { Update-RpDayBase }
   Update-RpBudgetView
+  Update-RpCardViews
 
   # 7. расписание (MSK), всё идемпотентно через вотермарки
   if (-not $weekendLight) {

@@ -2333,6 +2333,7 @@ function New-RpCard([string]$Sleeve, [string]$Asset, [string]$Secid, [string]$Ui
   $c | Add-Member -NotePropertyName capital_rub -NotePropertyValue 1600000.0 -Force
   $c | Add-Member -NotePropertyName q_reference -NotePropertyValue $Lots -Force
   $c | Add-Member -NotePropertyName mae_pts -NotePropertyValue $Entry -Force
+  $c | Add-Member -NotePropertyName fees_entry_rub -NotePropertyValue ([math]::Round($Lots * $Entry * $RubPt * 0.00025, 2)) -Force
   if ($PxStatus -eq 'verified') { $c | Add-Member -NotePropertyName entry_px_ok -NotePropertyValue $true -Force }
   return $c
 }
@@ -2405,6 +2406,14 @@ function Scn-RpConfirmPxBreach {
   Check 'rp-breach: новые входы НЕ остановлены (плановый выход политики)' (-not [bool]$stt.entries_halt.active)
   $tr = Get-Trades $r
   Check 'rp-breach: причина выхода сохранена как stop-cap-breach' ($tr.Count -eq 1 -and [string]$tr[0].exitReason -eq 'stop-cap-breach')
+  if ($tr.Count) {
+    $t0 = $tr[0]
+    Check 'rp-breach: трейд-лог несёт паспорт политики' ([string]$t0.policyId -eq 'rf-early-exit-v1' -and [string]$t0.policyHash -match '^[a-f0-9]{64}$' -and [string]$t0.accounting -eq 'rf-risk-v1')
+    Check 'rp-breach: выход помечен решением движка, а не заявкой брокера' ([string]$t0.exitSource -eq 'engine' -and $null -ne $t0.holdHours)
+    Check 'rp-breach: результат в трёх базах' ($null -ne $t0.pxMovePct -and $null -ne $t0.netPctNotional -and $null -ne $t0.pctGo)
+    Check 'rp-breach: расходы по ногам раздельно' ($null -ne $t0.feesEntryRub -and $null -ne $t0.feesExitRub -and $null -ne $t0.feesRollRub)
+    Check 'rp-breach: статус цены входа, MAE и R к фактическому риску' ([string]$t0.entryPxStatus -eq 'verified' -and $null -ne $t0.maePts -and $null -ne $t0.rAtStop)
+  }
 }
 
 # --- цену входа подтвердить не удалось: риск позиции неизвестен, новые входы ждут
@@ -2515,6 +2524,25 @@ function Scn-RpVirtualPair {
   }
 }
 
+# --- risk_view: движок сам считает числа риска для отчётных поверхностей
+function Scn-RpRiskView {
+  $r = New-Scenario 'rp-risk-view'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-RpCard 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 4 2.9012 2.844 7749.12 0.229 0.02 'verified')
+  Set-RpFixture $r $s 4 2.844 2.90
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $stt = Get-State $r
+  $c = @($stt.sleeves.core.positions)[0]
+  $v = $c.risk_view
+  Check 'rp-view: risk_view заполнен движком' ($null -ne $v -and [string]$v.policy_id -eq 'rf-early-exit-v1' -and [string]$v.mode -eq 'pilot')
+  Check 'rp-view: расстояние до стопа ~1,97% от входа' ($null -ne $v -and [math]::Abs([double]$v.stop_dist_pct - 1.972) -lt 0.01)
+  Check 'rp-view: убыток при стопе с модельными расходами' ($null -ne $v -and [double]$v.risk_rub -gt 0 -and [bool]$v.fees_estimated)
+  Check 'rp-view: защита подтверждена снимком шага 4' ($null -ne $v -and [string]$v.protection -eq 'ok')
+  Check 'rp-view: статус цены входа проброшен как есть' ($null -ne $v -and [string]$v.entry_px_status -eq 'verified')
+  Check 'rp-view: свободный общий бюджет посчитан' ($null -ne $v -and $null -ne $v.budget_left_rub)
+  Check 'rp-view: сводка бюджета опубликована' ($null -ne $stt.risk_budget -and [double]$stt.risk_budget.total_cap_rub -gt 0)
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -2552,7 +2580,7 @@ $scenarios = @(
   ${function:Scn-RpTwoEntriesReserve}, ${function:Scn-RpNoLoosen},
   ${function:Scn-RpConfirmPxTighten}, ${function:Scn-RpPartialFillsVwap}, ${function:Scn-RpConfirmPxBreach},
   ${function:Scn-RpConfirmPxUnresolved}, ${function:Scn-RpReduce}, ${function:Scn-RpRollPolicy},
-  ${function:Scn-RpVirtualPair}
+  ${function:Scn-RpVirtualPair}, ${function:Scn-RpRiskView}
 )
 # LRF_ONLY=<regex>: прогнать только сценарии, чьё имя функции ему соответствует (быстрая итерация),
 # например LRF_ONLY='StopReplace|D5'

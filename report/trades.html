@@ -1658,18 +1658,33 @@
   // Причины выхода — тем же языком, что и отчёты бота (RfReasonRu в live_rf_engine.ps1).
   // В таблице стояли сырые коды: "manual-ext", "stop".
   const RF_REASON_RU=[[/^stop-after-entry-fail$/,"аварийно: без стопа"],
+    [/^stop-cap-breach$/,"выход по пределу стопа"],[/^risk-excess$/,"выход по бюджету риска"],
     [/^be/,"стоп в безубытке"],[/^stop/,"стоп-заявка"],
     [/^tp/,"достигнута цель"],[/^exit/,"сигнал стратегии"],
     [/^go-trim$/,"нехватка ГО"],[/^hard-dd$/,"аварийный стоп −35%"],
     [/^emergency/,"аварийное закрытие"],[/^roll/,"перенос контракта"],
     [/^manual-ext$/,"закрыто вне бота"],[/^manual/,"закрыто вручную"]];
   const rfReasonRu=r=>{ const t=String(r||""); const m=RF_REASON_RU.find(p=>p[0].test(t)); return m?m[1]:(t||"—"); };
+  const RF_PROT_RU={ok:"стоп у брокера",missing:"стопа нет",deferred:"перестановка отложена",quarantine:"карантин сверки"};
+  const RF_PXST_RU={provisional:"предварительная",verified:"подтверждена брокером",unresolved:"НЕ подтверждена",rolled:"после переноса"};
+  // Риск-политика: показываем ГОТОВЫЕ числа движка (st.risk_budget -> riskBudget). Здесь не
+  // считается ничего: до 2026-09 дашборд, снапшот и ассистент считали проценты каждый по-своему.
+  const rfRiskBudgetLine=b=>{
+    if(!b) return "";
+    if(b.mode==="invalid") return `<br><b style="color:var(--loss)">Риск-политика: конфиг отклонён</b> — ${arr(b.reasons).join("; ")||"см. журнал"}`;
+    if(!b.mode||b.mode==="off") return "";
+    const used=(b.totalUsedRub!=null)?fmtRub(b.totalUsedRub):"—", cap=(b.totalCapRub!=null)?fmtRub(b.totalCapRub):"—";
+    const day=b.dayOk?`результат дня ${sgnRub(b.dayPnlRub||0)} при пределе ${fmtRub(b.dayLimitRub||0)}`
+                     :`результат дня не проверен${b.dayReason?" ("+b.dayReason+")":""}`;
+    const unk=arr(b.unknown).length?` · <b style="color:var(--loss)">неизвестный риск: ${arr(b.unknown).join("; ")}</b>`:"";
+    return `<br><b>Риск-политика «${b.mode}»:</b> занято ${used} из ${cap} · валюты ${fmtRub(b.fxLongRub||0)} лонг / ${fmtRub(b.fxShortRub||0)} шорт при потолке ${fmtRub(b.fxCapRub||0)} · ${day}${unk}`;
+  };
   function mskDayStartUtcMs(){ const d=new Date(); const msk=new Date(d.getTime()+3*36e5); return Date.UTC(msk.getUTCFullYear(),msk.getUTCMonth(),msk.getUTCDate())-3*36e5; }
   function buildFutRealPane(){
     const stEl=$("futRealStatus"); if(!stEl) return;
     if(!RFR){ stEl.innerHTML="<b>Данных реального счёта фьючерсов пока нет.</b> Как только VPS-бот запишет data/live_rf, вкладка оживёт автоматически."; return; }
     stEl.style.borderLeftColor=RFR.entriesHalt?"var(--loss)":"#d9a441";
-    stEl.innerHTML=`<b>РЕАЛЬНЫЕ ДЕНЬГИ · Т-Инвестиции (контур C3b).</b> ${RFR.mode!=="prod"?`<b style="color:var(--accent)">[${RFR.mode}]</b> `:""}Бот торгует фьючерсами на живом счёте (VPS, тик по расписанию МСК; стопы лежат на бирже). Последний дневной проход: <b class="num">${RFR.lastDailyDay||"—"}</b>.`+(RFR.entriesHalt?`<br><b style="color:var(--loss)">ВХОДЫ ОСТАНОВЛЕНЫ:</b> ${RFR.haltReason||"см. журнал"}`:"");
+    stEl.innerHTML=`<b>РЕАЛЬНЫЕ ДЕНЬГИ · Т-Инвестиции (контур C3b).</b> ${RFR.mode!=="prod"?`<b style="color:var(--accent)">[${RFR.mode}]</b> `:""}Бот торгует фьючерсами на живом счёте (VPS, тик по расписанию МСК; стопы лежат на бирже). Последний дневной проход: <b class="num">${RFR.lastDailyDay||"—"}</b>.`+(RFR.entriesHalt?`<br><b style="color:var(--loss)">ВХОДЫ ОСТАНОВЛЕНЫ:</b> ${RFR.haltReason||"см. журнал"}`:"")+rfRiskBudgetLine(RFR.riskBudget);
     const cap=+RFR.capitalNow||0, S=RFR.stats||{};
     const real=(S.realized_rub!=null)?+S.realized_rub:0;
     // Капитал = счёт у брокера. Раньше сюда шла сумма «валюты + вариационка + акции», где
@@ -1820,7 +1835,11 @@
       <div class="pr"><span>Стоп-лосс</span><b class="neg">${fmtPru(p.stop)}</b></div>
       ${(p.tp1!=null)?`<div class="pr"><span>Тейк-профит</span><b class="pos">${fmtPru(p.tp1)}</b></div>`:""}
       <div class="pr"><span>P&L позиции (открытые лоты от цены входа)</span><b class="${(p.upnl||0)>=0?"pos":"neg"}">${(p.upnl||0)>=0?"+":"−"}${Math.round(Math.abs(p.upnl||0)).toLocaleString("ru-RU")} ₽</b></div>
-      <div class="pr"><span>Риск на сделку</span><b>${Math.round(p.riskRub||0).toLocaleString("ru-RU")} ₽</b></div>
+      <div class="pr"><span>Бюджет риска при входе</span><b>${(p.riskRub!=null)?Math.round(p.riskRub).toLocaleString("ru-RU")+" ₽":"—"}</b></div>
+      ${p.riskView?`<div class="pr"><span>Стоп · расстояние от входа</span><b>${fmtPru(p.riskView.stopPx)}${(p.riskView.stopDistPct!=null)?" · "+dec(p.riskView.stopDistPct,2)+"%":""}</b></div>
+      <div class="pr"><span>Убыток при стопе${p.riskView.feesEstimated?" (с модельными расходами)":""}</span><b class="neg">${(p.riskView.riskRub!=null)?Math.round(p.riskView.riskRub).toLocaleString("ru-RU")+" ₽":"—"}${(p.riskView.riskPctAccount!=null)?` (${dec(p.riskView.riskPctAccount,2)}% капитала)`:""}</b></div>
+      <div class="pr"><span>Защита</span><b class="${p.riskView.protection==="ok"?"pos":"neg"}">${RF_PROT_RU[p.riskView.protection]||p.riskView.protection||"—"}</b></div>
+      <div class="pr"><span>Цена входа</span><b${(p.riskView.entryPxStatus==="verified"||p.riskView.entryPxStatus==="rolled")?"":' class="neg"'}>${RF_PXST_RU[p.riskView.entryPxStatus]||p.riskView.entryPxStatus||"—"}</b></div>`:""}
       ${(p.goRub!=null)?`<div class="pr"><span>Задействовано ГО</span><b>${Math.round(p.goRub).toLocaleString("ru-RU")} ₽${(p.pnlPctGo!=null)?` <span class="${p.pnlPctGo>=0?"pos":"neg"}" style="font-weight:600">(${p.pnlPctGo>=0?"+":"−"}${dec(Math.abs(p.pnlPctGo),2)}% на маржу)</span>`:""}</b></div>`:""}
       ${(p.brokerPnl!=null)?`<div class="pr" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span title="накопленная вариационная маржа по контракту с момента, когда позиция по нему была нулевой; включает лоты, закрытые внутри этого же контракта">По контракту с открытия (число из приложения)</span><b class="${p.brokerPnl>=0?"pos":"neg"}">${p.brokerPnl>=0?"+":"−"}${Math.round(Math.abs(p.brokerPnl)).toLocaleString("ru-RU")} ₽</b></div>`:""}
       ${(p.brokerVarMargin!=null)?`<div class="pr"><span>в т.ч. вариационка за сегодня</span><b class="${p.brokerVarMargin>=0?"pos":"neg"}">${p.brokerVarMargin>=0?"+":"−"}${Math.round(Math.abs(p.brokerVarMargin)).toLocaleString("ru-RU")} ₽</b></div>`:""}

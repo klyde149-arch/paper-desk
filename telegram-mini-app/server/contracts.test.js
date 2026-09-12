@@ -20,8 +20,8 @@ const positionKeys = ['asset', 'cur', 'entry', 'entryDay', 'entryTs', 'id', 'lot
 // добавить молча: набор ключей по-прежнему сверяется точно, просто своим для каждого контура.
 // У RF это числа, приходящие от брокера дословно (см. tools/live_rf_engine.ps1 Set-BotCapital).
 const rfSummaryExtra = ['accountTotal', 'allTimeSource', 'capitalModel', 'feesBrokerRub', 'manualAdjustmentRub',
-  'openPnlBroker', 'peakStale', 'pendingSettleRub', 'pendingSettleTodayRub', 'userAssets'];
-const rfPositionExtra = ['brokerPnl', 'brokerVarMargin', 'goRub', 'pnlPctGo'];
+  'openPnlBroker', 'peakStale', 'pendingSettleRub', 'pendingSettleTodayRub', 'riskBudget', 'userAssets'];
+const rfPositionExtra = ['brokerPnl', 'brokerVarMargin', 'goRub', 'pnlPctGo', 'riskView'];
 const tradeKeys = ['asset', 'entry', 'entryDay', 'exitDay', 'exitPx', 'exitReason', 'fees', 'id', 'pnl', 'rMultiple',
   'secid', 'side', 'title'];
 const v2SummaryKeys = ['allTimeAmt', 'allTimeNote', 'allTimePct', 'capital', 'dataAgeMin', 'dayBase', 'entriesHalt',
