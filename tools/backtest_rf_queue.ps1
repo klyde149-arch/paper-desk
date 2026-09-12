@@ -27,6 +27,8 @@ param(
   [double]$FeePct = 0.00025,
   [double]$SlipPct = 0.0003,
   [double]$StopSlipPct = 0.0005,
+  [double]$StopCapPct = 0,          # предел стопа долей ЦЕНЫ входа (0 = выключен, поведение прежнее)
+  [string]$ReplayTrades = '',       # путь к базовой выгрузке btq_trades*.json: переиграть ЕЁ сделки с пределом
   [double]$RewardR = 1.5,
   [double]$Tp1ClosePct = 0.5,
   [int]$PullbackLookback = 3,
@@ -173,7 +175,7 @@ function New-TradeRecord($sym, $p, $exitDay, $reason, $fill, $exitTs) {
     if ($p.side -eq 'long') { $mfeR = [math]::Round(($p.mfePx - $p.entry) / $sd, 2); $maeR = [math]::Round(($p.entry - $p.maePx) / $sd, 2) }
     else { $mfeR = [math]::Round(($p.entry - $p.mfePx) / $sd, 2); $maeR = [math]::Round(($p.maePx - $p.entry) / $sd, 2) }
   }
-  [pscustomobject]@{
+  $rec = [pscustomobject]@{
     sym = $sym; side = $p.side; entryDay = $p.entryDay; exitDay = $exitDay
     entry = [math]::Round($p.entryRaw, 6); exitReason = $reason
     pnlUsd = [math]::Round($p.realized, 2); tp1done = [bool]$p.tp1done
@@ -182,6 +184,99 @@ function New-TradeRecord($sym, $p, $exitDay, $reason, $fill, $exitTs) {
     riskUsd = $p.riskUsd; mfeR = $mfeR; maeR = $maeR; barsHeld = $p.bars
     fromQueue = [bool]$p.fromQueue
   }
+  # Поля предела добавляются ТОЛЬКО когда предел включён: иначе прогон по умолчанию перестал бы
+  # совпадать байт-в-байт с прежними выгрузками, а на этом сравнении стоит вся регрессия.
+  # stopDistPct остаётся ИСХОДНОЙ дистанцией (по ней считался объём), фактическая - рядом.
+  if ($StopCapPct -gt 0) {
+    $distAct = [math]::Abs($p.entry - $p.stop0)
+    $rec | Add-Member -NotePropertyName stopCapPct -NotePropertyValue $StopCapPct
+    $rec | Add-Member -NotePropertyName stopCapped -NotePropertyValue ([bool]$p.stopCapped)
+    $rec | Add-Member -NotePropertyName stopDistActualPct -NotePropertyValue ([math]::Round(100 * $distAct / $p.entry, 3))
+    $rec | Add-Member -NotePropertyName riskAtStopUsd -NotePropertyValue ([math]::Round([double]$p.qty0 * $distAct, 2))
+  }
+  return $rec
+}
+
+
+# ============ -ReplayTrades: эффект ПРЕДЕЛА СТОПА на одних и тех же сделках (ТЗ §12) ============
+# Зачем отдельный режим. Обычный прогон с пределом даёт другие выходы -> другой капитал -> другой
+# объём следующих сделок, и эффект предела смешивается с эффектом реинвестирования. Здесь входы,
+# стороны и ЛОТЫ берутся из базовой выгрузки без изменений, а выход = раньшее из двух: касание
+# предела или выход базовой сделки. Меняется ровно одно - уровень стопа.
+# Капитал тут намеренно НЕ реинвестируется: сделки независимы, суммируется рублёвый результат.
+if ($ReplayTrades) {
+  if ($StopCapPct -le 0) { throw '-ReplayTrades без -StopCapPct бессмыслен: сравнивать было бы нечего' }
+  if (-not (Test-Path $ReplayTrades)) { throw "базовая выгрузка не найдена: $ReplayTrades" }
+  $base = @((Get-Content $ReplayTrades -Raw -Encoding UTF8 | ConvertFrom-Json) | Where-Object { $null -ne $_ })
+  $rep = New-Object System.Collections.Generic.List[object]
+  $skipTp1 = 0; $skipData = 0
+  foreach ($b in $base) {
+    $sym = [string]$b.sym
+    if (-not $S.ContainsKey($sym)) { $skipData++; continue }
+    # Сделки с частичным закрытием по TP1 не переигрываем: их результат складывается из двух
+    # выходов, и подменять один стоп здесь значило бы молча выдумать вторую половину.
+    if ([bool]$b.tp1done) { $skipTp1++; continue }
+    $side = [string]$b.side
+    $sgn = if ($side -eq 'long') { 1.0 } else { -1.0 }
+    $entry = if ($side -eq 'long') { [double]$b.entry * (1 + $SlipPct) } else { [double]$b.entry * (1 - $SlipPct) }
+    $stopBase = [double]$b.stop0
+    $distBase = [math]::Abs($entry - $stopBase)
+    if ($distBase -le 0) { $skipData++; continue }
+    # лоты базовой сделки восстанавливаем из её же чисел: riskUsd = qty * дистанция стопа
+    $qty = [double]$b.riskUsd / $distBase
+    $capPx = if ($side -eq 'long') { $entry * (1 - $StopCapPct) } else { $entry * (1 + $StopCapPct) }
+    $capped = (($sgn * ($capPx - $stopBase)) -gt 0)
+    $stop = if ($capped) { $capPx } else { $stopBase }
+    $iEntry = if ($S[$sym].idx.ContainsKey([long]$b.entryTs)) { [int]$S[$sym].idx[[long]$b.entryTs] } else { -1 }
+    $iExit = if ($S[$sym].idx.ContainsKey([long]$b.exitTs)) { [int]$S[$sym].idx[[long]$b.exitTs] } else { -1 }
+    if ($iEntry -lt 0 -or $iExit -lt $iEntry) { $skipData++; continue }
+    $fill = $null; $reason = ''; $exitTs = [long]$b.exitTs; $exitIdx = $iExit
+    for ($i = $iEntry + 1; $i -le $iExit; $i++) {
+      $hi = [double]$S[$sym].h[$i]; $lo = [double]$S[$sym].l[$i]; $opn = [double]$S[$sym].o[$i]
+      $hit = if ($side -eq 'long') { $lo -le $stop } else { $hi -ge $stop }
+      if (-not $hit) { continue }
+      # гэп ЗА уровень: исполнение по худшему из открытия и стопа, плюс проскальзывание
+      $fill = if ($side -eq 'long') { ([math]::Min($stop, $opn)) * (1 - $StopSlipPct) } else { ([math]::Max($stop, $opn)) * (1 + $StopSlipPct) }
+      $reason = if ($capped) { 'stop-cap' } else { 'stop-base' }
+      $exitTs = [long]$S[$sym].t[$i]; $exitIdx = $i
+      break
+    }
+    if ($null -eq $fill) { $fill = [double]$b.exitPx; $reason = 'baseline' }
+    $symFee = Get-SymFee $sym
+    $pnl = $sgn * ($fill - $entry) * $qty - ($entry + $fill) * $qty * $symFee
+    $rep.Add([pscustomobject]@{
+      sym = $sym; side = $side; entryDay = [string]$b.entryDay
+      exitDay = [DateTimeOffset]::FromUnixTimeMilliseconds($exitTs).UtcDateTime.ToString('yyyy-MM-dd')
+      entry = [math]::Round([double]$b.entry, 6); exitPx = [math]::Round($fill, 6); exitReason = $reason
+      pnlUsd = [math]::Round($pnl, 2); basePnlUsd = [math]::Round([double]$b.pnlUsd, 2)
+      baseExitDay = [string]$b.exitDay; baseExitReason = [string]$b.exitReason
+      stopBase = [math]::Round($stopBase, 6); stopUsed = [math]::Round($stop, 6); stopCapped = [bool]$capped
+      stopDistPct = [math]::Round(100 * $distBase / $entry, 3)
+      stopDistUsedPct = [math]::Round(100 * [math]::Abs($entry - $stop) / $entry, 3)
+      barsHeld = ($exitIdx - $iEntry); baseBarsHeld = [int]$b.barsHeld
+      qty = [math]::Round($qty, 6); riskUsd = [double]$b.riskUsd
+    })
+  }
+  $sumBase = 0.0; $sumRep = 0.0; $nCapped = 0; $nCapFired = 0
+  foreach ($r in $rep) {
+    $sumBase += [double]$r.basePnlUsd; $sumRep += [double]$r.pnlUsd
+    if ($r.stopCapped) { $nCapped++ }
+    if ([string]$r.exitReason -eq 'stop-cap') { $nCapFired++ }
+  }
+  $outSuffixR = if ($OutTag) { "_$OutTag" } else { '' }
+  $rep | ConvertTo-Json -Depth 3 | Out-File (Join-Path $dir "btq_replay$outSuffixR.json") -Encoding utf8
+  Write-Host ''
+  Write-Host '============================ REPLAY: предел стопа на тех же сделках ============================'
+  Write-Host ("База                 : {0}" -f $ReplayTrades)
+  Write-Host ("Предел стопа         : {0:P2} цены входа" -f $StopCapPct)
+  Write-Host ("Сделок переиграно    : {0} (пропущено: с TP1 {1}, без данных/совпадения {2})" -f $rep.Count, $skipTp1, $skipData)
+  Write-Host ("Предел сузил стоп    : {0} сделок; выбил раньше базы: {1}" -f $nCapped, $nCapFired)
+  Write-Host ("Результат базы       : {0:N2}" -f $sumBase)
+  Write-Host ("Результат с пределом : {0:N2}" -f $sumRep)
+  Write-Host ("Разница              : {0:N2} ({1})" -f ($sumRep - $sumBase), $(if ($sumBase -ne 0) { ('{0:P1}' -f (($sumRep - $sumBase) / [math]::Abs($sumBase))) } else { 'база 0' }))
+  Write-Host ("Выгрузка             : {0}" -f (Join-Path $dir "btq_replay$outSuffixR.json"))
+  Write-Host '==============================================================================================='
+  return
 }
 
 # ---- portfolio state ----
@@ -263,6 +358,17 @@ function Open-Position([string]$sym, [string]$side, [double]$stopDist, [int]$i, 
   $entryRaw = $cl
   $entry = if ($side -eq 'long') { $cl * (1 + $SlipPct) } else { $cl * (1 - $SlipPct) }
   $stop = if ($side -eq 'long') { $entry - $stopDist } else { $entry + $stopDist }
+  # -StopCapPct: стоп не дальше предела от цены входа (риск-политика rf-early-exit-v1, ТЗ §5).
+  # Объём ниже считается от ИСХОДНОЙ дистанции: иначе в одном прогоне смешались бы два эффекта -
+  # предел стопа и уменьшение объёма, - а ТЗ §12 требует мерить их РАЗДЕЛЬНО. Цель TP1 тоже
+  # остаётся на исходной дистанции: это цель стратегии, а не производная от стопа.
+  $stopCapped = $false
+  if ($StopCapPct -gt 0) {
+    $capPx = if ($side -eq 'long') { $entry * (1 - $StopCapPct) } else { $entry * (1 + $StopCapPct) }
+    if (($side -eq 'long' -and $capPx -gt $stop) -or ($side -eq 'short' -and $capPx -lt $stop)) {
+      $stop = $capPx; $stopCapped = $true
+    }
+  }
   $tp1 = if ($Breakout) { $null } elseif ($side -eq 'long') { $entry + $RewardR * $stopDist } else { $entry - $RewardR * $stopDist }
   $rp = $RiskPct
   if ($ClusterRiskScale -ne 1.0 -and $ClusterGroup -and $ClusterGroup.Count -gt 0 -and $ClusterGroup -contains $sym) {
@@ -280,6 +386,7 @@ function Open-Position([string]$sym, [string]$side, [double]$stopDist, [int]$i, 
     tp1done = $false; entryIdx = $i; entryDay = $day; entryTs = $ts; realized = (-$efee)
     stop0 = $stop; stopDist0 = $stopDist; mfePx = $entry; maePx = $entry; bars = 0
     riskUsd = [math]::Round($qty * $stopDist, 2); fromQueue = $fromQueue
+    qty0 = $qty; stopCapped = $stopCapped
   }
 }
 
