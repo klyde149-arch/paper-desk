@@ -172,6 +172,11 @@ function Run-Tick([string]$Root, [string]$MskTime, [string]$Mode = 'prod', [swit
   }
 }
 function Get-State([string]$Root) { Read-JsonFile (Join-Path $Root 'data\live_rf\portfolio.json') }
+# ГРАБЛЯ: возвращается ,$rows - иначе один вызов в логе приезжал бы скаляром и .Count ломался.
+# Из-за этой запятой форма @(Get-Calls ... | Where-Object ...) СЛЕПА: в пайплайн уходит один
+# объект (весь массив), фильтр проверяет $_.body массивом, -match/-like истинны при ЛЮБОМ
+# совпадении, и Count всегда 1. Пиши @((Get-Calls ...) | Where-Object ...) - скобки разворачивают
+# массив в элементы (проверено в 5.1 и 7.6). Прямое присваивание и (Get-Calls ...).Count честны.
 function Get-Calls([string]$Root, [string]$Method = '') {
   $p = Join-Path $Root 'mock\calls_log.jsonl'
   if (-not (Test-Path $p)) { return @() }
@@ -677,7 +682,7 @@ function Scn-D5 {
   # стоп на 19 лотов при позиции 17 перевернул бы 2 лота при срабатывании -> перевыставлен на 17
   $c = @($st.sleeves.core.positions)[0]
   $posts = Get-Calls $r 'PostStopOrder'
-  Check 'D5: старый стоп снят' (@(Get-Calls $r 'CancelStopOrder' | Where-Object { $_.body -like '*stop-live-1*' }).Count -eq 1)
+  Check 'D5: старый стоп снят' (@((Get-Calls $r 'CancelStopOrder') | Where-Object { $_.body -like '*stop-live-1*' }).Count -eq 1)
   Check 'D5: стоп перевыставлен ровно один раз на 17 лот' ($posts.Count -eq 1 -and $posts[0].body -match '"quantity":"17"')
   Check 'D5: stop_lots = lots = 17, уровень прежний' ([int]$c.stop_lots -eq 17 -and [math]::Abs([double]$c.stop_px_pts - 2.676) -lt 1e-9)
   Check 'D5: без ложного D6 (новая заявка этого тика считается живой)' ([int]$st.drift.D6 -eq 0)
@@ -1969,8 +1974,8 @@ function Scn-D5Tp1Resync {
   [void](Run-Tick $r '2026-07-15 11:00')
   $st = Get-State $r
   $c = @($st.sleeves.setA.positions)[0]
-  $tpPosts = @(Get-Calls $r 'PostStopOrder' | Where-Object { $_.body -like '*TAKE_PROFIT*' })
-  $slPosts = @(Get-Calls $r 'PostStopOrder' | Where-Object { $_.body -like '*STOP_LOSS*' })
+  $tpPosts = @((Get-Calls $r 'PostStopOrder') | Where-Object { $_.body -like '*TAKE_PROFIT*' })
+  $slPosts = @((Get-Calls $r 'PostStopOrder') | Where-Object { $_.body -like '*STOP_LOSS*' })
   Check 'd5-tp1: лоты 12->5' ([int]$c.lots -eq 5)
   Check 'd5-tp1: стоп перевыставлен на 5 лот' ($slPosts.Count -eq 1 -and $slPosts[0].body -match '"quantity":"5"')
   Check 'd5-tp1: TP1 перевыставлена на 2 лота' ($tpPosts.Count -eq 1 -and $tpPosts[0].body -match '"quantity":"2"')
@@ -1992,7 +1997,7 @@ function Scn-D5Tp1Drop {
   [void](Run-Tick $r '2026-07-15 11:00')
   $st = Get-State $r
   $c = @($st.sleeves.setA.positions)[0]
-  Check 'd5-tp1-drop: TP1 не перевыставлялась' (@(Get-Calls $r 'PostStopOrder' | Where-Object { $_.body -like '*TAKE_PROFIT*' }).Count -eq 0)
+  Check 'd5-tp1-drop: TP1 не перевыставлялась' (@((Get-Calls $r 'PostStopOrder') | Where-Object { $_.body -like '*TAKE_PROFIT*' }).Count -eq 0)
   Check 'd5-tp1-drop: TP1 снята, включена эмуляция безубытка' (-not [string]$c.tp1_order_id -and [bool]$c.tp1_emulated)
 }
 
@@ -2013,7 +2018,7 @@ function Scn-D5Reversal {
   Check 'd5r: причина reversal, учёт помечен приблизительным' ($tr.Count -eq 1 -and [string]$tr[0].exitReason -eq 'reversal' -and [string]$tr[0].accounting -eq 'approx-reversal')
   Check 'd5r: обратная позиция выравнивается рынком BUY 3' ($orders.Count -eq 1 -and $orders[0].body -match 'ORDER_DIRECTION_BUY' -and $orders[0].body -match '"quantity":"3"')
   Check 'd5r: стоп не выставлялся' ((Get-Calls $r 'PostStopOrder').Count -eq 0)
-  Check 'd5r: стоп карточки снят' (@(Get-Calls $r 'CancelStopOrder' | Where-Object { $_.body -like '*stop-live-1*' }).Count -eq 1)
+  Check 'd5r: стоп карточки снят' (@((Get-Calls $r 'CancelStopOrder') | Where-Object { $_.body -like '*stop-live-1*' }).Count -eq 1)
   Check 'd5r: новые входы на паузе' ([bool]$st.entries_halt.active -and [string]$st.entries_halt.reason -like 'D5R*')
 }
 
@@ -2473,8 +2478,11 @@ function Scn-RpRollPolicy {
         initialOrderPricePt = [pscustomobject]@{ units = '3'; nano = 250000000 } } })
   [void](Run-Tick $r '2026-07-15 10:30')
   $c = @((Get-State $r).sleeves.core.positions)[0]
-  $buy = @(Get-Calls $r 'PostOrder' | Where-Object { $_.body -match 'BUY' })
-  Check 'rp-roll: ролл не нарастил позицию (11 по нотионалу -> 10)' ($buy.Count -eq 1 -and $buy[0].body -match '"quantity":"10"' -and [int]$c.lots -eq 10)
+  $buy = @((Get-Calls $r 'PostOrder') | Where-Object { $_.body -match 'ORDER_DIRECTION_BUY' })
+  # количество сравниваем ЧИСЛОМ из тела заявки: подстрока "quantity":"10" нашлась бы и в теле
+  # первой ноги ролла, из-за чего проверка молчала бы при 11 лотах во второй
+  $buyQty = if ($buy.Count -eq 1) { [int]($buy[0].body | ConvertFrom-Json).quantity } else { -1 }
+  Check 'rp-roll: ролл не нарастил позицию (11 по нотионалу -> 10)' ($buy.Count -eq 1 -and $buyQty -eq 10 -and [int]$c.lots -eq 10)
   Check 'rp-roll: перешла в NGU6' ([string]$c.secid -eq 'NGU6')
   $riskAfter = 10 * (3.25 - [double]$c.stop_px_pts) * 7749.12
   Check 'rp-roll: рублёвый риск после ролла не выше прежнего (~4 494 ₽)' ($riskAfter -le 4494.49 + 1)
