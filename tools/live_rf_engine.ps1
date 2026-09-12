@@ -587,6 +587,7 @@ function Invoke-PendingSettlePrune([long]$CutMs) {
 function Close-CardLedger($Card, [double]$ExitPx, [string]$Reason, [double]$FeeRub) {
   Add-PendingSettle $Card ([int]$Card.lots) $ExitPx $Reason
   Add-RpDayFee ([int]$Card.lots) $ExitPx ([double]$Card.rub_per_pt)
+  Close-RpVirtual $Card $ExitPx $Reason   # ветка парного сравнения закрывается вместе с карточкой
   $sl = Get-SleeveRef ([string]$Card.sleeve)
   $sm = if ($Card.side -eq 'long') { 1.0 } else { -1.0 }
   $pnl = $sm * [double]$Card.lots * ($ExitPx - [double]$Card.entry_px_pts) * [double]$Card.rub_per_pt - $FeeRub
@@ -762,8 +763,12 @@ function Replace-CardStop($Card, [double]$NewStopPts) {
   }
   return $ok
 }
-function Invoke-EmergencyClose($Card, [string]$Why) {
+function Invoke-EmergencyClose($Card, [string]$Why, [switch]$NoEntriesHalt) {
   # аварийное закрытие: cancel стопа + market в обратную сторону (write-ahead)
+  # -NoEntriesHalt: закрытие ПЛАНОВОЕ (решение риск-политики), а не расхождение с брокером. Пауза
+  # входов - реакция на то, что движок перестал понимать состояние счёта (D2/D6/сбой стопа); выход
+  # по пробою предела или по превышению бюджета таким событием не является, и останавливать из-за
+  # него весь контур нельзя.
   $script:ev.Add("EMERGENCY CLOSE $($Card.id) $($Card.asset) ($Why)")
   Alert -Client ("аварийное закрытие позиции {0} ({1}). Причина: {2}." -f $Card.id, (RfName $Card), (RfReasonRu $Why))
   if ([string]$Card.stop_order_id -and -not $LIVE.emulate_stops) {
@@ -775,7 +780,7 @@ function Invoke-EmergencyClose($Card, [string]$Why) {
     ticker = [string]$Card.secid; uid = [string]$Card.uid; side = $dir; lots = [int]$Card.lots
     ctx = [pscustomobject]@{ card_id = [string]$Card.id; why = $Why } }
   [void](Post-IntentMarket $it $dir ([int]$Card.lots))
-  Set-EntriesHalt "emergency close $($Card.id): $Why"
+  if (-not $NoEntriesHalt) { Set-EntriesHalt "emergency close $($Card.id): $Why" }
 }
 
 # ================= гигиена стоп-заявок (2026-09-11) =================
@@ -1173,6 +1178,12 @@ function Invoke-RpEntryPost($It, $Sl, $Inst, [double]$RefPx, [double]$StopDist) 
     return
   }
   $reserved = [math]::Round([double]$d.charge_per_lot * $lots, 2)
+  # контрольная ветка парного сравнения (ТЗ §12): сколько лотов дали бы ПРЕЖНИЕ правила на этом же
+  # сигнале. Считается из тех же чисел, без обращения к брокеру, и нужна только для измерения -
+  # на заявку не влияет.
+  $legacyLots = [int][math]::Floor(([double]$Sl.eq_rub * [double]$It.ctx.risk_pct) / ($StopDist * [double]$Inst.rub_per_pt))
+  if ($legacyLots -gt [int]$caps.maxlev) { $legacyLots = [int]$caps.maxlev }
+  if ($null -ne $caps.override -and $legacyLots -gt [int]$caps.override) { $legacyLots = [int]$caps.override }
   # инварианты (ТЗ §16): нарушение - вход не уходит, новые входы на паузе до разбора
   $capTot = [double]$d.capital_rub * [double]$script:RP.p.futures_open_risk_cap_pct
   $viol = ''
@@ -1196,6 +1207,7 @@ function Invoke-RpEntryPost($It, $Sl, $Inst, [double]$RefPx, [double]$StopDist) 
     cost = [pscustomobject]@{ fee_pct_side = [double]$P.cost.fee_pct_side; stop_slip_pct = [double]$P.cost.stop_slip_pct; source = [string]$P.cost.source }
     excess_tolerance_pct = [double]$P.excess_tolerance_pct
     q_reference = [int]$d.q_reference; q_final = $lots; stop_strategy_dist = [math]::Round($StopDist, 6); stop_capped_pre = $d.stop
+    legacy_lots = $legacyLots
     budget_rub = [math]::Round($d.budget_rub, 2); capital_rub = [double]$d.capital_rub; capital_ms = $d.capital_ms
     charge_per_lot = [math]::Round([double]$d.charge_per_lot, 2); reserved_rub = $reserved
     open_total_before = [math]::Round($d.open_total, 2); day_loss = $d.day_loss; binding = [string]$d.binding }) -Force
@@ -1228,6 +1240,10 @@ function Set-RpCardAtEntry($Card, $It, $Inst, [double]$StopDist) {
     hash = $rk.hash; mode = $rk.mode; stop_cap_pct = $rk.stop_cap_pct; risk_pct = $rk.risk_pct; cost = $rk.cost
     excess_tolerance_pct = $rk.excess_tolerance_pct }) -Force
   $Card | Add-Member -NotePropertyName stop_strategy_px -NotePropertyValue ([math]::Round($sStrat, 6)) -Force
+  # дистанция стратегического стопа в пунктах: шаг 6a пересчитывает стоп от ПОДТВЕРЖДЁННОЙ цены
+  # входа, а она отличается от той, по которой стоп ставился здесь. Хранить надо именно дистанцию:
+  # уровень stop_strategy_px привязан к предварительной цене и после уточнения уже неверен.
+  $Card | Add-Member -NotePropertyName stop_strategy_dist -NotePropertyValue ([math]::Round($StopDist, 6)) -Force
   $Card | Add-Member -NotePropertyName stop_initial_px -NotePropertyValue ([double]$Card.stop_px_pts) -Force
   $Card | Add-Member -NotePropertyName q_reference -NotePropertyValue ([int]$rk.q_reference) -Force
   $Card | Add-Member -NotePropertyName risk_budget_rub -NotePropertyValue ([double]$rk.budget_rub) -Force
@@ -1239,6 +1255,197 @@ function Set-RpCardAtEntry($Card, $It, $Inst, [double]$StopDist) {
   $Card | Add-Member -NotePropertyName entry_px_status -NotePropertyValue 'provisional' -Force
   $Card | Add-Member -NotePropertyName mae_pts -NotePropertyValue $px -Force
 }
+# ---------------- цена входа: статус и VWAP частичных исполнений ----------------
+# Цена входа карточки политики - это ещё и основание стопа (предел считается ОТ неё) и бюджета
+# риска, поэтому «примерно верно» здесь недостаточно. Статусы: provisional (цена из ответа на
+# заявку) -> verified (подтверждена операциями брокера) | unresolved (подтвердить не удалось).
+# Неподтверждённая цена делает риск позиции неизвестным и останавливает новые входы - см. Get-RpOpenItems.
+function Set-RpEntryPxStatus($C, [string]$Status, [string]$Why = '') {
+  $C | Add-Member -NotePropertyName entry_px_status -NotePropertyValue $Status -Force
+  Write-RpLog 'entry_px' ([pscustomobject]@{ card = [string]$C.id; status = $Status; why = $Why; entry_px = [double]$C.entry_px_pts })
+  if ($Status -ne 'unresolved') { return }
+  Write-LiveLog "risk-policy: $($C.id) цена входа не подтверждена ($Why)"
+  Alert ("цена входа по позиции {0} ({1}) не подтвердилась операциями брокера ({2}). Риск этой позиции считается неизвестным - новые входы приостановлены до ручной сверки; позиция и её стоп-заявка не тронуты." -f $C.id, (RfName $C), $Why)
+}
+# Вход мог исполниться несколькими сделками, и цена одной из них - не цена входа. Собираем VWAP
+# по ВСЕМ исполнениям заявки. $null = объём ещё не набран (ждём следующий тик) либо операций больше,
+# чем лотов входа: такой матчинг неоднозначен, и выдумывать цену нельзя.
+function Get-RpEntryFills($C, $Ops) {
+  $want = if ([string]$C.side -eq 'long') { 'OPERATION_TYPE_BUY' } else { 'OPERATION_TYPE_SELL' }
+  $need = [int]$C.lots_initial
+  $rows = New-Object System.Collections.Generic.List[object]
+  foreach ($o in @($Ops)) {
+    if ($null -eq $o) { continue }
+    if ([string](Get-TiField $o 'instrument_uid') -ne [string]$C.uid) { continue }
+    if ([string](Get-TiField $o 'operation_type') -ne $want) { continue }
+    $q = 0
+    try { $q = [int][double][string](Get-TiField $o 'quantity') } catch {}
+    if ($q -le 0) { continue }
+    $p = 0.0
+    try { $p = [double](M2D $o.price).value } catch {}
+    if ($p -le 0) { continue }
+    $ts = [long]0
+    try { $ts = ConvertTo-TiMs (Get-TiField $o 'date') } catch {}
+    $rows.Add([pscustomobject]@{ ts = $ts; qty = $q; px = $p })
+  }
+  if (-not $rows.Count) { return $null }
+  $sum = 0; $val = 0.0
+  foreach ($r in @($rows | Sort-Object ts)) {
+    if ($sum -ge $need) { break }
+    $sum += [int]$r.qty; $val += [double]$r.qty * [double]$r.px
+  }
+  if ($sum -ne $need) { return $null }
+  return [pscustomobject]@{ vwap = ($val / $sum); lots = $sum; ops = $rows.Count }
+}
+
+# ---------------- шаг 6a: ведение открытых позиций политики ----------------
+# Порядок внутри карточки продиктован смыслом: сначала защита (стоп от подтверждённой цены входа),
+# потом проверка, не ушёл ли рынок за этот стоп, и только потом бюджет. Ни одного нового вызова к
+# брокеру сверх уже сделанных: цены - из MTM, список стоп-заявок - снимок шага 4.
+function Invoke-RpPositionGuard {
+  if (-not (Test-RpTrading)) { return }
+  if (-not (Can-PostOrders)) { return }
+  foreach ($sn in 'core', 'setA') {
+    foreach ($c in @($st.sleeves.$sn.positions)) {
+      if ($null -eq $c) { continue }
+      if (-not ($c.PSObject.Properties['risk_policy'] -and $null -ne $c.risk_policy)) { continue }
+      if ([string]$c.entry_px_status -ne 'verified') { continue }   # provisional/unresolved/rolled - не трогаем
+      if ($c.quarantine) { continue }
+      if ($c.PSObject.Properties['reconcile_status'] -and [string]$c.reconcile_status) { continue }
+      # объём карточки вот-вот изменится - решать по нему нечего
+      $busy = @($st.pending_intents | Where-Object { @('exit', 'emergency_close', 'reduce', 'roll_close', 'roll_open') -contains [string]$_.kind -and
+        $null -ne $_.ctx -and [string]$_.ctx.card_id -eq [string]$c.id -and [string]$_.state -ne 'EXPIRED' }).Count
+      if ($busy) { continue }
+      try { Invoke-RpCardGuard $c } catch { Write-LiveLog "RP guard $($c.id): $($_.Exception.Message)" }
+    }
+  }
+}
+function Invoke-RpCardGuard($C) {
+  $inst = Get-Inst ([string]$C.secid) 'fut'
+  $side = [string]$C.side
+  $sm = if ($side -eq 'long') { 1.0 } else { -1.0 }
+  $rk = $C.risk_policy
+  $px = [double]$C.entry_px_pts
+  $dist = if ($C.PSObject.Properties['stop_strategy_dist'] -and [double]$C.stop_strategy_dist -gt 0) { [double]$C.stop_strategy_dist }
+          else { [math]::Abs($px - [double]$C.stop_strategy_px) }
+  if ($dist -le 0) { return }
+  $sStrat = [math]::Round($px - $sm * $dist, 6)
+  $eff = Get-RfEffectiveStop $side $px $sStrat $rk.stop_cap_pct ([double]$inst.min_price_increment)
+  if (-not $eff.valid) { Write-LiveLog "RP guard $($C.id): стоп от подтверждённой цены невалиден ($($eff.reason))"; return }
+  $C.stop_strategy_px = $sStrat
+  $newStop = [double]$eff.stop
+  $cur = [double]$C.stop_px_pts
+  # стоп, по которому судим о пробое: более близкий из действующего и пересчитанного (перестановка
+  # могла не пройти - уровень всё равно уже известен и защита обязана считаться по нему)
+  $guardStop = if ($sm * ($newStop - $cur) -gt 0) { $newStop } else { $cur }
+  # 1. стоп от подтверждённой цены входа: только ближе ко входу, никогда дальше (ТЗ §8)
+  if ($sm * ($newStop - $cur) -gt 1e-9) {
+    if (Replace-CardStop $C $newStop) {
+      $C | Add-Member -NotePropertyName stop_initial_px -NotePropertyValue $newStop -Force
+      $script:ev.Add("RP stop $($C.id): $cur -> $newStop (от подтверждённой цены входа)")
+      Write-RpLog 'stop_recalc' ([pscustomobject]@{ card = [string]$C.id; from = $cur; to = $newStop; entry = $px })
+      Alert -Client ("защита позиции {0} ({1}) пересчитана от подтверждённой цены входа {2}: стоп {3} -> {4}." -f
+        $C.id, (RfName $C), (Fmt-Px $px), (Fmt-Px $cur), (Fmt-Px $newStop))
+    }
+  }
+  # 2. рынок уже за стопом: стоп-заявка на пересечённом уровне ненадёжна - выходим сами. Это
+  # ПЛАНОВЫЙ выход политики, а не расхождение, поэтому без паузы входов (-NoEntriesHalt).
+  $mark = if ($C.PSObject.Properties['cur_px'] -and [double]$C.cur_px -gt 0) { [double]$C.cur_px } else { 0.0 }
+  if ($mark -gt 0 -and ($sm * ($mark - $guardStop)) -lt 0) {
+    Write-RpLog 'stop_cap_breach' ([pscustomobject]@{ card = [string]$C.id; mark = $mark; stop = $guardStop; entry = $px })
+    Invoke-EmergencyClose $C 'stop-cap-breach' -NoEntriesHalt
+    return
+  }
+  # 3. бюджет: риск позиции с допуском выше заложенного при входе -> сокращение (один раз на карточку)
+  $refPx = if ($mark -gt 0) { $mark } else { $px }
+  $exitCost = Get-RfCostPerLot $refPx ([double]$C.rub_per_pt) $rk.cost.fee_pct_side $rk.cost.stop_slip_pct -ExitOnly
+  $pr = Get-RfPositionRisk $side ([int]$C.lots) $px ([double]$C.stop_px_pts) $mark ([double]$C.rub_per_pt) $exitCost
+  $C | Add-Member -NotePropertyName risk_at_stop_rub -NotePropertyValue ([math]::Round([double]$pr.r_charge, 2)) -Force
+  if ($C.PSObject.Properties['capital_rub'] -and [double]$C.capital_rub -gt 0) {
+    $C | Add-Member -NotePropertyName risk_pct_account -NotePropertyValue ([math]::Round(100.0 * [double]$pr.r_charge / [double]$C.capital_rub, 3)) -Force
+  }
+  $B = [double]$C.risk_budget_rub
+  if ($B -le 0 -or [int]$C.lots -le 0) { return }
+  $tol = if ($null -ne $rk.excess_tolerance_pct) { [double]$rk.excess_tolerance_pct } else { 0.10 }
+  if ([double]$pr.r_charge -le $B * (1 + $tol)) { return }
+  if ($C.PSObject.Properties['risk_reduced'] -and $C.risk_reduced) { return }
+  # сокращать можно только при живой защите и сведённом объёме: иначе рыночная заявка уедет
+  # поверх чужого состояния (тот же принцип, что у D5/D6)
+  $sid = [string]$C.stop_order_id
+  if (-not $LIVE.emulate_stops -and -not ($sid -and ($script:stopIdsThisTick.ContainsKey($sid) -or $script:freshStopIds.ContainsKey($sid)))) { return }
+  $perLot = [double]$pr.r_charge / [int]$C.lots
+  if ($perLot -le 0) { return }
+  $keep = [int][math]::Floor($B / $perLot)
+  $k = [int]$C.lots - $keep
+  if ($k -le 0) { return }
+  $C | Add-Member -NotePropertyName risk_reduced -NotePropertyValue $true -Force
+  Write-RpLog 'risk_excess' ([pscustomobject]@{ card = [string]$C.id; risk_rub = [math]::Round([double]$pr.r_charge, 2)
+    budget_rub = $B; lots = [int]$C.lots; keep = $keep; cut = $k })
+  if ($keep -lt 1) {
+    Invoke-EmergencyClose $C 'risk-excess' -NoEntriesHalt
+    return
+  }
+  $dir = if ($side -eq 'long') { 'sell' } else { 'buy' }
+  $it = New-Intent 'reduce' @{ sleeve = [string]$C.sleeve; asset = [string]$C.asset; ticker = [string]$C.secid
+    uid = [string]$C.uid; side = $dir; lots = $k; ctx = [pscustomobject]@{ card_id = [string]$C.id; why = 'risk-excess' } }
+  Save-State
+  [void](Post-IntentMarket $it $dir $k)
+}
+
+# ---------------- виртуальные ветки (парное сравнение, ТЗ §12) ----------------
+# Одна ветка на карточку: в shadow это КАНДИДАТ (что сделала бы политика), в пилоте - КОНТРОЛЬ
+# (что сделали бы прежние правила). Ветка живёт только в состоянии и журнале: заявок по ней нет.
+function Set-RpVirtualAtEntry($Card, $It) {
+  if ($null -eq $It.ctx) { return }
+  $role = ''; $lots = 0; $stop = $null
+  if ($It.ctx.PSObject.Properties['risk'] -and $null -ne $It.ctx.risk) {
+    $role = 'control'; $lots = [int]$It.ctx.risk.legacy_lots; $stop = [double]$Card.stop_strategy_px
+  } elseif ($It.ctx.PSObject.Properties['shadow'] -and $null -ne $It.ctx.shadow -and [bool]$It.ctx.shadow.allow) {
+    $role = 'candidate'; $lots = [int]$It.ctx.shadow.q_final; $stop = $It.ctx.shadow.stop
+  }
+  if (-not $role -or $lots -le 0 -or $null -eq $stop) { return }
+  $sm = if ([string]$Card.side -eq 'long') { 1.0 } else { -1.0 }
+  if ($sm * ([double]$Card.entry_px_pts - [double]$stop) -le 0) { return }   # стоп не по ту сторону входа
+  $Card | Add-Member -NotePropertyName virtual -NotePropertyValue ([pscustomobject]@{
+    role = $role; status = 'open'; lots = [int]$lots; stop = [math]::Round([double]$stop, 6)
+    entry_px = [double]$Card.entry_px_pts; opened_ms = $NowMs; exit_px = $null; exit_ms = $null
+    gap = $false; pnl_rub = $null; pair = '' }) -Force
+  Write-RpLog 'virtual_open' ([pscustomobject]@{ card = [string]$Card.id; role = $role; lots = [int]$lots
+    stop = [double]$Card.virtual.stop; card_lots = [int]$Card.lots; card_stop = [double]$Card.stop_px_pts })
+}
+function Update-RpVirtual($C, $Bar) {
+  if (-not $C.PSObject.Properties['virtual'] -or $null -eq $C.virtual) { return }
+  $v = $C.virtual
+  if ([string]$v.status -ne 'open') { return }
+  $slip = if ($C.PSObject.Properties['risk_policy'] -and $null -ne $C.risk_policy -and $null -ne $C.risk_policy.cost) {
+    [double]$C.risk_policy.cost.stop_slip_pct } else { [double]$script:RF_RISK_COST_DEFAULT.stop_slip_pct }
+  $hit = Test-RfVirtualBar ([string]$C.side) ([double]$v.stop) $Bar $slip
+  if (-not $hit.hit) { return }
+  $sm = if ([string]$C.side -eq 'long') { 1.0 } else { -1.0 }
+  $fill = [math]::Round([double]$hit.fill, 6)
+  $v.status = 'stopped'; $v.exit_px = $fill; $v.exit_ms = [long]$Bar.t; $v.gap = [bool]$hit.gap
+  $v.pnl_rub = [math]::Round($sm * [int]$v.lots * ($fill - [double]$v.entry_px) * [double]$C.rub_per_pt, 2)
+  Write-RpLog 'virtual_stop' ([pscustomobject]@{ card = [string]$C.id; role = [string]$v.role; px = $fill
+    gap = [bool]$hit.gap; pnl_rub = $v.pnl_rub; bar_ms = [long]$Bar.t })
+  $script:ev.Add("RP virtual $($v.role) $($C.id): стоп ветки @$fill")
+}
+function Close-RpVirtual($C, [double]$Px, [string]$Reason) {
+  if (-not $C.PSObject.Properties['virtual'] -or $null -eq $C.virtual) { return }
+  $v = $C.virtual
+  $sm = if ([string]$C.side -eq 'long') { 1.0 } else { -1.0 }
+  if ([string]$v.status -eq 'open') {
+    $v.status = 'closed-with-card'; $v.exit_px = [math]::Round($Px, 6); $v.exit_ms = $NowMs
+    $v.pnl_rub = [math]::Round($sm * [int]$v.lots * ($Px - [double]$v.entry_px) * [double]$C.rub_per_pt, 2)
+    # ветка пережила бы реальную карточку: её собственное продолжение уже не наблюдается, пара
+    # считается незавершённой и досчитывается офлайн по истории - выдавать её за измеренную нельзя
+    $v.pair = if ($Reason -like 'stop-cap*' -or $Reason -eq 'risk-excess') { 'continues-unknown' } else { 'paired' }
+  } else { $v.pair = 'paired' }
+  Write-RpLog 'virtual_close' ([pscustomobject]@{ card = [string]$C.id; role = [string]$v.role; pair = [string]$v.pair
+    status = [string]$v.status; virtual_lots = [int]$v.lots; virtual_pnl_rub = $v.pnl_rub
+    card_lots = [int]$C.lots; card_px = [math]::Round($Px, 6); reason = $Reason
+    card_leg_pnl_rub = [math]::Round($sm * [int]$C.lots * ($Px - [double]$C.entry_px_pts) * [double]$C.rub_per_pt, 2) })
+}
+
 # Строка алерта входа: четыре числа ТЗ §17 - лоты и стоп уже в алерте, здесь убыток при стопе и
 # свободный общий бюджет. Для карточек до политики - пусто (текст алерта прежний).
 function Get-RpEntryAlertLine($Card) {
@@ -2182,6 +2389,7 @@ function Apply-FilledIntent($It) {
       # риск-политика (pilot/active): стоп - более близкий из стратегического и предела от ФАКТИЧЕСКОЙ
       # цены входа, округлён к цене входа; параметры политики закрепляются на карточке
       if ($null -ne $It.ctx -and $It.ctx.PSObject.Properties['risk'] -and $null -ne $It.ctx.risk) { Set-RpCardAtEntry $card $It $inst $stopDist }
+      if (Test-RpOn) { Set-RpVirtualAtEntry $card $It }   # ветка парного сравнения (shadow - кандидат, пилот - контроль)
       Add-RpDayFee ([int]$It.filled_lots) $px ([double]$inst.rub_per_pt)
       $sl.positions = ToArr (@($sl.positions) + $card)
       $st.stats.fills = [int]$st.stats.fills + 1
@@ -2220,7 +2428,12 @@ function Apply-FilledIntent($It) {
       if ($null -ne $card) {
         if ($px -le 0) { $px = [double]$card.entry_px_pts }
         $fee = [int]$card.lots * $px * [double]$card.rub_per_pt * [double]$LIVE.fee_est
-        Close-CardLedger $card $px 'emergency' $fee
+        # у карточек политики причина закрытия сохраняется как есть (stop-cap-breach, risk-excess):
+        # без неё в трейд-логе плановые выходы политики неотличимы от расхождений с брокером, а
+        # именно по ним считается эффект предела стопа (ТЗ §12). Прежние карточки - как раньше.
+        $reasonE = if ($card.PSObject.Properties['risk_policy'] -and $null -ne $card.risk_policy -and
+                       $null -ne $It.ctx -and [string]$It.ctx.why) { [string]$It.ctx.why } else { 'emergency' }
+        Close-CardLedger $card $px $reasonE $fee
       }
     }
     'roll_close' {
@@ -2229,7 +2442,35 @@ function Apply-FilledIntent($It) {
     }
     'roll_open' {
       $card = Find-Card ([string]$It.ctx.card_id)
-      if ($null -ne $card) { Apply-RollOpen $card $px }
+      if ($null -ne $card) { Apply-RollOpen $card $px ([int]$It.filled_lots) }
+    }
+    'reduce' {
+      # сокращение позиции политики: частичная фиксация по образцу Invoke-Tp1Sync, затем защита
+      # приводится к остатку (стоп на прежнем уровне, но на новый объём; TP1 - к floor(lots/2))
+      $card = Find-Card ([string]$It.ctx.card_id)
+      if ($null -ne $card) {
+        $n = [int]$It.filled_lots
+        if ($px -le 0) { $px = if ([double]$card.cur_px -gt 0) { [double]$card.cur_px } else { [double]$card.entry_px_pts } }
+        if ($n -gt 0 -and $n -lt [int]$card.lots) {
+          $smR = if ($card.side -eq 'long') { 1.0 } else { -1.0 }
+          $feeR = $n * $px * [double]$card.rub_per_pt * [double]$LIVE.fee_est
+          Add-RpDayFee $n $px ([double]$card.rub_per_pt)
+          $pnlR = $smR * $n * ($px - [double]$card.entry_px_pts) * [double]$card.rub_per_pt - $feeR
+          $slR = Get-SleeveRef ([string]$card.sleeve)
+          $slR.eq_rub = [double]$slR.eq_rub + $pnlR
+          $card.realized_rub = [double]$card.realized_rub + $pnlR
+          $card.fees_rub = [double]$card.fees_rub + $feeR
+          Add-PendingSettle $card $n $px 'reduce'
+          $card.lots = [int]$card.lots - $n
+          $script:ev.Add("REDUCE $($card.id) $($card.asset) -$n лот @$px ($($It.ctx.why))")
+          [void](Ensure-CardStop $card $script:stopIdsThisTick)
+          Sync-Tp1Qty $card $script:stopIdsThisTick
+          Alert -Client ("позиция {0} ({1}) уменьшена на {2} {3} по {4}: риск позиции превысил заложенный при входе бюджет. Остаток {5} {6}, стоп прежний {7}." -f
+            $card.id, (RfName $card), $n, (RuLots $n), (Fmt-Px $px), [int]$card.lots, (RuLots ([int]$card.lots)), (Fmt-Px ([double]$card.stop_px_pts)))
+        } else {
+          Write-LiveLog "reduce $($It.id): объём $n при позиции $([int]$card.lots) - сокращение не применено"
+        }
+      }
     }
     'tp1_fill' {
       # sandbox-эмуляция TP1 (в проде TP1 - брокерская take-profit заявка, обрабатывается Invoke-Tp1Sync)
@@ -2292,6 +2533,14 @@ function Apply-RollClose($Card, [double]$Px, [string]$ToSecid) {
   $pxNewRef = [double]$sNew[$sNew.Count - 1].c
   if ($pxNewRef -gt 0 -and $Px -gt 0) { $ratio = $pxNewRef / $Px }
   $lotsNew = [math]::Max(1, [math]::Round([double]$Card.lots * $Px * [double]$Card.rub_per_pt / ($pxNewRef * [double]$instNew.rub_per_pt)))
+  # карточка политики: ролл - это перенос позиции, а не новый вход, поэтому наращивать её он права
+  # не имеет (округление нотионала вверх дало бы лишний лот мимо всех бюджетов). Рублёвый риск до
+  # ролла запоминаем здесь: после ноги 2 цена входа и стоп будут уже другими.
+  if ($Card.PSObject.Properties['risk_policy'] -and $null -ne $Card.risk_policy) {
+    if ($lotsNew -gt [int]$Card.lots) { $lotsNew = [int]$Card.lots }
+    $Card | Add-Member -NotePropertyName roll_risk_rub -NotePropertyValue ([math]::Round(
+      [math]::Abs([int]$Card.lots * ([double]$Card.entry_px_pts - [double]$Card.stop_px_pts) * [double]$Card.rub_per_pt), 2)) -Force
+  }
   $dir = if ($Card.side -eq 'long') { 'buy' } else { 'sell' }
   $it = New-Intent 'roll_open' @{ sleeve = [string]$Card.sleeve; asset = [string]$Card.asset
     ticker = $ToSecid; uid = [string]$instNew.uid; side = $dir; lots = [int]$lotsNew
@@ -2299,7 +2548,7 @@ function Apply-RollClose($Card, [double]$Px, [string]$ToSecid) {
   Save-State
   [void](Post-IntentMarket $it $dir ([int]$lotsNew))
 }
-function Apply-RollOpen($Card, [double]$Px) {
+function Apply-RollOpen($Card, [double]$Px, [int]$Lots = 0) {
   $inst = Get-Inst ([string]$Card.roll_pending_to) 'fut'
   $ratio = if ([double]$Card.roll_close_px -gt 0) { $Px / [double]$Card.roll_close_px } else { 1.0 }
   $fee = [int]$Card.lots * $Px * [double]$inst.rub_per_pt * [double]$LIVE.fee_est
@@ -2315,6 +2564,33 @@ function Apply-RollOpen($Card, [double]$Px) {
   if ($null -ne $Card.tp1_px_pts) { $Card.tp1_px_pts = [math]::Round([double]$Card.tp1_px_pts * $ratio, 6) }
   $Card.mfe_pts = [math]::Round([double]$Card.mfe_pts * $ratio, 6)
   $Card.rolls = [int]$Card.rolls + 1
+  # карточка политики: объём карточки приводим к фактически купленному в ноге 2 (иначе сверка
+  # увидела бы D5 на ровном месте), дистанцию стратегического стопа масштабируем тем же ratio -
+  # шаг 6a считает стоп именно от неё. Рублёвый риск после ролла не имеет права вырасти.
+  if ($Card.PSObject.Properties['risk_policy'] -and $null -ne $Card.risk_policy) {
+    $smRoll = if ([string]$Card.side -eq 'long') { 1.0 } else { -1.0 }
+    if ($Lots -gt 0 -and $Lots -ne [int]$Card.lots) { $Card.lots = [int]$Lots }
+    if ($Card.PSObject.Properties['stop_strategy_dist'] -and [double]$Card.stop_strategy_dist -gt 0) {
+      $Card.stop_strategy_dist = [math]::Round([double]$Card.stop_strategy_dist * $ratio, 6)
+      $Card.stop_strategy_px = [math]::Round([double]$Card.entry_px_pts - $smRoll * [double]$Card.stop_strategy_dist, 6)
+    }
+    $preRisk = if ($Card.PSObject.Properties['roll_risk_rub']) { [double]$Card.roll_risk_rub } else { 0.0 }
+    $nowRisk = [math]::Abs([int]$Card.lots * ([double]$Card.entry_px_pts - [double]$Card.stop_px_pts) * [double]$inst.rub_per_pt)
+    if ($preRisk -gt 0 -and $nowRisk -gt $preRisk -and [int]$Card.lots -gt 0) {
+      $distOk = $preRisk / ([int]$Card.lots * [double]$inst.rub_per_pt)
+      $cand = Get-RfStopRounded ([string]$Card.side) ([double]$Card.entry_px_pts - $smRoll * $distOk) ([double]$inst.min_price_increment)
+      if ($null -ne $cand -and $smRoll * ([double]$Card.entry_px_pts - [double]$cand) -gt 0) {
+        $Card.stop_px_pts = [math]::Round([double]$cand, 6)
+        $script:ev.Add("RP roll $($Card.id): стоп поджат до $($Card.stop_px_pts) - риск после ролла не выше прежнего")
+      }
+    }
+    # цена входа новой ноги операциями не подтверждалась, и подтверждать её уже нечем (объём
+    # карточки больше не равен lots_initial): шаг 6a такие карточки намеренно не трогает
+    $Card | Add-Member -NotePropertyName entry_px_status -NotePropertyValue 'rolled' -Force
+    Write-RpLog 'roll' ([pscustomobject]@{ card = [string]$Card.id; lots = [int]$Card.lots; ratio = [math]::Round($ratio, 6)
+      stop = [double]$Card.stop_px_pts; risk_before_rub = [math]::Round($preRisk, 2)
+      risk_after_rub = [math]::Round([math]::Abs([int]$Card.lots * ([double]$Card.entry_px_pts - [double]$Card.stop_px_pts) * [double]$inst.rub_per_pt), 2) })
+  }
   $Card.roll_pending_to = $null
   $script:ev.Add("ROLL [$($Card.sleeve)] $($Card.id) $($Card.asset) -> $($Card.secid)")
   if (-not (Post-CardStop $Card)) {
@@ -2892,6 +3168,12 @@ function Invoke-HourlyPass {
           # MFE по часовикам (трейл применяется на дневном хуке - как paper)
           if ($c.side -eq 'long' -and [double]$b.h -gt [double]$c.mfe_pts) { $c.mfe_pts = [double]$b.h }
           if ($c.side -eq 'short' -and [double]$b.l -lt [double]$c.mfe_pts) { $c.mfe_pts = [double]$b.l }
+          # MAE и виртуальная ветка - только там, где они заведены (карточки политики); legacy не трогаем
+          if ($c.PSObject.Properties['mae_pts'] -and $null -ne $c.mae_pts) {
+            if ($c.side -eq 'long' -and [double]$b.l -lt [double]$c.mae_pts) { $c.mae_pts = [double]$b.l }
+            if ($c.side -eq 'short' -and [double]$b.h -gt [double]$c.mae_pts) { $c.mae_pts = [double]$b.h }
+          }
+          Update-RpVirtual $c $b
           # BE-эмуляция TP1 для lots==1 (брокерский TP невозможен на пол-лота) и для позиций, у которых
           # TP1 снята из-за уменьшения объёма мимо бота (tp1_emulated, см. Sync-Tp1Qty)
           if ($sn -eq 'setA' -and -not $c.tp1_done -and ([int]$c.lots_initial -eq 1 -or $c.tp1_emulated) -and $null -ne $c.tp1_px_pts -and -not $c.be_moved) {
@@ -3438,10 +3720,16 @@ $ENTRY_PX_MAX_AGE_MS = 259200000   # 3 суток: дальше операции
 
 function Confirm-EntryPx($C) {
   if ($C.PSObject.Properties['entry_px_ok'] -and $C.entry_px_ok) { return }
+  # У карточки политики та же проверка строже: цена входа - основание стопа (предел считается ОТ неё)
+  # и бюджета риска, поэтому исполнения собираются в VWAP и результат получает явный статус.
+  $isRp = ($C.PSObject.Properties['risk_policy'] -and $null -ne $C.risk_policy)
   $ageMs = $NowMs - [long]$C.entry_ts
   $tries = if ($C.PSObject.Properties['entry_px_tries']) { [int]$C.entry_px_tries } else { 0 }
   if ($ageMs -gt $ENTRY_PX_MAX_AGE_MS -or $tries -ge $ENTRY_PX_MAX_TRIES) {
     $C | Add-Member -NotePropertyName entry_px_ok -NotePropertyValue $true -Force   # сдаёмся молча
+    # «сдались» - это НЕ «подтверждено»: у политики такая карточка получает unresolved, её риск
+    # считается неизвестным (новые входы встают), а шаг 6a её не трогает
+    if ($isRp) { Set-RpEntryPxStatus $C 'unresolved' "цена не подтвердилась за $tries попыток" }
     return
   }
   $C | Add-Member -NotePropertyName entry_px_tries -NotePropertyValue ($tries + 1) -Force
@@ -3457,29 +3745,37 @@ function Confirm-EntryPx($C) {
     Write-LiveLog "entry-px $($C.id): operations недоступны ($($_.Exception.Message)) - проверка отложена"
     return
   }
-  # СТРОГИЙ матчинг, как в Find-FillOperation: инструмент + направление + количество
-  $op = $null
-  foreach ($o in $ops) {
-    if ($null -eq $o) { continue }
-    if ([string](Get-TiField $o 'instrument_uid') -ne [string]$C.uid) { continue }
-    if ([string](Get-TiField $o 'operation_type') -ne $want) { continue }
-    $q = 0.0
-    try { $q = [double][string](Get-TiField $o 'quantity') } catch {}
-    if ($q -ne [int]$C.lots_initial) { continue }
-    $op = $o; break
-  }
-  if ($null -eq $op) { return }   # ещё не проросла в операции — следующий тик
-
   $real = 0.0
-  try { $real = [double](M2D $op.price).value } catch {}
+  if ($isRp) {
+    # вход мог исполниться несколькими сделками - берём VWAP всех исполнений заявки
+    $agg = Get-RpEntryFills $C $ops
+    if ($null -eq $agg) { return }   # объём ещё не набран (или операций больше, чем лотов) - следующий тик
+    $real = [double]$agg.vwap
+  } else {
+    # СТРОГИЙ матчинг, как в Find-FillOperation: инструмент + направление + количество
+    $op = $null
+    foreach ($o in $ops) {
+      if ($null -eq $o) { continue }
+      if ([string](Get-TiField $o 'instrument_uid') -ne [string]$C.uid) { continue }
+      if ([string](Get-TiField $o 'operation_type') -ne $want) { continue }
+      $q = 0.0
+      try { $q = [double][string](Get-TiField $o 'quantity') } catch {}
+      if ($q -ne [int]$C.lots_initial) { continue }
+      $op = $o; break
+    }
+    if ($null -eq $op) { return }   # ещё не проросла в операции — следующий тик
+    try { $real = [double](M2D $op.price).value } catch {}
+  }
   $old = [double]$C.entry_px_pts
   # тот же 30%-ый предохранитель, что в лестнице: мусорную цену в карточку не пускаем
   if ($real -le 0 -or $old -le 0 -or [math]::Abs($real / $old - 1) -gt 0.30) {
     Write-LiveLog "entry-px $($C.id): операция даёт $real против $old - вне ворот, игнор"
     $C | Add-Member -NotePropertyName entry_px_ok -NotePropertyValue $true -Force
+    if ($isRp) { Set-RpEntryPxStatus $C 'unresolved' "операции дают $real против $old - вне ворот" }
     return
   }
   $C | Add-Member -NotePropertyName entry_px_ok -NotePropertyValue $true -Force
+  if ($isRp) { Set-RpEntryPxStatus $C 'verified' }
   if ([math]::Abs($real - $old) -lt 1e-9) { return }   # совпало — тихо
 
   # чиним всё, что считается ОТ цены входа
@@ -3498,8 +3794,15 @@ function Confirm-EntryPx($C) {
   # дневной трейл-хук всё равно приведёт его к правилу.
   $sm = if ([string]$C.side -eq 'long') { 1.0 } else { -1.0 }
   $wantStop = [math]::Round($real - $sm * 2.0 * [double]$C.atr_entry, 6)
-  $msg = ("цена входа {0} уточнена по операциям брокера: {1} -> {2} (в ответе на заявку была цена ПОДАННОЙ заявки, а не сделки). Комиссия пересчитана. Стоп у брокера остался {3}; по правилу 2xATR от реальной цены он должен быть {4} — живую стоп-заявку бот не двигает, это решение за вами." -f `
+  $msg = if ($isRp) {
+    # у политики стоп - производная от цены входа, и раз цена изменилась, защита пересчитывается
+    # сама на шаге 6a этого же тика (только в сторону входа, ослабления не бывает)
+    ("цена входа {0} уточнена по операциям брокера: {1} -> {2}. Комиссия пересчитана; защита будет пересчитана от подтверждённой цены в этом же тике (стоп сейчас {3})." -f `
+      $C.id, $old, [double]$C.entry_px_pts, [double]$C.stop_px_pts)
+  } else {
+    ("цена входа {0} уточнена по операциям брокера: {1} -> {2} (в ответе на заявку была цена ПОДАННОЙ заявки, а не сделки). Комиссия пересчитана. Стоп у брокера остался {3}; по правилу 2xATR от реальной цены он должен быть {4} — живую стоп-заявку бот не двигает, это решение за вами." -f `
       $C.id, $old, [double]$C.entry_px_pts, [double]$C.stop_px_pts, $wantStop)
+  }
   $script:ev.Add("ENTRY-PX FIX $($C.id): $old -> $($C.entry_px_pts)")
   $script:jr.Add(("`r`n## {0} MSK — RF-LIVE: {1}`r`n" -f (MsToUtcStr $mskNowMs), $msg))
   Alert $msg
@@ -3565,6 +3868,12 @@ try {
     Remove-Item $lockPath -Force
   }
   Set-Content $lockPath "pid=$PID $(MsToUtcStr $NowMs)" -Encoding ASCII
+
+  # Разбор политики ЧИСТОЙ функцией до kill-файлов: аварийное закрытие всего (HALT_RF_CLOSE) идёт
+  # раньше шага 3a, и без этого пара виртуальной ветки такого закрытия терялась бы навсегда - вместе
+  # с самой карточкой. Побочных действий здесь нет (ни состояния, ни алертов, ни халтов): их
+  # по-прежнему делает Invoke-RiskPolicyResolve на шаге 3a, повторный разбор идемпотентен.
+  $script:RP = Resolve-RfRiskPolicy $(if ($LIVE.Contains('rf_risk_policy')) { $LIVE.rf_risk_policy } else { $null })
 
   # 1. kill-файлы
   if ((Test-Path (Join-Path $Root 'data\HALT')) -or (Test-Path (Join-Path $Root 'data\HALT_RF_LIVE'))) {
@@ -3649,6 +3958,12 @@ try {
   # физически не исполнился бы - пропускаем тик целиком, это минимальное вмешательство.
   if (Test-Clearing) { Write-LiveLog 'governors: клиринговое окно - пропуск тика' }
   else { Invoke-Governors }
+
+  # 6a. риск-политика: ведение уже открытых позиций (стоп от подтверждённой цены входа, выход при
+  # пробое предела, сокращение при превышении бюджета). После губернаторов: их закрытия приоритетнее,
+  # и cur_px этого тика уже посчитан (шаг 6). Карточка, родившаяся в окне входов ниже, попадёт сюда
+  # следующим тиком - к тому моменту её цена входа как раз проходит подтверждение операциями.
+  Invoke-RpPositionGuard
 
   # 6b. брокерский леджер (реальные комиссии + сведённая вариационка) - ПОСЛЕ всей торговой
   # логики и только в вечернем окне.

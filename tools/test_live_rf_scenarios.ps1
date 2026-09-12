@@ -4,7 +4,9 @@
 # Время фиксированное: среда 2026-07-15 (будни), вотермарки выставлены так, что дневной/часовой хуки
 # не лезут в сеть (сигнальный путь покрыт golden-replay против paper).
 
-$WORK = Join-Path $env:TEMP 'lrf_scenarios'
+# Каталог стенда можно увести в свой через LRF_WORK: два параллельных прогона иначе
+# вычищают общий каталог lrf_scenarios в %TEMP% друг у друга (Remove-Item падает на занятых файлах).
+$WORK = if ($env:LRF_WORK) { [string]$env:LRF_WORK } else { Join-Path $env:TEMP 'lrf_scenarios' }
 if (Test-Path $WORK) { Remove-Item $WORK -Recurse -Force }
 New-Item -ItemType Directory -Force $WORK | Out-Null
 $ENGINE = Join-Path $PSScriptRoot 'live_rf_engine.ps1'
@@ -2307,6 +2309,204 @@ function Scn-RpNoLoosen {
   Check 'rp-noloosen: стоп прежний 2.844' ([math]::Abs([double]$c.stop_px_pts - 2.844) -lt 1e-9)
 }
 
+# карточка, открытая политикой: закреплённые параметры плюс поля, от которых зависит шаг 6a
+function New-RpCard([string]$Sleeve, [string]$Asset, [string]$Secid, [string]$Uid, [string]$Side, [int]$Lots,
+                    [double]$Entry, [double]$Stop, [double]$RubPt, [double]$StratDist, $CapPct = 0.02,
+                    [string]$PxStatus = 'verified', [double]$Budget = 8000, $Tp1 = $null) {
+  $c = New-Card $Sleeve $Asset $Secid $Uid $Side $Lots $Entry $Stop $RubPt $Tp1
+  $sm = if ($Side -eq 'long') { 1.0 } else { -1.0 }
+  $c | Add-Member -NotePropertyName risk_policy -NotePropertyValue ([pscustomobject]@{ policy_id = 'rf-early-exit-v1'; version = 1
+    hash = ('b' * 64); mode = 'pilot'; stop_cap_pct = $CapPct; risk_pct = 0.005
+    cost = [pscustomobject]@{ fee_pct_side = 0.00045; stop_slip_pct = 0.0005; source = 'test' }
+    excess_tolerance_pct = 0.10 }) -Force
+  $c | Add-Member -NotePropertyName stop_strategy_dist -NotePropertyValue $StratDist -Force
+  $c | Add-Member -NotePropertyName stop_strategy_px -NotePropertyValue ([math]::Round($Entry - $sm * $StratDist, 6)) -Force
+  $c | Add-Member -NotePropertyName stop_initial_px -NotePropertyValue $Stop -Force
+  $c | Add-Member -NotePropertyName entry_px_status -NotePropertyValue $PxStatus -Force
+  $c | Add-Member -NotePropertyName risk_budget_rub -NotePropertyValue $Budget -Force
+  $c | Add-Member -NotePropertyName risk_at_stop_rub -NotePropertyValue 0.0 -Force
+  $c | Add-Member -NotePropertyName capital_rub -NotePropertyValue 1600000.0 -Force
+  $c | Add-Member -NotePropertyName q_reference -NotePropertyValue $Lots -Force
+  $c | Add-Member -NotePropertyName mae_pts -NotePropertyValue $Entry -Force
+  if ($PxStatus -eq 'verified') { $c | Add-Member -NotePropertyName entry_px_ok -NotePropertyValue $true -Force }
+  return $c
+}
+function Set-RpFixture([string]$Root, $State, [int]$BrokerLots, [double]$StopPx, [double]$MarkPx, [string]$Mode = 'pilot') {
+  Write-Json (Join-Path $Root 'data\live_rf\portfolio.json') $State
+  Write-BrokerCapital $Root 1600000 @([pscustomobject]@{ instrumentUid = 'uid-NGQ6'; instrumentType = 'futures'
+    quantityLots = [pscustomobject]@{ units = ([string]$BrokerLots); nano = 0 } })
+  Write-BrokerStops $Root @(New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6' 'SELL' $BrokerLots 'STOP_ORDER_TYPE_STOP_LOSS' $StopPx)
+  Write-Json (Join-Path $Root 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @(
+    [pscustomobject]@{ instrumentUid = 'uid-NGQ6'; price = [pscustomobject]@{ units = ([string][int][math]::Floor($MarkPx))
+      nano = ([int][math]::Round(($MarkPx - [math]::Floor($MarkPx)) * 1e9)) }; time = '2026-07-15T07:04:55Z' }) })
+  Write-Json (Join-Path $Root 'data\live_rf\config.json') (New-RpConfig $Mode)
+}
+# операции брокера по входу карточки (одно или несколько исполнений)
+function Write-EntryOps([string]$Root, $Fills) {
+  $i = 0
+  $ops = @(foreach ($f in @($Fills)) {
+    $i++
+    [pscustomobject]@{ id = "op-e$i"; date = '2026-07-14T07:01:30Z'; instrumentUid = 'uid-NGQ6'
+      operationType = 'OPERATION_TYPE_BUY'; quantity = ([string][int]$f.lots)
+      price = [pscustomobject]@{ units = ([string][int][math]::Floor([double]$f.px))
+        nano = ([int][math]::Round(([double]$f.px - [math]::Floor([double]$f.px)) * 1e9)) } }
+  })
+  Write-Json (Join-Path $Root 'mock\OperationsService.GetOperations.json') ([pscustomobject]@{ operations = $ops })
+}
+
+# --- цена входа подтверждена операциями -> стоп пересчитан от неё (только ближе ко входу)
+function Scn-RpConfirmPxTighten {
+  $r = New-Scenario 'rp-confirm-tighten'
+  $s = New-BaseState $r
+  # в карточке цена из ответа на заявку (2.9012), операции покажут реальные 2.92
+  $s.sleeves.core.positions = @(New-RpCard 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 4 2.9012 2.844 7749.12 0.229 0.02 'provisional')
+  Set-RpFixture $r $s 4 2.844 2.90
+  Write-EntryOps $r @([pscustomobject]@{ lots = 4; px = 2.92 })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $stt = Get-State $r
+  $c = @($stt.sleeves.core.positions)[0]
+  Check 'rp-confirm: цена входа подтверждена операциями (2.92)' ([string]$c.entry_px_status -eq 'verified' -and [math]::Abs([double]$c.entry_px_pts - 2.92) -lt 1e-9)
+  Check 'rp-confirm: стоп пересчитан от подтверждённой цены (2% от 2.92 = 2.8616 -> 2.862)' ([math]::Abs([double]$c.stop_px_pts - 2.862) -lt 1e-9)
+  Check 'rp-confirm: защита переставлена ровно один раз' ((Get-Calls $r 'CancelStopOrder').Count -eq 1 -and (Get-Calls $r 'PostStopOrder').Count -eq 1)
+  Check 'rp-confirm: рыночных заявок не было, пауза входов не включалась' ((Get-Calls $r 'PostOrder').Count -eq 0 -and -not [bool]$stt.entries_halt.active)
+}
+
+# --- частичные исполнения: цена входа = VWAP всех сделок заявки, а не первой из них
+function Scn-RpPartialFillsVwap {
+  $r = New-Scenario 'rp-partial-vwap'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-RpCard 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 4 2.9012 2.844 7749.12 0.229 0.02 'provisional')
+  Set-RpFixture $r $s 4 2.844 2.90
+  Write-EntryOps $r @([pscustomobject]@{ lots = 2; px = 2.90 }, [pscustomobject]@{ lots = 2; px = 2.94 })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $c = @((Get-State $r).sleeves.core.positions)[0]
+  Check 'rp-vwap: вход = VWAP двух исполнений (2.90 и 2.94 -> 2.92)' ([string]$c.entry_px_status -eq 'verified' -and [math]::Abs([double]$c.entry_px_pts - 2.92) -lt 1e-9)
+  Check 'rp-vwap: стоп от VWAP (2.862)' ([math]::Abs([double]$c.stop_px_pts - 2.862) -lt 1e-9)
+}
+
+# --- рынок уже за пересчитанным стопом -> выход без паузы входов (это плановое решение, не расхождение)
+function Scn-RpConfirmPxBreach {
+  $r = New-Scenario 'rp-confirm-breach'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-RpCard 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 4 2.9012 2.844 7749.12 0.229 0.02 'provisional')
+  Set-RpFixture $r $s 4 2.844 2.85
+  Write-EntryOps $r @([pscustomobject]@{ lots = 4; px = 2.92 })
+  Set-Queue $r @([pscustomobject]@{ service = 'OrdersService'; method = 'PostOrder'
+    response = [pscustomobject]@{ orderId = 'ord-brk'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '4'
+      initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 850000000 } } })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $stt = Get-State $r
+  Check 'rp-breach: позиция закрыта по рынку' (@($stt.sleeves.core.positions).Count -eq 0 -and (Get-Calls $r 'PostOrder').Count -eq 1)
+  Check 'rp-breach: новые входы НЕ остановлены (плановый выход политики)' (-not [bool]$stt.entries_halt.active)
+  $tr = Get-Trades $r
+  Check 'rp-breach: причина выхода сохранена как stop-cap-breach' ($tr.Count -eq 1 -and [string]$tr[0].exitReason -eq 'stop-cap-breach')
+}
+
+# --- цену входа подтвердить не удалось: риск позиции неизвестен, новые входы ждут
+function Scn-RpConfirmPxUnresolved {
+  $r = New-Scenario 'rp-confirm-unresolved'
+  $s = New-BaseState $r
+  $card = New-RpCard 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 4 2.9012 2.844 7749.12 0.229 0.02 'provisional'
+  $card | Add-Member -NotePropertyName entry_px_tries -NotePropertyValue 20 -Force   # попытки исчерпаны
+  $s.sleeves.core.positions = @($card)
+  $s.pending_intents = @(New-EntryIntent 'setA' 'NG' 'buy' 0 0.1145 2.9 0.02 2.7)
+  Set-RpFixture $r $s 4 2.844 2.90
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $stt = Get-State $r
+  $c = @($stt.sleeves.core.positions)[0]
+  Check 'rp-unresolved: статус цены входа - unresolved' ([string]$c.entry_px_status -eq 'unresolved')
+  Check 'rp-unresolved: риск позиции неизвестен, вход ждёт' ((Get-Calls $r 'PostOrder').Count -eq 0 -and [string](Get-TickLog $r) -match 'WAIT RP')
+  Check 'rp-unresolved: причина видна в сводке бюджета' (@($stt.risk_budget.unknown).Count -ge 1)
+  Check 'rp-unresolved: стоп позиции не тронут' ((Get-Calls $r 'CancelStopOrder').Count -eq 0)
+}
+
+# --- риск позиции выше заложенного бюджета -> сокращение, защита приводится к остатку
+function Scn-RpReduce {
+  $r = New-Scenario 'rp-reduce'
+  $s = New-BaseState $r
+  # setA: предела стопа нет, поэтому стоп остаётся широким и риск честно превышает бюджет
+  $card = New-RpCard 'setA' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 10 2.9012 2.70 7749.12 0.2012 $null 'verified' 8000 3.2
+  $card.tp1_order_id = 'tp1-live-1'
+  $s.sleeves.setA.positions = @($card)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000 @([pscustomobject]@{ instrumentUid = 'uid-NGQ6'; instrumentType = 'futures'
+    quantityLots = [pscustomobject]@{ units = '10'; nano = 0 } })
+  Write-BrokerStops $r @(
+    (New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6' 'SELL' 10 'STOP_ORDER_TYPE_STOP_LOSS' 2.70),
+    (New-StopOrder 'tp1-live-1' 'uid-NGQ6' 'NGQ6' 'SELL' 5 'STOP_ORDER_TYPE_TAKE_PROFIT' 3.2))
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @(
+    [pscustomobject]@{ instrumentUid = 'uid-NGQ6'; price = [pscustomobject]@{ units = '2'; nano = 900000000 }; time = '2026-07-15T07:04:55Z' }) })
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  Set-Queue $r @([pscustomobject]@{ service = 'OrdersService'; method = 'PostOrder'
+    response = [pscustomobject]@{ orderId = 'ord-red'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '5'
+      initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 900000000 } } })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $stt = Get-State $r
+  $orders = Get-Calls $r 'PostOrder'
+  Check 'rp-reduce: сокращение ровно на лишние лоты (10 -> 5)' ($orders.Count -eq 1 -and $orders[0].body -match '"quantity":"5"')
+  $c = @($stt.sleeves.setA.positions)[0]
+  Check 'rp-reduce: карточка жива с остатком 5 лотов' ($null -ne $c -and [int]$c.lots -eq 5 -and [bool]$c.risk_reduced)
+  Check 'rp-reduce: стоп приведён к остатку' ([int]$c.stop_lots -eq 5 -and (Get-Calls $r 'PostStopOrder').Count -ge 1)
+  Check 'rp-reduce: TP1 приведена к остатку (5 -> 2)' ([int]$c.tp1_lots -eq 2)
+  Check 'rp-reduce: пауза входов не включалась' (-not [bool]$stt.entries_halt.active)
+  Check 'rp-reduce: повторного сокращения в том же тике нет' ($orders.Count -eq 1)
+}
+
+# --- ролл карточки политики: позиция не растёт, рублёвый риск после ролла не выше прежнего
+function Scn-RpRollPolicy {
+  $r = New-Scenario 'rp-roll'
+  $s = New-BaseState $r
+  $card = New-RpCard 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 10 2.905 2.847 7749.12 0.229 0.02 'verified'
+  $card | Add-Member -NotePropertyName roll_signal_to -NotePropertyValue 'NGU6' -Force
+  $s.sleeves.core.positions = @($card)
+  Set-RpFixture $r $s 10 2.847 2.90
+  # закрытие старого контракта по 3.2 при серии 2.9 -> сохранение нотионала дало бы 11 лотов
+  Set-Queue $r @(
+    [pscustomobject]@{ service = 'OrdersService'; method = 'PostOrder'; body_like = 'SELL'
+      response = [pscustomobject]@{ orderId = 'ord-rc'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '10'
+        initialOrderPricePt = [pscustomobject]@{ units = '3'; nano = 200000000 } } },
+    [pscustomobject]@{ service = 'InstrumentsService'; method = 'FutureBy'; body_like = 'NGU6'
+      response = [pscustomobject]@{ instrument = [pscustomobject]@{ uid = 'uid-NGU6'; figi = 'FUTNGU'; ticker = 'NGU6'; class_code = 'SPBFUT'; lot = 1
+        min_price_increment = [pscustomobject]@{ units = '0'; nano = 1000000 }; api_trade_available_flag = $true; last_trade_date = '2026-09-28T00:00:00Z' } } },
+    [pscustomobject]@{ service = 'OrdersService'; method = 'PostOrder'; body_like = 'BUY'
+      response = [pscustomobject]@{ orderId = 'ord-ro'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '10'
+        initialOrderPricePt = [pscustomobject]@{ units = '3'; nano = 250000000 } } })
+  [void](Run-Tick $r '2026-07-15 10:30')
+  $c = @((Get-State $r).sleeves.core.positions)[0]
+  $buy = @(Get-Calls $r 'PostOrder' | Where-Object { $_.body -match 'BUY' })
+  Check 'rp-roll: ролл не нарастил позицию (11 по нотионалу -> 10)' ($buy.Count -eq 1 -and $buy[0].body -match '"quantity":"10"' -and [int]$c.lots -eq 10)
+  Check 'rp-roll: перешла в NGU6' ([string]$c.secid -eq 'NGU6')
+  $riskAfter = 10 * (3.25 - [double]$c.stop_px_pts) * 7749.12
+  Check 'rp-roll: рублёвый риск после ролла не выше прежнего (~4 494 ₽)' ($riskAfter -le 4494.49 + 1)
+  Check 'rp-roll: цена входа новой ноги помечена как не подтверждённая операциями' ([string]$c.entry_px_status -eq 'rolled')
+  $log = @((Read-JsonFile (Join-Path $r 'data\live_rf\risk_log.json')))
+  Check 'rp-roll: ролл записан в журнал политики' (@($log | Where-Object { $null -ne $_ -and $_.kind -eq 'roll' }).Count -eq 1)
+}
+
+# --- виртуальная ветка закрывается вместе с карточкой, пара попадает в журнал
+function Scn-RpVirtualPair {
+  $r = New-Scenario 'rp-virtual-pair'
+  $s = New-BaseState $r
+  $card = New-RpCard 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 4 2.9012 2.844 7749.12 0.229 0.02 'verified'
+  $card | Add-Member -NotePropertyName virtual -NotePropertyValue ([pscustomobject]@{ role = 'control'; status = 'open'
+    lots = 19; stop = 2.6722; entry_px = 2.9012; opened_ms = (UtcStrToMs '2026-07-14 10:01'); exit_px = $null
+    exit_ms = $null; gap = $false; pnl_rub = $null; pair = '' }) -Force
+  $s.sleeves.core.positions = @($card)
+  Set-RpFixture $r $s 4 2.844 2.90
+  New-Item -ItemType Directory -Force (Join-Path $r 'data') | Out-Null
+  Set-Content (Join-Path $r 'data\HALT_RF_CLOSE') 'test' -Encoding ASCII
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $stt = Get-State $r
+  Check 'rp-virtual: карточка закрыта' (@($stt.sleeves.core.positions).Count -eq 0)
+  $log = @((Read-JsonFile (Join-Path $r 'data\live_rf\risk_log.json')))
+  $vc = @($log | Where-Object { $null -ne $_ -and $_.kind -eq 'virtual_close' })
+  Check 'rp-virtual: пара записана в журнал' ($vc.Count -eq 1)
+  if ($vc.Count) {
+    Check 'rp-virtual: ветка закрыта вместе с карточкой, пара полная' ([string]$vc[0].data.status -eq 'closed-with-card' -and
+      [string]$vc[0].data.pair -eq 'paired' -and [int]$vc[0].data.virtual_lots -eq 19)
+  }
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -2341,7 +2541,10 @@ $scenarios = @(
   ${function:Scn-OrphanSweep}, ${function:Scn-StopPostLostAdopt}, ${function:Scn-HaltEntriesFileRemoved},
   ${function:Scn-RpOffParity}, ${function:Scn-RpShadowNoMutation}, ${function:Scn-RpPilotSizing}, ${function:Scn-RpPilotQrefZero},
   ${function:Scn-RpInvalidConfig}, ${function:Scn-RpCapitalStale}, ${function:Scn-RpTotalCapLegacyBlocks},
-  ${function:Scn-RpTwoEntriesReserve}, ${function:Scn-RpNoLoosen}
+  ${function:Scn-RpTwoEntriesReserve}, ${function:Scn-RpNoLoosen},
+  ${function:Scn-RpConfirmPxTighten}, ${function:Scn-RpPartialFillsVwap}, ${function:Scn-RpConfirmPxBreach},
+  ${function:Scn-RpConfirmPxUnresolved}, ${function:Scn-RpReduce}, ${function:Scn-RpRollPolicy},
+  ${function:Scn-RpVirtualPair}
 )
 # LRF_ONLY=<regex>: прогнать только сценарии, чьё имя функции ему соответствует (быстрая итерация),
 # например LRF_ONLY='StopReplace|D5'
