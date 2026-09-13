@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789302643337,
-  "sourceAtMs": 1789302032781,
+  "generatedAtMs": 1789303538721,
+  "sourceAtMs": 1789302933589,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -37,10 +37,34 @@
     "pendingSettleRub": 0.0,
     "pendingSettleTodayRub": 0.0,
     "ledgerUntilMs": 1789252232747,
-    "manualAdjustmentRub": -80244.41
+    "manualAdjustmentRub": -80244.41,
+    "riskBudget": {
+      "mode": "cap",
+      "policyId": "rf-early-exit-v1",
+      "updatedMs": 1789303532864,
+      "capitalRub": 1574663.79,
+      "capitalOk": true,
+      "capitalReason": "",
+      "totalUsedRub": 75541.93,
+      "totalCapRub": 47239.91,
+      "fxLongRub": 0.0,
+      "fxShortRub": 0.0,
+      "fxCapRub": 23619.96,
+      "byAsset": {
+        "BR": 75541.93
+      },
+      "dayOk": true,
+      "dayPnlRub": -0.0,
+      "dayLimitRub": 31493.28,
+      "dayReason": "",
+      "unknown": [
+        "card L00052: котировка старше 143735 с"
+      ],
+      "reasons": []
+    }
   },
   "broker": {
-    "captured_ms": 1789302632851,
+    "captured_ms": 1789303532864,
     "totals": {
       "portfolio": 1574663.79,
       "currencies": 1574663.79,
@@ -188,6 +212,18 @@
       "pctChg": -3.89,
       "reconcileStatus": null,
       "reconcileSinceTs": null,
+      "riskView": {
+        "policyId": "",
+        "mode": "cap",
+        "stopPx": 102.970963,
+        "stopDistPct": 5.327,
+        "riskRub": 75541.93,
+        "riskPctAccount": 4.797,
+        "feesEstimated": true,
+        "protection": "ok",
+        "entryPxStatus": "",
+        "budgetLeftRub": -28302.02
+      },
       "brokerPnl": 3515.27,
       "goRub": 269174.0,
       "pnlPctGo": -20.17,
@@ -21328,6 +21364,10 @@
     [
       1789302032781,
       768709.88
+    ],
+    [
+      1789302933589,
+      768709.88
     ]
   ],
   "capitalCurve": [
@@ -41937,6 +41977,10 @@
     ],
     [
       1789302032781,
+      1574663.79
+    ],
+    [
+      1789302933589,
       1574663.79
     ]
   ]
