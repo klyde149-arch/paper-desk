@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789337738817,
-  "sourceAtMs": 1789337312908,
+  "generatedAtMs": 1789338638292,
+  "sourceAtMs": 1789338212910,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -36,12 +36,12 @@
     "lastDailyDay": "2026-09-13",
     "pendingSettleRub": 0.0,
     "pendingSettleTodayRub": 0.0,
-    "ledgerUntilMs": 1789337732907,
+    "ledgerUntilMs": 1789338632836,
     "manualAdjustmentRub": -80244.41,
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789337732907,
+      "updatedMs": 1789338632836,
       "capitalRub": 1574663.79,
       "capitalOk": true,
       "capitalReason": "",
@@ -53,18 +53,18 @@
       "byAsset": {
         "BR": 75541.93
       },
-      "dayOk": false,
-      "dayPnlRub": null,
-      "dayLimitRub": null,
-      "dayReason": "нет проверенной дневной базы",
+      "dayOk": true,
+      "dayPnlRub": -0.0,
+      "dayLimitRub": 31493.28,
+      "dayReason": "",
       "unknown": [
-        "card L00052: котировка старше 177935 с"
+        "card L00052: котировка старше 178835 с"
       ],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1789337732907,
+    "captured_ms": 1789338632836,
     "totals": {
       "portfolio": 1574663.79,
       "currencies": 1574663.79,
@@ -21516,6 +21516,10 @@
     [
       1789337312908,
       768709.88
+    ],
+    [
+      1789338212910,
+      768709.88
     ]
   ],
   "capitalCurve": [
@@ -42277,6 +42281,10 @@
     ],
     [
       1789337312908,
+      1574663.79
+    ],
+    [
+      1789338212910,
       1574663.79
     ]
   ]
