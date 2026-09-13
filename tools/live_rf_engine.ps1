@@ -44,7 +44,11 @@ $LIVE = [ordered]@{
   hard_dd           = 0.35       # АВАРИЙНЫЙ СТОП: -35% от пика -> закрыть всё + HALT_RF_LIVE (решение пользователя)
   max_orders_day    = 20         # предохранитель флуда (нюанс #11: сделки:заявки не хуже 1:10)
   max_attempts      = 3          # лимит попыток state machine на intent
-  fee_est           = 0.00025    # тариф Т-Инвест фьючерсы: 0.025% за сторону (уточнено пользователем 2026-08-13)
+  # Разбор 27 боевых сделок (12.09.2026): списано 29 018 ₽ против 15 584 ₽ по ставке 0,025% -
+  # факт ≈0,043% за сторону, берём 0,045% с запасом. В сайзинг НЕ входит (лоты считаются от
+  # дистанции стопа), поэтому правка меняет учёт, а не размеры позиций. Историю не перештампуем:
+  # новая ставка действует с даты правки.
+  fee_est           = 0.00045    # было 0.00025 до 2026-09-13
   # ЕТС-2026 (боевой факт 2026-07-17): торги с 06:00-07:00 MSK (утренняя сессия), paper входит по
   # open ПЕРВОГО часовика дня -> live-вход с самого утра; TradingStatus-гейт держит интент до
   # реального открытия инструмента, окно широкое (до 10:15) на случай позднего старта.
@@ -1002,6 +1006,11 @@ function Resolve-StopReplaceIntent($It) {
 
 function Test-RpOn { return ($null -ne $script:RP -and [string]$script:RP.mode -ne 'off') }
 function Test-RpTrading { return ($null -ne $script:RP -and $script:RP.ok -and [string]$script:RP.mode -in @('pilot', 'active')) }
+# Режим cap: политика ставит ТОЛЬКО предел стопа. Объём, бюджеты риска, дневной предохранитель и
+# потолки открытого риска остаются прежними - решение пользователя 13.09.2026 после разбора 27
+# боевых сделок, где эффект предела измерен при НЕИЗМЕННОМ объёме. Поэтому risk_pct и потолки
+# в этом режиме НЕ ПРИМЕНЯЮТСЯ, и алерт смены режима говорит об этом прямо.
+function Test-RpCapOnly { return ($null -ne $script:RP -and $script:RP.ok -and [string]$script:RP.mode -eq 'cap') }
 
 # Журнал решений и событий политики: кольцо на 1000 записей, компактный JSON. Писатель - только
 # движок; файл лежит в data/live_rf и коммитится тиком вместе с остальным состоянием.
@@ -1037,7 +1046,8 @@ function Invoke-RiskPolicyResolve {
   if (-not $same) {
     $h = [string]$rec.applied_hash
     if ($script:RP.ok) {
-      $what = switch ($rec.mode) { 'off' { 'прежние правила' } 'shadow' { 'прежние правила, политика считается рядом без заявок' } default { 'по риск-политике' } }
+      $what = switch ($rec.mode) { 'off' { 'прежние правила' } 'shadow' { 'прежние правила, политика считается рядом без заявок' }
+        'cap' { 'ТОЛЬКО предел стопа; объём, бюджеты риска и дневной предохранитель остаются прежними' } default { 'по риск-политике' } }
       Write-LiveLog ("risk-policy: режим {0}, {1}, хеш {2}" -f $rec.mode, $rec.policy_id, $h.Substring(0, [math]::Min(12, $h.Length)))
       Alert ("риск-политика: режим «{0}» ({1}, хеш {2}). Новые входы: {3}." -f $rec.mode, $rec.policy_id, $h.Substring(0, [math]::Min(12, $h.Length)), $what)
       Write-RpLog 'config' ([pscustomobject]@{ mode = $rec.mode; hash = $h })
@@ -1258,6 +1268,51 @@ function Invoke-RpEntryPost($It, $Sl, $Inst, [double]$RefPx, [double]$StopDist) 
   Save-State
   [void](Post-IntentMarket $It ([string]$It.side) ([int]$lots))
 }
+# Режим cap: на интент кладём только то, что нужно пределу. Объём уже посчитан прежними правилами,
+# параметры закрепляются здесь - правка общего конфига не меняет правила уже поданной заявки.
+function Set-RpCapIntent($It) {
+  $P = $script:RP.p
+  $sp = $P.([string]$It.sleeve)
+  $It.ctx | Add-Member -NotePropertyName risk_cap -NotePropertyValue ([pscustomobject]@{
+    policy_id = [string]$script:RP.policy_id; version = [int]$script:RP.version; hash = [string]$script:RP.hash; mode = 'cap'
+    stop_cap_pct = $(if ($null -ne $sp.stop_cap_pct) { [double]$sp.stop_cap_pct } else { $null })
+    cost = [pscustomobject]@{ fee_pct_side = [double]$P.cost.fee_pct_side; stop_slip_pct = [double]$P.cost.stop_slip_pct; source = [string]$P.cost.source }
+    excess_tolerance_pct = [double]$P.excess_tolerance_pct }) -Force
+}
+# Карточка режима cap: стоп с пределом от ФАКТИЧЕСКОЙ цены филла плюс поля для отчётности.
+# Бюджета у неё нет (risk_budget_rub = $null) - значит сокращение по бюджету на шаге 6a к ней
+# неприменимо по построению, а не по флагу.
+function Set-RpCapCardAtEntry($Card, $It, $Inst, [double]$StopDist) {
+  $rk = $It.ctx.risk_cap
+  $px = [double]$Card.entry_px_pts
+  $side = [string]$Card.side
+  $sm = if ($side -eq 'long') { 1.0 } else { -1.0 }
+  $tick = [double]$Inst.min_price_increment
+  $sStrat = $px - $sm * $StopDist
+  $eff = Get-RfEffectiveStop $side $px $sStrat $rk.stop_cap_pct $tick
+  if ($eff.valid) { $Card.stop_px_pts = [double]$eff.stop }
+  else {
+    $rs = Get-RfStopRounded $side $sStrat $tick
+    if ($null -ne $rs -and $sm * ($px - [double]$rs) -gt 0) { $Card.stop_px_pts = [double]$rs }
+    Write-LiveLog "risk-policy(cap): $($Card.id) предел невалиден ($($eff.reason)) - стоп стратегический $($Card.stop_px_pts)"
+  }
+  $exitCost = Get-RfCostPerLot $px ([double]$Inst.rub_per_pt) $rk.cost.fee_pct_side $rk.cost.stop_slip_pct -ExitOnly
+  $pr = Get-RfPositionRisk $side ([int]$Card.lots) $px ([double]$Card.stop_px_pts) $px ([double]$Inst.rub_per_pt) $exitCost
+  $capRub = if ($st.go.PSObject.Properties['bot_capital_account_rub'] -and $null -ne $st.go.bot_capital_account_rub) { [double]$st.go.bot_capital_account_rub } else { 0.0 }
+  $Card | Add-Member -NotePropertyName risk_policy -NotePropertyValue ([pscustomobject]@{ policy_id = $rk.policy_id
+    version = $rk.version; hash = $rk.hash; mode = 'cap'; stop_cap_pct = $rk.stop_cap_pct; risk_pct = $null
+    cost = $rk.cost; excess_tolerance_pct = $rk.excess_tolerance_pct }) -Force
+  $Card | Add-Member -NotePropertyName stop_strategy_px -NotePropertyValue ([math]::Round($sStrat, 6)) -Force
+  $Card | Add-Member -NotePropertyName stop_strategy_dist -NotePropertyValue ([math]::Round($StopDist, 6)) -Force
+  $Card | Add-Member -NotePropertyName stop_initial_px -NotePropertyValue ([double]$Card.stop_px_pts) -Force
+  $Card | Add-Member -NotePropertyName risk_at_stop_rub -NotePropertyValue ([math]::Round([double]$pr.r_charge, 2)) -Force
+  $Card | Add-Member -NotePropertyName risk_pct_account -NotePropertyValue $(if ($capRub -gt 0) { [math]::Round(100.0 * [double]$pr.r_charge / $capRub, 3) } else { $null }) -Force
+  $Card | Add-Member -NotePropertyName capital_rub -NotePropertyValue $capRub -Force
+  $Card | Add-Member -NotePropertyName entry_px_status -NotePropertyValue 'provisional' -Force
+  $Card | Add-Member -NotePropertyName fees_entry_rub -NotePropertyValue ([double]$Card.fees_rub) -Force
+  $Card | Add-Member -NotePropertyName mae_pts -NotePropertyValue $px -Force
+  $Card | Add-Member -NotePropertyName risk_budget_rub -NotePropertyValue $null -Force
+}
 # Карточка входа по политике: стоп от ФАКТИЧЕСКОЙ цены филла (предел от реальной цены входа,
 # округление к цене входа), параметры политики закрепляются на карточке - правка общего конфига
 # её правил уже не меняет (ТЗ §9).
@@ -1348,7 +1403,7 @@ function Get-RpEntryFills($C, $Ops) {
 # потом проверка, не ушёл ли рынок за этот стоп, и только потом бюджет. Ни одного нового вызова к
 # брокеру сверх уже сделанных: цены - из MTM, список стоп-заявок - снимок шага 4.
 function Invoke-RpPositionGuard {
-  if (-not (Test-RpTrading)) { return }
+  if (-not (Test-RpTrading) -and -not (Test-RpCapOnly)) { return }
   if (-not (Can-PostOrders)) { return }
   foreach ($sn in 'core', 'setA') {
     foreach ($c in @($st.sleeves.$sn.positions)) {
@@ -1498,6 +1553,11 @@ function Close-RpVirtual($C, [double]$Px, [string]$Reason) {
 # свободный общий бюджет. Для карточек до политики - пусто (текст алерта прежний).
 function Get-RpEntryAlertLine($Card) {
   if (-not $Card.PSObject.Properties['risk_policy'] -or $null -eq $Card.risk_policy) { return '' }
+  if ($null -eq $Card.risk_budget_rub) {
+    # режим cap: бюджета у карточки нет, поэтому и свободного остатка показывать нечего
+    return ("`nРиск-политика (только предел стопа): убыток при стопе ≈{0} ({1}% капитала)." -f
+      (Fmt-Money ([double]$Card.risk_at_stop_rub) '₽' 0), (([string]$Card.risk_pct_account).Replace('.', ',')))
+  }
   return ("`nРиск-политика: убыток при стопе ≈{0} ({1}% капитала), свободный общий бюджет риска ≈{2}." -f
     (Fmt-Money ([double]$Card.risk_at_stop_rub) '₽' 0), (([string]$Card.risk_pct_account).Replace('.', ',')), (Fmt-Money ([double]$Card.risk_budget_left_rub) '₽' 0))
 }
@@ -1518,6 +1578,8 @@ function Update-RpBudgetView {
   foreach ($k in @($open.by_asset.Keys)) { $byAsset | Add-Member -NotePropertyName ([string]$k) -NotePropertyValue ([math]::Round([double]$open.by_asset[$k], 2)) }
   $st | Add-Member -NotePropertyName risk_budget -NotePropertyValue ([pscustomobject]@{
     mode = [string]$script:RP.mode; policy_id = [string]$script:RP.policy_id; updated_ms = $NowMs
+    # в режиме cap потолки и дневной предел НЕ применяются - показываем их как справочные
+    budgets_enforced = (-not (Test-RpCapOnly))
     capital_rub = $E; capital_ok = [bool]$cap.ok; capital_reason = [string]$cap.reason
     total_used_rub = [math]::Round([double]$open.total, 2)
     total_cap_rub = $(if ($null -ne $E) { [math]::Round($E * [double]$P.futures_open_risk_cap_pct, 2) } else { $null })
@@ -2470,6 +2532,7 @@ function Apply-FilledIntent($It) {
         side = $sideName; lots = [int]$It.filled_lots; lots_initial = [int]$It.filled_lots
         entry_px_pts = [math]::Round($px, 6); entry_day = $mskToday; entry_ts = $NowMs
         stop_px_pts = [math]::Round($px - $sm * $stopDist, 6); stop_order_id = ''; stop_lots = 0
+        stop_dist0 = [math]::Round($stopDist, 6)   # исходная дистанция правила: по ней стоп переанкеривается после уточнения цены входа
         tp1_px_pts = $(if ([string]$It.sleeve -eq 'setA') { [math]::Round($px + $sm * [double]$TPR * $stopDist, 6) } else { $null })
         tp1_order_id = ''; tp1_done = $false; be_moved = $false
         mfe_pts = [math]::Round($px, 6); atr_entry = [double]$It.ctx.atr
@@ -2482,6 +2545,7 @@ function Apply-FilledIntent($It) {
       # риск-политика (pilot/active): стоп - более близкий из стратегического и предела от ФАКТИЧЕСКОЙ
       # цены входа, округлён к цене входа; параметры политики закрепляются на карточке
       if ($null -ne $It.ctx -and $It.ctx.PSObject.Properties['risk'] -and $null -ne $It.ctx.risk) { Set-RpCardAtEntry $card $It $inst $stopDist }
+      elseif ($null -ne $It.ctx -and $It.ctx.PSObject.Properties['risk_cap'] -and $null -ne $It.ctx.risk_cap) { Set-RpCapCardAtEntry $card $It $inst $stopDist }
       if (Test-RpOn) { Set-RpVirtualAtEntry $card $It }   # ветка парного сравнения (shadow - кандидат, пилот - контроль)
       Add-RpDayFee ([int]$It.filled_lots) $px ([double]$inst.rub_per_pt)
       $sl.positions = ToArr (@($sl.positions) + $card)
@@ -3080,6 +3144,7 @@ function Invoke-EntryIntentPost($it) {
     return
   }
   if ($rpMode -eq 'shadow') { Add-RpShadow $it $sl $inst $refPx $stopDist ([int]$lots) }   # кандидат рядом, ордер - прежний
+  if (Test-RpCapOnly) { Set-RpCapIntent $it }   # предел применится к стопу при филле; объём прежний
   $it.lots = [int]$lots
   $it.ctx | Add-Member -NotePropertyName risk_rub -NotePropertyValue ([math]::Round($riskRub, 2)) -Force
   $it.ctx | Add-Member -NotePropertyName stop_dist -NotePropertyValue ([math]::Round($stopDist, 6)) -Force
@@ -3677,6 +3742,31 @@ function Invoke-DailyReport([switch]$Preview) {
   if ($st.PSObject.Properties['broker_ledger'] -and $null -ne $st.broker_ledger -and $null -ne $st.broker_ledger.fees_rub) {
     $L.Add("Комиссии брокера с запуска: $(Fmt-Money ([math]::Abs([double]$st.broker_ledger.fees_rub)) '₽' 0) (в сделках учтена оценка $(Fmt-Money ([double]$st.stats.fees_rub) '₽' 0))")
   }
+  # Закрытые сделки и открытые позиции - РАЗНЫЕ деньги, и смешивать их нельзя: сведённая
+  # вариационка содержит и то, и другое, поэтому месячный итог по ней читается неверно (разбор
+  # 12.09.2026: 31.08 -110 012 ₽ и 01.09 +111 578 ₽ - это одно движение, разрезанное границей
+  # месяца). Тождество проверено на боевых данных: вариационка за период = результат закрытых
+  # циклов + накопленная вариационка открытых. Если брокерской раскладки по какой-то позиции нет,
+  # число не выдумываем, а говорим об этом.
+  if ($st.PSObject.Properties['broker_ledger'] -and $null -ne $st.broker_ledger -and $null -ne $st.broker_ledger.varmargin_rub) {
+    $openAccum = 0.0; $haveAccum = $true
+    foreach ($sn in 'core', 'setA') {
+      foreach ($c in @($st.sleeves.$sn.positions)) {
+        if ($null -eq $c) { continue }
+        if ($st.PSObject.Properties['broker_pnl_by_card'] -and $st.broker_pnl_by_card.PSObject.Properties[[string]$c.id]) {
+          $openAccum += [double]$st.broker_pnl_by_card.([string]$c.id)
+        } else { $haveAccum = $false }
+      }
+    }
+    $pendAll = if ($st.PSObject.Properties['pending_settle'] -and $null -ne $st.pending_settle) { [double]$st.pending_settle.rub } else { 0.0 }
+    $vmAll = [double]$st.broker_ledger.varmargin_rub + $pendAll
+    if ($haveAccum) {
+      $L.Add("Закрытые сделки (по брокеру, до комиссий): $(Fmt-Money ($vmAll - $openAccum) '₽' 0 -Sign)")
+      $L.Add("Открытые позиции (нереализовано): $(Fmt-Money $openAccum '₽' 0 -Sign)")
+    } else {
+      $L.Add('Закрытые и открытые не разделены: у части позиций нет брокерской раскладки.')
+    }
+  }
   if (Test-Weekend) { $L.Add('Биржа закрыта (выходной) — позиции без изменений.') }
   $L.Add('')
 
@@ -3911,19 +4001,37 @@ function Confirm-EntryPx($C) {
   if ($C.PSObject.Properties['tp1_px_pts'] -and $null -ne $C.tp1_px_pts -and -not $C.tp1_done) {
     $C.tp1_px_pts = [math]::Round($real + ([double]$C.tp1_px_pts - $old), 6)
   }
-  # Стоп-заявку у брокера НЕ трогаем: двигать живую защиту на реальных деньгах — отдельное
-  # решение пользователя. Считаем, каким он должен был быть, и говорим об этом вслух;
-  # дневной трейл-хук всё равно приведёт его к правилу.
+  # Стоп - производная от цены входа, поэтому после её уточнения защиту ПЕРЕАНКЕРИВАЕМ: иначе
+  # дистанция уезжает (разбор 27 боевых сделок 12.09.2026: живой стоп стоял на 1,74-1,78xATR вместо
+  # проектных 2,00 - двадцать пять раз подряд). Решение пользователя 13.09.2026.
+  # Двигаем ТОЛЬКО пока стоп не тронут дневным трейлом и известна исходная дистанция правила:
+  # переанкерить уже подтянутый стоп значило бы откатить трейл назад, а это ослабление защиты.
+  # Карточки политики сюда не попадают - им стоп пересчитывает шаг 6a, с пределом.
   $sm = if ([string]$C.side -eq 'long') { 1.0 } else { -1.0 }
-  $wantStop = [math]::Round($real - $sm * 2.0 * [double]$C.atr_entry, 6)
+  $stopMoved = $false; $stopDeferred = $false
+  $hasDist0 = ($C.PSObject.Properties['stop_dist0'] -and [double]$C.stop_dist0 -gt 0)
+  $wantStop = if ($hasDist0) { [math]::Round($real - $sm * [double]$C.stop_dist0, 6) }
+              else { [math]::Round($real - $sm * 2.0 * [double]$C.atr_entry, 6) }
+  if (-not $isRp -and $hasDist0) {
+    $stopAtEntry = [math]::Round($old - $sm * [double]$C.stop_dist0, 6)
+    $untouched = [math]::Abs([double]$C.stop_px_pts - $stopAtEntry) -lt 1e-6
+    if ($untouched -and [math]::Abs($wantStop - [double]$C.stop_px_pts) -gt 1e-9) {
+      $stopMoved = Replace-CardStop $C $wantStop
+      $stopDeferred = (-not $stopMoved)
+    }
+  }
   $msg = if ($isRp) {
     # у политики стоп - производная от цены входа, и раз цена изменилась, защита пересчитывается
     # сама на шаге 6a этого же тика (только в сторону входа, ослабления не бывает)
     ("цена входа {0} уточнена по операциям брокера: {1} -> {2}. Комиссия пересчитана; защита будет пересчитана от подтверждённой цены в этом же тике (стоп сейчас {3})." -f `
       $C.id, $old, [double]$C.entry_px_pts, [double]$C.stop_px_pts)
   } else {
-    ("цена входа {0} уточнена по операциям брокера: {1} -> {2} (в ответе на заявку была цена ПОДАННОЙ заявки, а не сделки). Комиссия пересчитана. Стоп у брокера остался {3}; по правилу 2xATR от реальной цены он должен быть {4} — живую стоп-заявку бот не двигает, это решение за вами." -f `
-      $C.id, $old, [double]$C.entry_px_pts, [double]$C.stop_px_pts, $wantStop)
+    $stopTxt = if ($stopMoved) { "Стоп переставлен от реальной цены на {0} — дистанция правила сохранена." -f $wantStop }
+               elseif ($stopDeferred) { "Стоп {0}; перестановка на {1} отложена до торгового окна." -f [double]$C.stop_px_pts, $wantStop }
+               elseif (-not $hasDist0) { "Стоп {0} не тронут: карточка открыта до правила переанкеривания." -f [double]$C.stop_px_pts }
+               else { "Стоп {0} не тронут: он уже подтянут трейлом, откатывать защиту назад нельзя." -f [double]$C.stop_px_pts }
+    ("цена входа {0} уточнена по операциям брокера: {1} -> {2} (в ответе на заявку была цена ПОДАННОЙ заявки, а не сделки). Комиссия пересчитана. {3}" -f `
+      $C.id, $old, [double]$C.entry_px_pts, $stopTxt)
   }
   $script:ev.Add("ENTRY-PX FIX $($C.id): $old -> $($C.entry_px_pts)")
   $script:jr.Add(("`r`n## {0} MSK — RF-LIVE: {1}`r`n" -f (MsToUtcStr $mskNowMs), $msg))

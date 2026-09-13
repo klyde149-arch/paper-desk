@@ -16,7 +16,7 @@ param(
   # Параметризовано 2026-08 под поиск состава корзины: худший случай по ГО зависит и от того,
   # какие инструменты в корзине, и от того, сколько позиций рукав может держать одновременно.
   # дефолт синхронизирован с каноном $ASSETS в lib_rf_signals.ps1 (2026-08: 8 -> 12, RTS выведен)
-  [string[]]$Assets = @('BR','NG','GOLD','SILV','Si','CNY','MIX','Eu','COCOA','VTBR','PLD','SBRF'),
+  [string[]]$Assets = @('BR','NG','GOLD','SILV','Si','CNY','MIX','Eu','COCOA','VTBR','SBRF'),
   [int]$CoreSlots = 3,
   [int]$SetASlots = 2,
   # Брать ATR строго из канонических склеек data\moex_fut, минуя data\rf\series.

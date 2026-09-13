@@ -1147,6 +1147,10 @@ function Scn-EntryPxRepair {
   $s = New-BaseState $r
   $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
   Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  # ставку комиссии фиксирует ФИКСТУРА, а не дефолт движка: иначе тест ломается при каждой
+  # правке тарифа и проверяет не пересчёт комиссии, а значение константы
+  $feeEst = 0.00025
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{ fee_est = $feeEst })
   Write-Json (Join-Path $r 'mock\OrdersService.PostOrder.json') ([pscustomobject]@{
     orderId = 'ord-pxr'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '19'
     initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 912000000 } })   # только «подано»
@@ -1160,9 +1164,11 @@ function Scn-EntryPxRepair {
   if ($pos.Count) {
     Check 'entry-px-repair: вход исправлен на 2.905 по операциям' ([math]::Abs([double]$pos[0].entry_px_pts - 2.905) -lt 1e-9)
     Check 'entry-px-repair: помечен подтверждённым (повторно не дёргаем API)' ([bool]$pos[0].entry_px_ok)
-    # намеренно: живая стоп-заявка осталась там, где встала при входе (2.912-0.229)
-    Check 'entry-px-repair: стоп у брокера НЕ сдвинут' ([math]::Abs([double]$pos[0].stop_px_pts - 2.683) -lt 1e-9)
-    Check 'entry-px-repair: комиссия пересчитана от реальной цены' ([math]::Abs([double]$pos[0].fees_rub - [math]::Round(19 * 2.905 * 7749.12 * 0.00025, 2)) -lt 0.01)
+    # решение 13.09.2026: стоп ПЕРЕАНКЕРИВАЕТСЯ от подтверждённой цены, дистанция правила
+    # сохраняется (2.905-0.229). До этого он оставался на 2.683, то есть на 1,74xATR вместо 2,00.
+    Check 'entry-px-repair: стоп переанкерен от реальной цены (2.676)' ([math]::Abs([double]$pos[0].stop_px_pts - 2.676) -lt 1e-9)
+    Check 'entry-px-repair: старая стоп-заявка снята, новая выставлена' ((Get-Calls $r 'CancelStopOrder').Count -eq 1 -and (Get-Calls $r 'PostStopOrder').Count -eq 2)
+    Check 'entry-px-repair: комиссия пересчитана от реальной цены' ([math]::Abs([double]$pos[0].fees_rub - [math]::Round(19 * 2.905 * 7749.12 * $feeEst, 2)) -lt 0.01)
   }
 }
 
@@ -2543,6 +2549,52 @@ function Scn-RpRiskView {
   Check 'rp-view: сводка бюджета опубликована' ($null -ne $stt.risk_budget -and [double]$stt.risk_budget.total_cap_rub -gt 0)
 }
 
+# --- режим cap: работает ТОЛЬКО предел стопа, объём и бюджеты прежние
+function Scn-RpCapOnly {
+  $r = New-Scenario 'rp-cap-only'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'cap')
+  # филл 19 лотов по 2.9012: 19 x 2.9012 x 7749.12 = 427 153.191936 (оба поля описывают одну сделку)
+  Set-Queue $r @([pscustomobject]@{ service = 'OrdersService'; method = 'PostOrder'
+    response = [pscustomobject]@{ orderId = 'ord-cap'; executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '19'
+      initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 901200000 }
+      executedOrderPrice = [pscustomobject]@{ units = '427153'; nano = 191936000; currency = 'rub' } } })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $stt = Get-State $r
+  $orders = Get-Calls $r 'PostOrder'
+  Check 'rp-cap: объём ПРЕЖНИЙ - 19 лотов, как без политики (а не 4 по бюджету)' ($orders.Count -eq 1 -and $orders[0].body -match '"quantity":"19"')
+  $pos = @($stt.sleeves.core.positions)
+  Check 'rp-cap: карточка создана' ($pos.Count -eq 1)
+  if ($pos.Count) {
+    $c = $pos[0]
+    Check 'rp-cap: стоп по пределу 2% от филла (2.843176 -> 2.844)' ([math]::Abs([double]$c.stop_px_pts - 2.844) -lt 1e-9)
+    Check 'rp-cap: стратегический стоп сохранён рядом (2.9012-0.229)' ([math]::Abs([double]$c.stop_strategy_px - 2.6722) -lt 1e-9)
+    Check 'rp-cap: режим закреплён на карточке, бюджета у неё нет' ([string]$c.risk_policy.mode -eq 'cap' -and $null -eq $c.risk_budget_rub)
+    Check 'rp-cap: легаси-риск карточки прежний (5% рукава)' ([double]$c.risk_rub -gt 30000)
+  }
+  Check 'rp-cap: сводка помечает потолки как НЕприменяемые' ($null -ne $stt.risk_budget -and -not [bool]$stt.risk_budget.budgets_enforced)
+}
+
+# --- режим cap: старая позиция НЕ блокирует вход (в пилоте блокировала бы - см. Scn-RpTotalCapLegacyBlocks)
+function Scn-RpCapNoBudgetBlock {
+  $r = New-Scenario 'rp-cap-nobudget'
+  $s = New-BaseState $r
+  $s.sleeves.core.positions = @(New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12)
+  $s.pending_intents = @(New-EntryIntent 'setA' 'NG' 'buy' 0 0.1145 2.9 0.02 2.7)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 700000 @([pscustomobject]@{ instrumentUid = 'uid-NGQ6'; instrumentType = 'futures'; quantityLots = [pscustomobject]@{ units = '19'; nano = 0 } })
+  Write-BrokerStops $r @(New-StopOrder 'stop-live-1' 'uid-NGQ6' 'NGQ6')
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @(
+    [pscustomobject]@{ instrumentUid = 'uid-NGQ6'; price = [pscustomobject]@{ units = '2'; nano = 900000000 }; time = '2026-07-15T07:04:55Z' }) })
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'cap' 0.005 0.02)
+  [void](Run-Tick $r '2026-07-15 10:05')
+  Check 'rp-cap: риск старой позиции не мешает новому входу' ((Get-Calls $r 'PostOrder').Count -ge 1)
+  Check 'rp-cap: стоп старой позиции не тронут' ((Get-Calls $r 'CancelStopOrder').Count -eq 0)
+}
+
 # ================= запуск =================
 $scenarios = @(
   ${function:Scn-EntryPxExecuted}, ${function:Scn-EntryPxRepair},
@@ -2580,7 +2632,8 @@ $scenarios = @(
   ${function:Scn-RpTwoEntriesReserve}, ${function:Scn-RpNoLoosen},
   ${function:Scn-RpConfirmPxTighten}, ${function:Scn-RpPartialFillsVwap}, ${function:Scn-RpConfirmPxBreach},
   ${function:Scn-RpConfirmPxUnresolved}, ${function:Scn-RpReduce}, ${function:Scn-RpRollPolicy},
-  ${function:Scn-RpVirtualPair}, ${function:Scn-RpRiskView}
+  ${function:Scn-RpVirtualPair}, ${function:Scn-RpRiskView},
+  ${function:Scn-RpCapOnly}, ${function:Scn-RpCapNoBudgetBlock}
 )
 # LRF_ONLY=<regex>: прогнать только сценарии, чьё имя функции ему соответствует (быстрая итерация),
 # например LRF_ONLY='StopReplace|D5'

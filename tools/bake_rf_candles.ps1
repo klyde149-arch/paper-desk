@@ -22,7 +22,7 @@ if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Force $outDir | Ou
 # Универсум графиков = фьючерсы (коды активов, как в chart.html SYMS) + 12 momentum-акций TQBR.
 # ВНИМАНИЕ: это СОБСТВЕННАЯ копия списка, файл не дот-сорсит lib_rf_signals.ps1 -
 # при правке $ASSETS в каноне синхронизировать здесь вручную (2026-08: 8 -> 12).
-$ASSETS = @('BR', 'NG', 'GOLD', 'SILV', 'Si', 'CNY', 'MIX', 'Eu', 'COCOA', 'VTBR', 'PLD', 'SBRF')
+$ASSETS = @('BR', 'NG', 'GOLD', 'SILV', 'Si', 'CNY', 'MIX', 'Eu', 'COCOA', 'VTBR', 'SBRF')
 $TICKERS = @('SBER', 'GAZP', 'LKOH', 'ROSN', 'NVTK', 'GMKN', 'TATN', 'MGNT', 'CHMF', 'PLZL', 'YDEX')
 
 # фронт-контракты (секиды) из portfolio.json

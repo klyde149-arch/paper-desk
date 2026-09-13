@@ -79,7 +79,10 @@ function Resolve-RfRiskPolicy($Raw) {
   $off = [pscustomobject]@{ ok = $true; mode = 'off'; policy_id = ''; version = 0; hash = ''; p = $null; error = '' }
   if ($null -eq $Raw) { return $off }
   $mode = RkProp $Raw 'mode'
-  if ($mode -isnot [string] -or @('off','shadow','pilot','active') -notcontains $mode) {
+  # 'cap' - режим «только предел стопа» (решение пользователя 13.09.2026): применяется ТОЛЬКО
+  # ограничение стопа, а сайзинг, бюджеты, дневной предохранитель и потолки открытого риска
+  # остаются прежними. Эффект предела на 27 боевых сделках измерен именно при неизменном объёме.
+  if ($mode -isnot [string] -or @('off','shadow','cap','pilot','active') -notcontains $mode) {
     return [pscustomobject]@{ ok = $false; mode = 'invalid'; policy_id = ''; version = 0; hash = ''; p = $null
       error = "mode: неизвестный режим '$mode'" }
   }

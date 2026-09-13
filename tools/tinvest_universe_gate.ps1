@@ -14,7 +14,7 @@
 # for_qual_investor_flag не роняет гейт сам по себе, но выносится в итог отдельной строкой:
 # без квал-статуса такой инструмент в реал не пойдёт (docs/strategy/live_tinvest_design.md, риск #269).
 param(
-  [string[]]$Assets = @('Eu','COCOA','VTBR','PLD','SBRF'),
+  [string[]]$Assets = @('Eu','COCOA','VTBR','SBRF'),
   [string[]]$Control = @('BR'),          # контроль: заведомо торгуемый инструмент, ловит сетевые/токенные проблемы
   [string]$Root = '',
   [switch]$IncludeNext,                  # проверять и следующий контракт после фронта (нужно для роллов)
