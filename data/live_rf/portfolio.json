@@ -99,14 +99,14 @@
   "profile_eq": 768709.88,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1624073.64,
-  "day_start_date": "2026-09-10",
+  "day_start_eq": 1568976.39,
+  "day_start_date": "2026-09-11",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-10",
-    "last_hour_ts": 1789336800000,
-    "ops_since": "2026-09-13T20:15:32Z",
-    "last_eq_snap": 1789333597954,
+    "last_daily_day": "2026-09-13",
+    "last_hour_ts": 1789340400000,
+    "ops_since": "2026-09-13T20:30:33Z",
+    "last_eq_snap": 1789334552874,
     "last_report_day": "2026-09-13",
     "orders_day": "2026-09-10",
     "orders_day_n": 1,
@@ -175,12 +175,6 @@
       "lasttrade": "2026-09-17",
       "next": "VBZ6",
       "next_lasttrade": "2026-12-17"
-    },
-    "PLD": {
-      "secid": "PDU6",
-      "lasttrade": "2026-09-18",
-      "next": "PDZ6",
-      "next_lasttrade": "2026-12-18"
     },
     "SBRF": {
       "secid": "SRU6",
@@ -286,15 +280,6 @@
       "rub": -80244.41
     }
   ],
-  "readiness": {
-    "day": "2026-09-10",
-    "checked_n": 12,
-    "total_n": 12,
-    "failed": [],
-    "go_worst_rub": 1961347.92,
-    "go_cap_rub": 1180555.23,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1789079372777,
@@ -447,6 +432,15 @@
     "e_base": 1574663.79,
     "fees_est_rub": 0.0
   },
+  "readiness": {
+    "day": "2026-09-13",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2017264.17,
+    "go_cap_rub": 1139232.29,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
@@ -454,7 +448,7 @@
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 3515.27
   },
   "broker": {
-    "captured_ms": 1789334132878,
+    "captured_ms": 1789335033387,
     "totals": {
       "portfolio": 1574663.79,
       "currencies": 1574663.79,
@@ -534,7 +528,7 @@
       "avg_px": 108.76,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1789334132878
+      "ts": 1789335033387
     }
   },
   "capital_breakdown": {
@@ -561,7 +555,7 @@
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789334132878,
+    "updated_ms": 1789335033387,
     "budgets_enforced": false,
     "capital_rub": 1574663.79,
     "capital_ok": true,
@@ -575,7 +569,7 @@
       "BR": 75541.93
     },
     "unknown": [
-      "card L00052: котировка старше 174335 с"
+      "card L00052: котировка старше 175235 с"
     ],
     "day_ok": false,
     "day_pnl_rub": null,
