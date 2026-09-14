@@ -381,7 +381,9 @@ try {
   # Простой длиннее окна = филлы за время тишины уже недоступны, и позиция, закрытая
   # стопом в этот период, придёт как D4 «исчезла без executions» с халтом входов.
   # Молча подрезать вотермарку тут нельзя - это тихая потеря истории, о ней надо сказать.
+  $execWindowOverflowed = $false
   if ($sinceMs -lt $floorMs) {
+    $execWindowOverflowed = $true
     $lostH = [int][math]::Round(($floorMs - $sinceMs) / 3600000.0)
     LLog "EXEC WINDOW OVERFLOW: простой длиннее 7 суток, потеряно ~$lostH ч истории филлов"
     $script:events.Add("EXEC-WINDOW: потеряно ~$lostH ч истории филлов")
@@ -424,10 +426,7 @@ try {
   }
 
   # 3b. применяем свежие executions (в порядке времени)
-  # watermark не может остаться позади $sinceMs: если простой был длиннее 7-дневного окна биржи,
-  # алерт выше уже сказал об этом один раз - без продвижения сюда та же нехватка исполнений
-  # держала бы old last_exec_ms замороженным навсегда, и EXEC WINDOW OVERFLOW слался бы каждый тик.
-  $maxExecMs = [long][math]::Max([long]$lp.auto.last_exec_ms, $sinceMs)
+  $maxExecMs = [long]$lp.auto.last_exec_ms
   foreach ($e in $execs) {
     $eid = [string]$e.execId
     if (-not $eid -or $seen.Contains($eid)) { continue }
@@ -506,7 +505,13 @@ try {
   $seenArr = @($seen)
   if ($seenArr.Count -gt 400) { $seenArr = $seenArr[($seenArr.Count-400)..($seenArr.Count-1)] }
   $lp.auto.seen_exec_ids = $seenArr
-  $lp.auto.last_exec_ms = $maxExecMs
+  # После подтверждённого переполнения окна watermark обязан догнать текущее время, а не просто
+  # доехать до старого $floorMs: тот сам уезжает вперёд с каждым тиком (nowMs растёт), поэтому
+  # продвижение только до floorMs всё равно оставляло sinceMs позади него на следующем тике -
+  # алерт слался заново каждую минуту (потеряно ~0 ч), просто с исчезающе малым числом. Мы уже
+  # запросили Get-ExecutionsSince от $floorMs и разобрали все найденные филлы выше, так что скачок
+  # к $nowMs ничего не теряет - он лишь фиксирует, что дальше искать нечего.
+  $lp.auto.last_exec_ms = if ($execWindowOverflowed) { [long][math]::Max($maxExecMs, $nowMs) } else { $maxExecMs }
 
   # 3c. сверка позиций и закрытие карточек
   $exBySym = @{}
