@@ -12,7 +12,7 @@
                     "core":  {
                                  "equity":  10579.7091122719,
                                  "month_start_eq":  11750.15,
-                                 "day_start_eq":  10288.064120411264,
+                                 "day_start_eq":  10579.7091122719,
                                  "halt_day":  null,
                                  "positions":  [
                                                    {
@@ -25,7 +25,7 @@
                                                        "entry":  99.32979,
                                                        "entry_day":  "2026-09-09",
                                                        "entry_ts":  1788933600000,
-                                                       "stop":  98.401582,
+                                                       "stop":  98.808873,
                                                        "tp1":  null,
                                                        "tp1_done":  false,
                                                        "mfe":  109.76,
@@ -34,14 +34,33 @@
                                                        "fees":  0,
                                                        "realized":  0,
                                                        "rolls":  0,
-                                                       "cur":  106.3,
-                                                       "upnl":  334.48
+                                                       "cur":  106.26,
+                                                       "upnl":  332.56
                                                    }
                                                ],
                                  "pending":  [
-
+                                                 {
+                                                     "kind":  "entry",
+                                                     "sleeve":  "core",
+                                                     "asset":  "MIX",
+                                                     "side":  "long",
+                                                     "created_day":  "2026-09-14",
+                                                     "stop_dist":  12157.142857,
+                                                     "risk_pct":  0.03,
+                                                     "note":  "donchian close 238375 vs [209329.6265 / 237385.6816]"
+                                                 },
+                                                 {
+                                                     "kind":  "entry",
+                                                     "sleeve":  "core",
+                                                     "asset":  "SBRF",
+                                                     "side":  "long",
+                                                     "created_day":  "2026-09-14",
+                                                     "stop_dist":  1199.428571,
+                                                     "risk_pct":  0.03,
+                                                     "note":  "donchian close 29825 vs [27732.1083 / 29809.4818]"
+                                                 }
                                              ],
-                                 "equity_mtm":  10914.19
+                                 "equity_mtm":  10912.27
                              },
                     "setA":  {
                                  "equity":  10051.803850626466,
@@ -70,11 +89,11 @@
                                 "equity_mtm":  10000
                             }
                 },
-    "profile_eq":  10913.48,
+    "profile_eq":  10911.49,
     "profile_month_start":  12142.69,
     "cur_month":  "2026-09",
-    "day_start_eq":  10916.45,
-    "day_start_date":  "2026-09-11",
+    "day_start_eq":  10913.48,
+    "day_start_date":  "2026-09-14",
     "peak_eq":  12597.05,
     "stats":  {
                   "trades":  12,
