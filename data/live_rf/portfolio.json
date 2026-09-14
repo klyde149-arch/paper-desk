@@ -54,24 +54,24 @@
           "lat_pf": 0,
           "entry_px_tries": 2,
           "entry_px_ok": true,
-          "cur_px": 105.34,
-          "upnl_rub": -43900.5,
-          "cur_px_ms": 1789413325310,
+          "cur_px": 105.71,
+          "upnl_rub": -39157.5,
+          "cur_px_ms": 1789414214220,
           "risk_view": {
             "policy_id": "",
             "mode": "cap",
             "stop_px": 102.970963,
             "stop_dist_pct": 5.327,
-            "risk_rub": 75551.8,
-            "risk_pct_account": 4.813,
+            "risk_rub": 75556.3,
+            "risk_pct_account": 4.814,
             "fees_estimated": true,
             "protection": "ok",
             "entry_px_status": "",
-            "budget_left_rub": -28463.09
+            "budget_left_rub": -28467.59
           }
         }
       ],
-      "equity_mtm": 1619657.22
+      "equity_mtm": 1624400.21
     },
     "setA": {
       "eq_rub": 1627533.4421334104,
@@ -96,7 +96,7 @@
       }
     }
   },
-  "profile_eq": 773828.55,
+  "profile_eq": 776166.7,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
   "day_start_eq": 1568976.39,
@@ -104,9 +104,9 @@
   "peak_eq": 837288.71,
   "watermarks": {
     "last_daily_day": "2026-09-13",
-    "last_hour_ts": 1789416000000,
-    "ops_since": "2026-09-14T18:15:33Z",
-    "last_eq_snap": 1789412492733,
+    "last_hour_ts": 1789419600000,
+    "ops_since": "2026-09-14T18:30:32Z",
+    "last_eq_snap": 1789413393148,
     "last_report_day": "2026-09-13",
     "orders_day": "2026-09-10",
     "orders_day_n": 1,
@@ -231,12 +231,12 @@
   },
   "go": {
     "used_rub": 269173.65,
-    "budget_rub": 1523671.99,
+    "budget_rub": 1527340.54,
     "peak_day_rub": 269173.65,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1569623.79,
     "bot_capital_account_rub": 1569623.79,
-    "bot_capital_rub": 1574430.99
+    "bot_capital_rub": 1577340.54
   },
   "drift": {
     "D2": 0,
@@ -445,21 +445,21 @@
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {
-    "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 14009.87
+    "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 16919.42
   },
   "broker": {
-    "captured_ms": 1789413333133,
+    "captured_ms": 1789414232945,
     "totals": {
       "portfolio": 1569623.79,
       "currencies": 1569623.79,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 1331343.28
+      "futures_nominal": 1335640.38
     },
-    "expected_yield_pct": -4.57,
-    "daily_yield_rub": -232.8,
-    "daily_yield_rel_pct": -0.01,
+    "expected_yield_pct": -4.4,
+    "daily_yield_rub": 2676.75,
+    "daily_yield_rel_pct": 0.17,
     "positions": [
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -482,9 +482,9 @@
         "lots": 15.0,
         "qty": 15.0,
         "avg_px": 108.76,
-        "cur_px": 105.34,
-        "expected_yield": 14009.87,
-        "var_margin": 4807.2,
+        "cur_px": 105.68,
+        "expected_yield": 16919.42,
+        "var_margin": 7716.75,
         "var_margin_settled": 29981.55
       },
       {
@@ -522,23 +522,23 @@
       "ts": 1789043612775
     },
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": {
-      "vm": 4807.2,
-      "ey": 14009.87,
-      "cur_px": 105.34,
+      "vm": 7716.75,
+      "ey": 16919.42,
+      "cur_px": 105.68,
       "avg_px": 108.76,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1789413333133
+      "ts": 1789414232945
     }
   },
   "capital_breakdown": {
     "currencies": 1569623.79,
-    "futures": 4807.2,
+    "futures": 7716.75,
     "mom_shares": 0.0,
     "user_assets": 0.0,
     "portfolio_total": 1569623.79,
     "capital_account": 1569623.79,
-    "capital_legacy": 1574430.99,
+    "capital_legacy": 1577340.54,
     "model": "legacy"
   },
   "risk_policy": {
@@ -550,27 +550,27 @@
     "rejected_reason": ""
   },
   "broker_pnl_by_card": {
-    "L00052": 14009.87
+    "L00052": 16919.42
   },
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789413333133,
+    "updated_ms": 1789414232945,
     "budgets_enforced": false,
     "capital_rub": 1569623.79,
     "capital_ok": true,
     "capital_reason": "",
-    "total_used_rub": 75551.8,
+    "total_used_rub": 75556.3,
     "total_cap_rub": 47088.71,
     "fx_long_rub": 0.0,
     "fx_short_rub": 0.0,
     "fx_cap_rub": 23544.36,
     "by_asset": {
-      "BR": 75551.8
+      "BR": 75556.3
     },
     "unknown": [],
     "day_ok": true,
-    "day_pnl_rub": 10494.6,
+    "day_pnl_rub": 13404.15,
     "day_limit_rub": 31493.28,
     "day_reason": ""
   }
