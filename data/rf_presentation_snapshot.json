@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789419638842,
-  "sourceAtMs": 1789419092941,
+  "generatedAtMs": 1789420543955,
+  "sourceAtMs": 1789419992990,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -12,12 +12,12 @@
     "capitalModel": "legacy",
     "accountTotal": 1604482.96,
     "userAssets": 0.0,
-    "dayBase": 1594030.46,
+    "dayBase": 1629462.01,
     "dayBaseSource": "broker_daily_yield",
-    "todayAmt": 10452.5,
-    "todayPct": 0.67,
-    "allTimePct": -0.5,
-    "allTimeAmt": -8079.74,
+    "todayAmt": -24979.05,
+    "todayPct": -1.53,
+    "allTimePct": -2.64,
+    "allTimeAmt": -43511.29,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
     "openPositions": 2,
@@ -41,7 +41,7 @@
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789419633104,
+      "updatedMs": 1789420532903,
       "capitalRub": 1604482.96,
       "capitalOk": true,
       "capitalReason": "",
@@ -59,25 +59,25 @@
       "dayLimitRub": null,
       "dayReason": "нет проверенной дневной базы",
       "unknown": [
-        "card L00052: котировка старше 636 с",
-        "card L00053: котировка старше 639 с"
+        "card L00052: котировка старше 1535 с",
+        "card L00053: котировка старше 1539 с"
       ],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1789419633104,
+    "captured_ms": 1789420532903,
     "totals": {
       "portfolio": 1604482.96,
       "currencies": 1604482.96,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 2773220.73
+      "futures_nominal": 2774486.28
     },
-    "expected_yield_pct": -3.95,
-    "daily_yield_rub": 10452.5,
-    "daily_yield_rel_pct": 0.67,
+    "expected_yield_pct": -3.86,
+    "daily_yield_rub": -24979.05,
+    "daily_yield_rel_pct": -1.53,
     "positions": [
       {
         "uid": "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050",
@@ -89,8 +89,8 @@
         "avg_px": 238492.0,
         "cur_px": 238375.0,
         "expected_yield": -700.0,
-        "var_margin": -700.0,
-        "var_margin_settled": 5450.0
+        "var_margin": -6150.0,
+        "var_margin_settled": -6150.0
       },
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -115,8 +115,8 @@
         "avg_px": 108.76,
         "cur_px": 106.26,
         "expected_yield": 25395.17,
-        "var_margin": 16192.5,
-        "var_margin_settled": 29981.55
+        "var_margin": -13789.05,
+        "var_margin_settled": -13789.05
       },
       {
         "uid": "d6240afe-4e9c-49b6-8835-629f431c8506",
@@ -142,7 +142,7 @@
       "capital_peak_rub": 1771706.14,
       "account_liquid_rub": 1604482.96,
       "bot_capital_account_rub": 1604482.96,
-      "bot_capital_rub": 1619975.46
+      "bot_capital_rub": 1584543.91
     },
     "drift": {
       "D2": 0,
@@ -165,12 +165,12 @@
     },
     "capitalBreakdown": {
       "currencies": 1604482.96,
-      "futures": 15492.5,
+      "futures": -19939.05,
       "mom_shares": 0.0,
       "user_assets": 0.0,
       "portfolio_total": 1604482.96,
       "capital_account": 1604482.96,
-      "capital_legacy": 1619975.46,
+      "capital_legacy": 1584543.91,
       "model": "legacy"
     },
     "active": {
@@ -242,8 +242,8 @@
       "brokerPnl": 25395.17,
       "goRub": 269174.0,
       "pnlPctGo": -11.93,
-      "brokerVarMargin": 16192.5,
-      "brokerVarMarginSettled": 29981.55,
+      "brokerVarMargin": -13789.05,
+      "brokerVarMarginSettled": -13789.05,
       "brokerAvgPx": 108.76,
       "brokerCurPx": 106.26,
       "brokerLots": 15.0
@@ -285,8 +285,8 @@
       "brokerPnl": -700.0,
       "goRub": 159248.0,
       "pnlPctGo": -0.63,
-      "brokerVarMargin": -700.0,
-      "brokerVarMarginSettled": 5450.0,
+      "brokerVarMargin": -6150.0,
+      "brokerVarMarginSettled": -6150.0,
       "brokerAvgPx": 238492.0,
       "brokerCurPx": 238375.0,
       "brokerLots": 6.0
@@ -21922,6 +21922,10 @@
     [
       1789419092941,
       778831.93
+    ],
+    [
+      1789419992990,
+      778831.93
     ]
   ],
   "capitalCurve": [
@@ -43032,6 +43036,10 @@
     [
       1789419092941,
       1569051.41
+    ],
+    [
+      1789419992990,
+      1604482.96
     ]
   ]
 }
