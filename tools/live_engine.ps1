@@ -424,7 +424,10 @@ try {
   }
 
   # 3b. применяем свежие executions (в порядке времени)
-  $maxExecMs = [long]$lp.auto.last_exec_ms
+  # watermark не может остаться позади $sinceMs: если простой был длиннее 7-дневного окна биржи,
+  # алерт выше уже сказал об этом один раз - без продвижения сюда та же нехватка исполнений
+  # держала бы old last_exec_ms замороженным навсегда, и EXEC WINDOW OVERFLOW слался бы каждый тик.
+  $maxExecMs = [long][math]::Max([long]$lp.auto.last_exec_ms, $sinceMs)
   foreach ($e in $execs) {
     $eid = [string]$e.execId
     if (-not $eid -or $seen.Contains($eid)) { continue }
