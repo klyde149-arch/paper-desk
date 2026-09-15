@@ -177,14 +177,14 @@
   "profile_eq": 790103.37,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1584543.91,
-  "day_start_date": "2026-09-14",
+  "day_start_eq": 1608642.76,
+  "day_start_date": "2026-09-15",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-14",
-    "last_hour_ts": 1789509600000,
-    "ops_since": "2026-09-15T20:15:33Z",
-    "last_eq_snap": 1789506752994,
+    "last_daily_day": "2026-09-15",
+    "last_hour_ts": 1789513200000,
+    "ops_since": "2026-09-15T20:30:33Z",
+    "last_eq_snap": 1789507653024,
     "last_report_day": "2026-09-15",
     "orders_day": "2026-09-15",
     "orders_day_n": 1,
@@ -270,11 +270,11 @@
     "RTS": "RIU6",
     "CNY": "CRZ6",
     "MIX": "MXZ6",
-    "Eu": "EuZ6",
+    "Eu": "EuU6",
     "COCOA": "CCX6",
-    "VTBR": "VBZ6",
+    "VTBR": "VBU6",
     "PLD": "PDU6",
-    "SBRF": "SRZ6"
+    "SBRF": "SRU6"
   },
   "rearm": {
     "c3b_BR": {
@@ -359,15 +359,6 @@
       "rub": -80244.41
     }
   ],
-  "readiness": {
-    "day": "2026-09-14",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2129820.39,
-    "go_cap_rub": 1150907.93,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1789165832836,
@@ -523,6 +514,15 @@
     "e_base": 1604482.96,
     "fees_est_rub": 0.0
   },
+  "readiness": {
+    "day": "2026-09-15",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2102779.1,
+    "go_cap_rub": 1168982.07,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
@@ -531,7 +531,7 @@
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 52704.02
   },
   "broker": {
-    "captured_ms": 1789506933164,
+    "captured_ms": 1789507833063,
     "totals": {
       "portfolio": 1605885.91,
       "currencies": 1605885.91,
@@ -606,7 +606,7 @@
       "avg_px": 108.76,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1789506933164
+      "ts": 1789507833063
     },
     "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050": {
       "vm": -2550.0,
@@ -615,7 +615,7 @@
       "avg_px": 238492.0,
       "lots": 6.0,
       "secid": "MXZ6",
-      "ts": 1789506933164
+      "ts": 1789507833063
     }
   },
   "capital_breakdown": {
@@ -643,7 +643,7 @@
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789506933164,
+    "updated_ms": 1789507833063,
     "budgets_enforced": false,
     "capital_rub": 1605885.91,
     "capital_ok": true,
@@ -658,8 +658,8 @@
       "MIX": 25602.9
     },
     "unknown": [
-      "card L00052: котировка старше 1533 с",
-      "card L00053: котировка старше 1552 с"
+      "card L00052: котировка старше 2433 с",
+      "card L00053: котировка старше 2452 с"
     ],
     "day_ok": false,
     "day_pnl_rub": null,
