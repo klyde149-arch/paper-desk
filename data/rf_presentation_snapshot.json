@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789507839042,
-  "sourceAtMs": 1789507653024,
+  "generatedAtMs": 1789508739616,
+  "sourceAtMs": 1789508612925,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -16,8 +16,8 @@
     "dayBaseSource": "broker_daily_yield",
     "todayAmt": 5546.85,
     "todayPct": 0.34,
-    "allTimePct": 0.88,
-    "allTimeAmt": 14043.78,
+    "allTimePct": 0.79,
+    "allTimeAmt": 12656.73,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
     "openPositions": 2,
@@ -36,12 +36,12 @@
     "lastDailyDay": "2026-09-15",
     "pendingSettleRub": 0.0,
     "pendingSettleTodayRub": 0.0,
-    "ledgerUntilMs": 1789421732907,
+    "ledgerUntilMs": 1789508132950,
     "manualAdjustmentRub": -80244.41,
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789507833063,
+      "updatedMs": 1789508733191,
       "capitalRub": 1605885.91,
       "capitalOk": true,
       "capitalReason": "",
@@ -54,19 +54,19 @@
         "BR": 75590.28,
         "MIX": 25602.9
       },
-      "dayOk": false,
-      "dayPnlRub": null,
-      "dayLimitRub": null,
-      "dayReason": "нет проверенной дневной базы",
+      "dayOk": true,
+      "dayPnlRub": 0.0,
+      "dayLimitRub": 32117.72,
+      "dayReason": "",
       "unknown": [
-        "card L00052: котировка старше 2433 с",
-        "card L00053: котировка старше 2452 с"
+        "card L00052: котировка старше 3333 с",
+        "card L00053: котировка старше 3352 с"
       ],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1789507833063,
+    "captured_ms": 1789508733191,
     "totals": {
       "portfolio": 1605885.91,
       "currencies": 1605885.91,
@@ -22302,6 +22302,10 @@
     [
       1789507653024,
       790103.37
+    ],
+    [
+      1789508612925,
+      790103.37
     ]
   ],
   "capitalCurve": [
@@ -43791,6 +43795,10 @@
     ],
     [
       1789507653024,
+      1605885.91
+    ],
+    [
+      1789508612925,
       1605885.91
     ]
   ]
