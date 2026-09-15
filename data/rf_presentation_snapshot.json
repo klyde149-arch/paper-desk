@@ -1,38 +1,38 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789477242423,
-  "sourceAtMs": 1789476815514,
+  "generatedAtMs": 1789478139052,
+  "sourceAtMs": 1789477775040,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1608442.96,
+    "capital": 1607632.96,
     "peak": 1771706.14,
     "drawdownPct": null,
     "peakStale": true,
     "capitalModel": "legacy",
-    "accountTotal": 1608442.96,
+    "accountTotal": 1607632.96,
     "userAssets": 0.0,
-    "dayBase": 1632626.71,
+    "dayBase": 1633138.21,
     "dayBaseSource": "broker_daily_yield",
-    "todayAmt": -24183.75,
-    "todayPct": -1.48,
-    "allTimePct": -1.04,
-    "allTimeAmt": -16856.82,
+    "todayAmt": -25505.25,
+    "todayPct": -1.56,
+    "allTimePct": -1.07,
+    "allTimeAmt": -17368.32,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
     "openPositions": 2,
     "tradesPnl": 123493.22,
     "fees": 15583.93,
     "feesBrokerRub": 30927.96,
-    "openPnlBroker": 16490.47,
+    "openPnlBroker": 15978.97,
     "winRate": 63.0,
     "wins": 17,
     "losses": 10,
     "entriesHalt": false,
     "haltReason": "",
     "goUsed": 428421.99,
-    "goBudget": 1530232.76,
-    "accountLiquid": 1608442.96,
+    "goBudget": 1529727.71,
+    "accountLiquid": 1607632.96,
     "lastDailyDay": "2026-09-14",
     "pendingSettleRub": 0.0,
     "pendingSettleTodayRub": 0.0,
@@ -41,21 +41,21 @@
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789477235666,
-      "capitalRub": 1608442.96,
+      "updatedMs": 1789478132963,
+      "capitalRub": 1607632.96,
       "capitalOk": true,
       "capitalReason": "",
-      "totalUsedRub": 101163.75,
-      "totalCapRub": 48253.29,
+      "totalUsedRub": 101163.65,
+      "totalCapRub": 48228.99,
       "fxLongRub": 0.0,
       "fxShortRub": 0.0,
-      "fxCapRub": 24126.64,
+      "fxCapRub": 24114.49,
       "byAsset": {
-        "BR": 75558.01,
-        "MIX": 25605.75
+        "BR": 75557.76,
+        "MIX": 25605.89
       },
       "dayOk": true,
-      "dayPnlRub": -8204.7,
+      "dayPnlRub": -8716.2,
       "dayLimitRub": 32089.66,
       "dayReason": "",
       "unknown": [],
@@ -63,18 +63,18 @@
     }
   },
   "broker": {
-    "captured_ms": 1789477235666,
+    "captured_ms": 1789478132963,
     "totals": {
-      "portfolio": 1608442.96,
-      "currencies": 1608442.96,
+      "portfolio": 1607632.96,
+      "currencies": 1607632.96,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 2766599.6
+      "futures_nominal": 2765390.58
     },
-    "expected_yield_pct": -4.1,
-    "daily_yield_rub": -24183.75,
-    "daily_yield_rel_pct": -1.48,
+    "expected_yield_pct": -4.17,
+    "daily_yield_rub": -25505.25,
+    "daily_yield_rel_pct": -1.56,
     "positions": [
       {
         "uid": "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050",
@@ -84,10 +84,10 @@
         "lots": 6.0,
         "qty": 6.0,
         "avg_px": 238492.0,
-        "cur_px": 237925.0,
-        "expected_yield": -2200.0,
-        "var_margin": -7650.0,
-        "var_margin_settled": -7650.0
+        "cur_px": 237850.0,
+        "expected_yield": -3850.0,
+        "var_margin": -9300.0,
+        "var_margin_settled": -9300.0
       },
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -110,10 +110,10 @@
         "lots": 15.0,
         "qty": 15.0,
         "avg_px": 108.76,
-        "cur_px": 105.85,
-        "expected_yield": 18690.47,
-        "var_margin": -20493.75,
-        "var_margin_settled": -20493.75
+        "cur_px": 105.79,
+        "expected_yield": 19828.97,
+        "var_margin": -19355.25,
+        "var_margin_settled": -19355.25
       },
       {
         "uid": "d6240afe-4e9c-49b6-8835-629f431c8506",
@@ -123,8 +123,8 @@
         "lots": 18.0,
         "qty": 1800.0,
         "avg_px": 217.38,
-        "cur_px": 170.0,
-        "expected_yield": -85283.0,
+        "cur_px": 169.55,
+        "expected_yield": -86093.0,
         "var_margin": 0.0,
         "var_margin_settled": 0.0
       }
@@ -134,12 +134,12 @@
   "operational": {
     "go": {
       "used_rub": 428421.99,
-      "budget_rub": 1530232.76,
+      "budget_rub": 1529727.71,
       "peak_day_rub": 428421.99,
       "capital_peak_rub": 1771706.14,
-      "account_liquid_rub": 1608442.96,
-      "bot_capital_account_rub": 1608442.96,
-      "bot_capital_rub": 1580299.21
+      "account_liquid_rub": 1607632.96,
+      "bot_capital_account_rub": 1607632.96,
+      "bot_capital_rub": 1578977.71
     },
     "drift": {
       "D2": 0,
@@ -161,13 +161,13 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1608442.96,
-      "futures": -28143.75,
+      "currencies": 1607632.96,
+      "futures": -28655.25,
       "mom_shares": 0.0,
       "user_assets": 0.0,
-      "portfolio_total": 1608442.96,
-      "capital_account": 1608442.96,
-      "capital_legacy": 1580299.21,
+      "portfolio_total": 1607632.96,
+      "capital_account": 1607632.96,
+      "capital_legacy": 1578977.71,
       "model": "legacy"
     },
     "active": {
@@ -189,7 +189,7 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1621700.93,
+      "equity": 1621594.56,
       "dayPct": -2.48
     },
     "setA": {
@@ -213,15 +213,15 @@
       "entry": 108.764667,
       "stop": 102.970963,
       "tp1": null,
-      "cur": 105.85,
-      "upnl": -37362.85,
+      "cur": 105.83,
+      "upnl": -37619.23,
       "risk": 83195.31,
       "entryDay": "2026-09-10",
       "entryTs": 1789072532751,
       "rolls": 0,
       "rubPerPt": 854.5939999999999,
       "notional": 1394244.0,
-      "pctChg": -2.68,
+      "pctChg": -2.7,
       "reconcileStatus": null,
       "reconcileSinceTs": null,
       "riskView": {
@@ -229,20 +229,20 @@
         "mode": "cap",
         "stopPx": 102.970963,
         "stopDistPct": 5.327,
-        "riskRub": 75558.01,
-        "riskPctAccount": 4.698,
+        "riskRub": 75557.76,
+        "riskPctAccount": 4.7,
         "feesEstimated": true,
         "protection": "ok",
         "entryPxStatus": "",
-        "budgetLeftRub": -52910.46
+        "budgetLeftRub": -52934.66
       },
-      "brokerPnl": 18690.47,
+      "brokerPnl": 19828.97,
       "goRub": 269174.0,
-      "pnlPctGo": -13.88,
-      "brokerVarMargin": -20493.75,
-      "brokerVarMarginSettled": -20493.75,
+      "pnlPctGo": -13.98,
+      "brokerVarMargin": -19355.25,
+      "brokerVarMarginSettled": -19355.25,
       "brokerAvgPx": 108.76,
-      "brokerCurPx": 105.85,
+      "brokerCurPx": 105.79,
       "brokerLots": 15.0
     },
     {
@@ -256,15 +256,15 @@
       "entry": 238491.666667,
       "stop": 234450.0,
       "tp1": null,
-      "cur": 237850.0,
-      "upnl": -3850.0,
+      "cur": 237875.0,
+      "upnl": -3700.0,
       "risk": 83177.89,
       "entryDay": "2026-09-14",
       "entryTs": 1789418132915,
       "rolls": 0,
       "rubPerPt": 1.0,
       "notional": 1430950.0,
-      "pctChg": -0.27,
+      "pctChg": -0.26,
       "reconcileStatus": null,
       "reconcileSinceTs": null,
       "riskView": {
@@ -272,20 +272,20 @@
         "mode": "cap",
         "stopPx": 234450.0,
         "stopDistPct": 1.695,
-        "riskRub": 25605.75,
+        "riskRub": 25605.89,
         "riskPctAccount": 1.631,
         "feesEstimated": true,
         "protection": "ok",
         "entryPxStatus": "verified",
-        "budgetLeftRub": -52910.46
+        "budgetLeftRub": -52934.66
       },
-      "brokerPnl": -2200.0,
+      "brokerPnl": -3850.0,
       "goRub": 159248.0,
-      "pnlPctGo": -2.42,
-      "brokerVarMargin": -7650.0,
-      "brokerVarMarginSettled": -7650.0,
+      "pnlPctGo": -2.32,
+      "brokerVarMargin": -9300.0,
+      "brokerVarMarginSettled": -9300.0,
       "brokerAvgPx": 238492.0,
-      "brokerCurPx": 237925.0,
+      "brokerCurPx": 237850.0,
       "brokerLots": 6.0
     }
   ],
@@ -22167,6 +22167,10 @@
     [
       1789476815514,
       773565.38
+    ],
+    [
+      1789477775040,
+      775849.77
     ]
   ],
   "capitalCurve": [
@@ -43525,6 +43529,10 @@
     [
       1789476815514,
       1607992.96
+    ],
+    [
+      1789477775040,
+      1607632.96
     ]
   ]
 }
