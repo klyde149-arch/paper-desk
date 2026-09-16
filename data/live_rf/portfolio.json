@@ -63,11 +63,11 @@
             "stop_px": 102.970963,
             "stop_dist_pct": 5.327,
             "risk_rub": 75554.23,
-            "risk_pct_account": 4.694,
+            "risk_pct_account": 4.865,
             "fees_estimated": true,
             "protection": "ok",
             "entry_px_status": "",
-            "budget_left_rub": -27264.93
+            "budget_left_rub": -28966.28
           }
         }
       ],
@@ -105,8 +105,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-15",
     "last_hour_ts": 1789596000000,
-    "ops_since": "2026-09-16T20:00:32Z",
-    "last_eq_snap": 1789592193507,
+    "ops_since": "2026-09-16T20:15:32Z",
+    "last_eq_snap": 1789593152968,
     "last_report_day": "2026-09-16",
     "orders_day": "2026-09-15",
     "orders_day_n": 1,
@@ -235,12 +235,12 @@
   },
   "go": {
     "used_rub": 269173.65,
-    "budget_rub": 1528204.73,
+    "budget_rub": 1507729.73,
     "peak_day_rub": 428421.99,
     "capital_peak_rub": 1771706.14,
-    "account_liquid_rub": 1609643.38,
-    "bot_capital_account_rub": 1609643.38,
-    "bot_capital_rub": 1578204.73
+    "account_liquid_rub": 1552931.83,
+    "bot_capital_account_rub": 1552931.83,
+    "bot_capital_rub": 1557729.73
   },
   "drift": {
     "D2": 0,
@@ -468,26 +468,26 @@
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 15958.52
   },
   "broker": {
-    "captured_ms": 1789592432970,
+    "captured_ms": 1789593332958,
     "totals": {
-      "portfolio": 1609643.38,
-      "currencies": 1609643.38,
+      "portfolio": 1552931.83,
+      "currencies": 1552931.83,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 1333543.28
+      "futures_nominal": 1332545.93
     },
-    "expected_yield_pct": -3.94,
-    "daily_yield_rub": -27118.65,
-    "daily_yield_rel_pct": -1.65,
+    "expected_yield_pct": -4.08,
+    "daily_yield_rub": 9117.9,
+    "daily_yield_rel_pct": 0.59,
     "positions": [
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
         "type": "currency",
         "ticker": "RUB000UTSTOM",
         "figi": "RUB000UTSTOM",
-        "lots": 1300493.38,
-        "qty": 1300493.38,
+        "lots": 1243781.83,
+        "qty": 1243781.83,
         "avg_px": 1.0,
         "cur_px": 1.0,
         "expected_yield": 0.0,
@@ -504,8 +504,8 @@
         "avg_px": 108.76,
         "cur_px": 105.54,
         "expected_yield": 15958.52,
-        "var_margin": -31438.65,
-        "var_margin_settled": -36236.55
+        "var_margin": 4797.9,
+        "var_margin_settled": 4797.9
       },
       {
         "uid": "d6240afe-4e9c-49b6-8835-629f431c8506",
@@ -524,13 +524,13 @@
   },
   "broker_vm_last": {
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": {
-      "vm": -31438.65,
+      "vm": 4797.9,
       "ey": 15958.52,
       "cur_px": 105.54,
       "avg_px": 108.76,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1789592432970
+      "ts": 1789593332958
     },
     "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050": {
       "vm": -17850.0,
@@ -543,13 +543,13 @@
     }
   },
   "capital_breakdown": {
-    "currencies": 1609643.38,
-    "futures": -31438.65,
+    "currencies": 1552931.83,
+    "futures": 4797.9,
     "mom_shares": 0.0,
     "user_assets": 0.0,
-    "portfolio_total": 1609643.38,
-    "capital_account": 1609643.38,
-    "capital_legacy": 1578204.73,
+    "portfolio_total": 1552931.83,
+    "capital_account": 1552931.83,
+    "capital_legacy": 1557729.73,
     "model": "legacy"
   },
   "risk_policy": {
@@ -566,21 +566,21 @@
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789592432970,
+    "updated_ms": 1789593332958,
     "budgets_enforced": false,
-    "capital_rub": 1609643.38,
+    "capital_rub": 1552931.83,
     "capital_ok": true,
     "capital_reason": "",
     "total_used_rub": 75554.23,
-    "total_cap_rub": 48289.3,
+    "total_cap_rub": 46587.95,
     "fx_long_rub": 0.0,
     "fx_short_rub": 0.0,
-    "fx_cap_rub": 24144.65,
+    "fx_cap_rub": 23293.98,
     "by_asset": {
       "BR": 75554.23
     },
     "unknown": [
-      "card L00052: котировка старше 636 с"
+      "card L00052: котировка старше 1536 с"
     ],
     "day_ok": false,
     "day_pnl_rub": null,
