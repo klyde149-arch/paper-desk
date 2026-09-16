@@ -105,15 +105,15 @@
   "watermarks": {
     "last_daily_day": "2026-09-16",
     "last_hour_ts": 1789599600000,
-    "ops_since": "2026-09-16T20:30:32Z",
-    "last_eq_snap": 1789594053164,
+    "ops_since": "2026-09-16T20:45:32Z",
+    "last_eq_snap": 1789595013076,
     "last_report_day": "2026-09-16",
     "orders_day": "2026-09-15",
     "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
     "auto_rebase_day": "2026-09-02",
-    "broker_ledger_day": "2026-09-16",
-    "evening_confirm_day": "2026-09-16"
+    "evening_confirm_day": "2026-09-16",
+    "broker_ledger_day": "2026-09-17"
   },
   "fronts": {
     "BR": {
@@ -316,16 +316,25 @@
       "rub": -80244.41
     }
   ],
+  "readiness": {
+    "day": "2026-09-16",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2157514.48,
+    "go_cap_rub": 1130797.3,
+    "fits": false
+  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
-    "first_ms": 1789248932907,
-    "until_ms": 1789508132950,
-    "varmargin_rub": 121072.25,
-    "fees_rub": -30927.96,
+    "first_ms": 1789335332950,
+    "until_ms": 1789594532946,
+    "varmargin_rub": 64360.7,
+    "fees_rub": -31490.49,
     "fees_other_rub": -4854.23,
     "fees_by_type": {
       "OPERATION_TYPE_SERVICE_FEE": -780.0,
-      "OPERATION_TYPE_BROKER_FEE": -35002.19
+      "OPERATION_TYPE_BROKER_FEE": -35564.72
     },
     "op_ids": [
       "16293230",
@@ -451,47 +460,27 @@
       "16513398",
       "4643624",
       "16895509884",
-      "7619540"
+      "7619540",
+      "10596834",
+      "16915824909"
     ],
-    "updated_ms": 1789508132950,
-    "last_varmargin_op_ms": 1789506035141
-  },
-  "risk_day": {
-    "day": "2026-09-16",
-    "base_ms": 1789508132950,
-    "vm_by_uid": {
-      "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050": -2550.0,
-      "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 5306.85
-    },
-    "mom_eq": 350000.0,
-    "e_base": 1605885.91,
-    "fees_est_rub": 632.85
+    "updated_ms": 1789594532946,
+    "last_varmargin_op_ms": 1789592466242
   },
   "pending_settle": {
-    "rub": -19875.0,
-    "updated_ms": 1789553673001,
-    "items": [
-      {
-        "ts": 1789553673001,
-        "day": "2026-09-16",
-        "card": "L00053",
-        "uid": "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050",
-        "secid": "MXZ6",
-        "lots": 6,
-        "rub": -19875.0,
-        "why": "stop",
-        "src": "broker_vm"
-      }
-    ]
+    "rub": 0.0,
+    "updated_ms": 1789594532946,
+    "items": []
   },
-  "readiness": {
-    "day": "2026-09-16",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2157514.48,
-    "go_cap_rub": 1130797.3,
-    "fits": false
+  "risk_day": {
+    "day": "2026-09-17",
+    "base_ms": 1789594532946,
+    "vm_by_uid": {
+      "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 4797.9
+    },
+    "mom_eq": 350000.0,
+    "e_base": 1552931.83,
+    "fees_est_rub": 0.0
   },
   "consec_fail": 0,
   "fail_since_ms": 0,
@@ -500,7 +489,7 @@
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 15958.52
   },
   "broker": {
-    "captured_ms": 1789594232794,
+    "captured_ms": 1789595132956,
     "totals": {
       "portfolio": 1552931.83,
       "currencies": 1552931.83,
@@ -562,7 +551,7 @@
       "avg_px": 108.76,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1789594232794
+      "ts": 1789595132956
     },
     "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050": {
       "vm": -17850.0,
@@ -598,7 +587,7 @@
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789594232794,
+    "updated_ms": 1789595132956,
     "budgets_enforced": false,
     "capital_rub": 1552931.83,
     "capital_ok": true,
@@ -612,11 +601,11 @@
       "BR": 75554.23
     },
     "unknown": [
-      "card L00052: котировка старше 2436 с"
+      "card L00052: котировка старше 3336 с"
     ],
-    "day_ok": false,
-    "day_pnl_rub": null,
-    "day_limit_rub": null,
-    "day_reason": "нет проверенной дневной базы"
+    "day_ok": true,
+    "day_pnl_rub": 0.0,
+    "day_limit_rub": 31058.64,
+    "day_reason": ""
   }
 }
