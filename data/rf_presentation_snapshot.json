@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789593338735,
-  "sourceAtMs": 1789593152968,
+  "generatedAtMs": 1789594238683,
+  "sourceAtMs": 1789594053164,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -33,7 +33,7 @@
     "goUsed": 269173.65,
     "goBudget": 1507729.73,
     "accountLiquid": 1552931.83,
-    "lastDailyDay": "2026-09-15",
+    "lastDailyDay": "2026-09-16",
     "pendingSettleRub": -19875.0,
     "pendingSettleTodayRub": 0.0,
     "ledgerUntilMs": 1789508132950,
@@ -41,7 +41,7 @@
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789593332958,
+      "updatedMs": 1789594232794,
       "capitalRub": 1552931.83,
       "capitalOk": true,
       "capitalReason": "",
@@ -58,13 +58,13 @@
       "dayLimitRub": null,
       "dayReason": "нет проверенной дневной базы",
       "unknown": [
-        "card L00052: котировка старше 1536 с"
+        "card L00052: котировка старше 2436 с"
       ],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1789593332958,
+    "captured_ms": 1789594232794,
     "totals": {
       "portfolio": 1552931.83,
       "currencies": 1552931.83,
@@ -123,7 +123,7 @@
     "go": {
       "used_rub": 269173.65,
       "budget_rub": 1507729.73,
-      "peak_day_rub": 428421.99,
+      "peak_day_rub": 269173.65,
       "capital_peak_rub": 1771706.14,
       "account_liquid_rub": 1552931.83,
       "bot_capital_account_rub": 1552931.83,
@@ -161,24 +161,24 @@
     "active": {
       "BR": "BRV6",
       "NG": "NGU6",
-      "GOLD": "GDZ6",
-      "SILV": "SVZ6",
-      "Si": "SiZ6",
+      "GOLD": "GDU6",
+      "SILV": "SVU6",
+      "Si": "SiU6",
       "RTS": "RIU6",
-      "CNY": "CRZ6",
-      "MIX": "MXZ6",
-      "Eu": "EuU6",
+      "CNY": "CRU6",
+      "MIX": "MXU6",
+      "Eu": "EuZ6",
       "COCOA": "CCX6",
-      "VTBR": "VBU6",
+      "VTBR": "VBZ6",
       "PLD": "PDU6",
-      "SBRF": "SRU6"
+      "SBRF": "SRZ6"
     },
     "consecFail": 0
   },
   "sleeves": {
     "core": {
       "equity": 1596319.23,
-      "dayPct": -4.0
+      "dayPct": -2.52
     },
     "setA": {
       "equity": 1627533.44,
@@ -22629,6 +22629,10 @@
     [
       1789593152968,
       762323.62
+    ],
+    [
+      1789594053164,
+      762323.62
     ]
   ],
   "capitalCurve": [
@@ -44486,6 +44490,10 @@
     ],
     [
       1789593152968,
+      1552931.83
+    ],
+    [
+      1789594053164,
       1552931.83
     ]
   ]

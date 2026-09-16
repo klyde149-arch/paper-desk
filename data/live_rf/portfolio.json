@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1637655.942435263,
       "month_start_eq": 1632488.16,
-      "day_start_eq": 1662913.788687263,
+      "day_start_eq": 1637655.942435263,
       "halt_day": null,
       "positions": [
         {
@@ -99,14 +99,14 @@
   "profile_eq": 762323.62,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1608642.76,
-  "day_start_date": "2026-09-15",
+  "day_start_eq": 1557729.73,
+  "day_start_date": "2026-09-16",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-15",
-    "last_hour_ts": 1789596000000,
-    "ops_since": "2026-09-16T20:15:32Z",
-    "last_eq_snap": 1789593152968,
+    "last_daily_day": "2026-09-16",
+    "last_hour_ts": 1789599600000,
+    "ops_since": "2026-09-16T20:30:32Z",
+    "last_eq_snap": 1789594053164,
     "last_report_day": "2026-09-16",
     "orders_day": "2026-09-15",
     "orders_day_n": 1,
@@ -186,17 +186,17 @@
   "active": {
     "BR": "BRV6",
     "NG": "NGU6",
-    "GOLD": "GDZ6",
-    "SILV": "SVZ6",
-    "Si": "SiZ6",
+    "GOLD": "GDU6",
+    "SILV": "SVU6",
+    "Si": "SiU6",
     "RTS": "RIU6",
-    "CNY": "CRZ6",
-    "MIX": "MXZ6",
-    "Eu": "EuU6",
+    "CNY": "CRU6",
+    "MIX": "MXU6",
+    "Eu": "EuZ6",
     "COCOA": "CCX6",
-    "VTBR": "VBU6",
+    "VTBR": "VBZ6",
     "PLD": "PDU6",
-    "SBRF": "SRU6"
+    "SBRF": "SRZ6"
   },
   "rearm": {
     "c3b_BR": {
@@ -236,7 +236,7 @@
   "go": {
     "used_rub": 269173.65,
     "budget_rub": 1507729.73,
-    "peak_day_rub": 428421.99,
+    "peak_day_rub": 269173.65,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1552931.83,
     "bot_capital_account_rub": 1552931.83,
@@ -250,8 +250,40 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 56,
+  "pending_intents": [
+    {
+      "id": "i00056",
+      "kind": "entry",
+      "sleeve": "setA",
+      "asset": "NG",
+      "ticker": "",
+      "uid": "",
+      "side": "sell",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "427a7e69-d201-f2a4-601f-74e2e19e536b",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1789602600000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-09-16",
+      "state_ts": 1789593632942,
+      "last_error": "",
+      "ctx": {
+        "swing": 2.981,
+        "atr": 0.095357,
+        "stop_dist": 0,
+        "risk_pct": 0.02,
+        "ref_px": 2.895,
+        "note": "setup A pullback"
+      }
+    }
+  ],
+  "next_intent_id": 57,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 28,
@@ -284,15 +316,6 @@
       "rub": -80244.41
     }
   ],
-  "readiness": {
-    "day": "2026-09-15",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2102779.1,
-    "go_cap_rub": 1168982.07,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1789248932907,
@@ -461,6 +484,15 @@
       }
     ]
   },
+  "readiness": {
+    "day": "2026-09-16",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2157514.48,
+    "go_cap_rub": 1130797.3,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
@@ -468,7 +500,7 @@
     "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": 15958.52
   },
   "broker": {
-    "captured_ms": 1789593332958,
+    "captured_ms": 1789594232794,
     "totals": {
       "portfolio": 1552931.83,
       "currencies": 1552931.83,
@@ -530,7 +562,7 @@
       "avg_px": 108.76,
       "lots": 15.0,
       "secid": "BRV6",
-      "ts": 1789593332958
+      "ts": 1789594232794
     },
     "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050": {
       "vm": -17850.0,
@@ -566,7 +598,7 @@
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789593332958,
+    "updated_ms": 1789594232794,
     "budgets_enforced": false,
     "capital_rub": 1552931.83,
     "capital_ok": true,
@@ -580,7 +612,7 @@
       "BR": 75554.23
     },
     "unknown": [
-      "card L00052: котировка старше 1536 с"
+      "card L00052: котировка старше 2436 с"
     ],
     "day_ok": false,
     "day_pnl_rub": null,
