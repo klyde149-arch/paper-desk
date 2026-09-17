@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1562652.5128441728,
       "month_start_eq": 1632488.16,
-      "day_start_eq": 1637655.942435263,
+      "day_start_eq": 1562652.5128441728,
       "halt_day": null,
       "positions": [],
       "equity_mtm": 1562652.51
@@ -22,7 +22,7 @@
     "setA": {
       "eq_rub": 1512814.21,
       "month_start_eq": 1577064.85,
-      "day_start_eq": 1528830.5,
+      "day_start_eq": 1512814.21,
       "halt_day": null,
       "positions": [],
       "equity_mtm": 1512814.21
@@ -45,14 +45,14 @@
   "profile_eq": 737553.92,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1557729.73,
-  "day_start_date": "2026-09-16",
+  "day_start_eq": 1512814.21,
+  "day_start_date": "2026-09-17",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-16",
-    "last_hour_ts": 1789682400000,
-    "ops_since": "2026-09-17T20:15:32Z",
-    "last_eq_snap": 1789679553104,
+    "last_daily_day": "2026-09-17",
+    "last_hour_ts": 1789686000000,
+    "ops_since": "2026-09-17T20:30:32Z",
+    "last_eq_snap": 1789680512971,
     "last_report_day": "2026-09-17",
     "orders_day": "2026-09-17",
     "orders_day_n": 1,
@@ -87,28 +87,28 @@
       "next_lasttrade": "2026-12-18"
     },
     "Si": {
-      "secid": "SiU6",
-      "lasttrade": "2026-09-17",
-      "next": "SiZ6",
-      "next_lasttrade": "2026-12-17"
+      "secid": "SiZ6",
+      "lasttrade": "2026-12-17",
+      "next": "SiH7",
+      "next_lasttrade": "2027-03-18"
     },
     "CNY": {
-      "secid": "CRU6",
-      "lasttrade": "2026-09-17",
-      "next": "CRZ6",
-      "next_lasttrade": "2026-12-17"
+      "secid": "CRZ6",
+      "lasttrade": "2026-12-17",
+      "next": "CRH7",
+      "next_lasttrade": "2027-03-18"
     },
     "MIX": {
-      "secid": "MXU6",
-      "lasttrade": "2026-09-17",
-      "next": "MXZ6",
-      "next_lasttrade": "2026-12-17"
+      "secid": "MXZ6",
+      "lasttrade": "2026-12-17",
+      "next": "MXH7",
+      "next_lasttrade": "2027-03-18"
     },
     "Eu": {
-      "secid": "EuU6",
-      "lasttrade": "2026-09-17",
-      "next": "EuZ6",
-      "next_lasttrade": "2026-12-17"
+      "secid": "EuZ6",
+      "lasttrade": "2026-12-17",
+      "next": "EuH7",
+      "next_lasttrade": "2027-03-18"
     },
     "COCOA": {
       "secid": "CCX6",
@@ -117,27 +117,27 @@
       "next_lasttrade": "2027-02-22"
     },
     "VTBR": {
-      "secid": "VBU6",
-      "lasttrade": "2026-09-17",
-      "next": "VBZ6",
-      "next_lasttrade": "2026-12-17"
+      "secid": "VBZ6",
+      "lasttrade": "2026-12-17",
+      "next": "VBH7",
+      "next_lasttrade": "2027-03-18"
     },
     "SBRF": {
-      "secid": "SRU6",
-      "lasttrade": "2026-09-17",
-      "next": "SRZ6",
-      "next_lasttrade": "2026-12-17"
+      "secid": "SRZ6",
+      "lasttrade": "2026-12-17",
+      "next": "SRH7",
+      "next_lasttrade": "2027-03-18"
     }
   },
   "active": {
     "BR": "BRV6",
     "NG": "NGU6",
-    "GOLD": "GDU6",
-    "SILV": "SVU6",
-    "Si": "SiU6",
+    "GOLD": "GDZ6",
+    "SILV": "SVZ6",
+    "Si": "SiZ6",
     "RTS": "RIU6",
-    "CNY": "CRU6",
-    "MIX": "MXU6",
+    "CNY": "CRZ6",
+    "MIX": "MXZ6",
     "Eu": "EuZ6",
     "COCOA": "CCX6",
     "VTBR": "VBZ6",
@@ -182,7 +182,7 @@
   "go": {
     "used_rub": 0.0,
     "budget_rub": 1462814.21,
-    "peak_day_rub": 547433.65,
+    "peak_day_rub": 0.0,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1512814.21,
     "bot_capital_account_rub": 1512814.21,
@@ -228,15 +228,6 @@
       "rub": -80244.41
     }
   ],
-  "readiness": {
-    "day": "2026-09-16",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2157514.48,
-    "go_cap_rub": 1130797.3,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1789335332950,
@@ -417,12 +408,21 @@
       }
     ]
   },
+  "readiness": {
+    "day": "2026-09-17",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2114756.51,
+    "go_cap_rub": 1097110.66,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1789679732976,
+    "captured_ms": 1789680632938,
     "totals": {
       "portfolio": 1512814.21,
       "currencies": 1512814.21,
@@ -514,7 +514,7 @@
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789679732976,
+    "updated_ms": 1789680632938,
     "budgets_enforced": false,
     "capital_rub": 1512814.21,
     "capital_ok": true,
