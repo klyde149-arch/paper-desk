@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789677938275,
-  "sourceAtMs": 1789677693072,
+  "generatedAtMs": 1789678838257,
+  "sourceAtMs": 1789678593210,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -13,9 +13,9 @@
     "accountTotal": 1557561.56,
     "userAssets": 0.0,
     "dayBase": 1551621.56,
-    "dayBaseSource": "broker_daily_yield+pending",
-    "todayAmt": -35854.45,
-    "todayPct": -2.31,
+    "dayBaseSource": "broker_daily_yield",
+    "todayAmt": 5940.0,
+    "todayPct": 0.38,
     "allTimePct": -5.41,
     "allTimeAmt": -89168.65,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
@@ -35,13 +35,13 @@
     "accountLiquid": 1557561.56,
     "lastDailyDay": "2026-09-16",
     "pendingSettleRub": -41794.45,
-    "pendingSettleTodayRub": -41794.45,
+    "pendingSettleTodayRub": 0.0,
     "ledgerUntilMs": 1789594532946,
     "manualAdjustmentRub": -80244.41,
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789677932971,
+      "updatedMs": 1789678832980,
       "capitalRub": 1557561.56,
       "capitalOk": true,
       "capitalReason": "",
@@ -51,16 +51,16 @@
       "fxShortRub": 0.0,
       "fxCapRub": 23363.42,
       "byAsset": {},
-      "dayOk": true,
-      "dayPnlRub": -48073.99,
-      "dayLimitRub": 31058.64,
-      "dayReason": "",
+      "dayOk": false,
+      "dayPnlRub": null,
+      "dayLimitRub": null,
+      "dayReason": "нет проверенной дневной базы",
       "unknown": [],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1789677932971,
+    "captured_ms": 1789678832980,
     "totals": {
       "portfolio": 1557561.56,
       "currencies": 1557561.56,
@@ -22966,6 +22966,10 @@
     [
       1789677693072,
       737553.92
+    ],
+    [
+      1789678593210,
+      737553.92
     ]
   ],
   "capitalCurve": [
@@ -45187,6 +45191,10 @@
     ],
     [
       1789677693072,
+      1557561.56
+    ],
+    [
+      1789678593210,
       1557561.56
     ]
   ]
