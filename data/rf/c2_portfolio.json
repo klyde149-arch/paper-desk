@@ -88,38 +88,60 @@
                                  "equity_mtm":  10488.58
                              },
                     "setA":  {
-                                 "equity":  10051.803850626466,
+                                 "equity":  10051.223942875135,
                                  "month_start_eq":  10363.6,
                                  "day_start_eq":  10051.803850626466,
                                  "halt_day":  null,
                                  "positions":  [
-
+                                                   {
+                                                       "id":  "R31",
+                                                       "asset":  "NG",
+                                                       "secid":  "NGU6",
+                                                       "side":  "short",
+                                                       "qty":  1054.123331,
+                                                       "qty_initial":  1054.123331,
+                                                       "entry":  2.906128,
+                                                       "entry_day":  "2026-09-17",
+                                                       "entry_ts":  1789624800000,
+                                                       "stop":  3.001485,
+                                                       "tp1":  2.763092,
+                                                       "tp1_done":  false,
+                                                       "mfe":  2.906128,
+                                                       "risk_usd":  100.52,
+                                                       "entry_fee":  0.3063,
+                                                       "fees":  0,
+                                                       "realized":  0,
+                                                       "rolls":  0,
+                                                       "cur":  2.905,
+                                                       "upnl":  1.19
+                                                   },
+                                                   {
+                                                       "id":  "R32",
+                                                       "asset":  "SBRF",
+                                                       "secid":  "SRZ6",
+                                                       "side":  "short",
+                                                       "qty":  0.094231,
+                                                       "qty_initial":  0.094231,
+                                                       "entry":  29031.288,
+                                                       "entry_day":  "2026-09-17",
+                                                       "entry_ts":  1789624800000,
+                                                       "stop":  30097.969854,
+                                                       "tp1":  27431.265219,
+                                                       "tp1_done":  false,
+                                                       "mfe":  29031.288,
+                                                       "risk_usd":  100.51,
+                                                       "entry_fee":  0.2736,
+                                                       "fees":  0,
+                                                       "realized":  0,
+                                                       "rolls":  0,
+                                                       "cur":  29046,
+                                                       "upnl":  -1.39
+                                                   }
                                                ],
                                  "pending":  [
-                                                 {
-                                                     "kind":  "entry",
-                                                     "sleeve":  "setA",
-                                                     "asset":  "NG",
-                                                     "side":  "short",
-                                                     "created_day":  "2026-09-16",
-                                                     "swing":  2.981,
-                                                     "atr":  0.095357,
-                                                     "risk_pct":  0.01,
-                                                     "note":  "setup A pullback"
-                                                 },
-                                                 {
-                                                     "kind":  "entry",
-                                                     "sleeve":  "setA",
-                                                     "asset":  "SBRF",
-                                                     "side":  "short",
-                                                     "created_day":  "2026-09-16",
-                                                     "swing":  30097.969854,
-                                                     "atr":  600.415188,
-                                                     "risk_pct":  0.01,
-                                                     "note":  "setup A pullback"
-                                                 }
+
                                              ],
-                                 "equity_mtm":  10051.8
+                                 "equity_mtm":  10051.03
                              },
                     "mom":  {
                                 "equity":  10000,
@@ -135,7 +157,7 @@
                                 "equity_mtm":  10000
                             }
                 },
-    "profile_eq":  10473.65,
+    "profile_eq":  10472.75,
     "profile_month_start":  12142.69,
     "cur_month":  "2026-09",
     "day_start_eq":  10518.37,
