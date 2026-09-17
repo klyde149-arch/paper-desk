@@ -1,22 +1,22 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789658138759,
-  "sourceAtMs": 1789657233566,
+  "generatedAtMs": 1789659038893,
+  "sourceAtMs": 1789658193213,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1556841.56,
+    "capital": 1557651.56,
     "peak": 1771706.14,
     "drawdownPct": null,
     "peakStale": true,
     "capitalModel": "legacy",
-    "accountTotal": 1556841.56,
+    "accountTotal": 1557651.56,
     "userAssets": 0.0,
     "dayBase": 1551621.56,
     "dayBaseSource": "broker_daily_yield+pending",
-    "todayAmt": -36574.45,
-    "todayPct": -2.36,
-    "allTimePct": -5.42,
+    "todayAmt": -35764.45,
+    "todayPct": -2.3,
+    "allTimePct": -5.41,
     "allTimeAmt": -89168.65,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
@@ -31,8 +31,8 @@
     "entriesHalt": false,
     "haltReason": "",
     "goUsed": 0.0,
-    "goBudget": 1506841.56,
-    "accountLiquid": 1556841.56,
+    "goBudget": 1507651.56,
+    "accountLiquid": 1557651.56,
     "lastDailyDay": "2026-09-16",
     "pendingSettleRub": -41794.45,
     "pendingSettleTodayRub": -41794.45,
@@ -41,15 +41,15 @@
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789658133008,
-      "capitalRub": 1556841.56,
+      "updatedMs": 1789659032987,
+      "capitalRub": 1557651.56,
       "capitalOk": true,
       "capitalReason": "",
       "totalUsedRub": 0.0,
-      "totalCapRub": 46705.25,
+      "totalCapRub": 46729.55,
       "fxLongRub": 0.0,
       "fxShortRub": 0.0,
-      "fxCapRub": 23352.62,
+      "fxCapRub": 23364.77,
       "byAsset": {},
       "dayOk": true,
       "dayPnlRub": -48073.99,
@@ -60,18 +60,18 @@
     }
   },
   "broker": {
-    "captured_ms": 1789658133008,
+    "captured_ms": 1789659032987,
     "totals": {
-      "portfolio": 1556841.56,
-      "currencies": 1556841.56,
+      "portfolio": 1557651.56,
+      "currencies": 1557651.56,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
       "futures_nominal": 0.0
     },
-    "expected_yield_pct": -4.7,
-    "daily_yield_rub": 5220.0,
-    "daily_yield_rel_pct": 0.33,
+    "expected_yield_pct": -4.65,
+    "daily_yield_rub": 6030.0,
+    "daily_yield_rel_pct": 0.38,
     "positions": [
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -94,8 +94,8 @@
         "lots": 18.0,
         "qty": 1800.0,
         "avg_px": 217.38,
-        "cur_px": 174.65,
-        "expected_yield": -76913.0,
+        "cur_px": 175.1,
+        "expected_yield": -76103.0,
         "var_margin": 0.0,
         "var_margin_settled": 0.0
       }
@@ -105,12 +105,12 @@
   "operational": {
     "go": {
       "used_rub": 0.0,
-      "budget_rub": 1506841.56,
+      "budget_rub": 1507651.56,
       "peak_day_rub": 547433.65,
       "capital_peak_rub": 1771706.14,
-      "account_liquid_rub": 1556841.56,
-      "bot_capital_account_rub": 1556841.56,
-      "bot_capital_rub": 1556841.56
+      "account_liquid_rub": 1557651.56,
+      "bot_capital_account_rub": 1557651.56,
+      "bot_capital_rub": 1557651.56
     },
     "drift": {
       "D2": 0,
@@ -132,13 +132,13 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1556841.56,
+      "currencies": 1557651.56,
       "futures": 0.0,
       "mom_shares": 0.0,
       "user_assets": 0.0,
-      "portfolio_total": 1556841.56,
-      "capital_account": 1556841.56,
-      "capital_legacy": 1556841.56,
+      "portfolio_total": 1557651.56,
+      "capital_account": 1557651.56,
+      "capital_legacy": 1557651.56,
       "model": "legacy"
     },
     "active": {
@@ -22878,6 +22878,10 @@
     [
       1789657233566,
       737553.92
+    ],
+    [
+      1789658193213,
+      737553.92
     ]
   ],
   "capitalCurve": [
@@ -45012,6 +45016,10 @@
     [
       1789657233566,
       1556211.56
+    ],
+    [
+      1789658193213,
+      1556841.56
     ]
   ]
 }
