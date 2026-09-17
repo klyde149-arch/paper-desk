@@ -1,61 +1,60 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789642839190,
-  "sourceAtMs": 1789642412874,
+  "generatedAtMs": 1789643739605,
+  "sourceAtMs": 1789643313074,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1552269.92,
+    "capital": 1551929.93,
     "peak": 1771706.14,
     "drawdownPct": null,
     "peakStale": true,
     "capitalModel": "legacy",
-    "accountTotal": 1552269.92,
+    "accountTotal": 1551929.93,
     "userAssets": 0.0,
-    "dayBase": 1569837.58,
-    "dayBaseSource": "broker_daily_yield",
-    "todayAmt": -17567.66,
-    "todayPct": -1.11,
-    "allTimePct": -4.0,
-    "allTimeAmt": -64671.86,
+    "dayBase": 1547642.92,
+    "dayBaseSource": "broker_daily_yield+pending",
+    "todayAmt": -22994.69,
+    "todayPct": -1.49,
+    "allTimePct": -4.33,
+    "allTimeAmt": -70278.89,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
-    "openPositions": 2,
-    "tradesPnl": 98235.37,
-    "fees": 16860.71,
+    "openPositions": 1,
+    "tradesPnl": 23231.94,
+    "fees": 17803.2,
     "feesBrokerRub": 31490.49,
-    "openPnlBroker": -6137.04,
-    "winRate": 60.7,
+    "openPnlBroker": 4377.01,
+    "winRate": 58.6,
     "wins": 17,
-    "losses": 11,
+    "losses": 12,
     "entriesHalt": false,
     "haltReason": "",
-    "goUsed": 547433.65,
-    "goBudget": 1485314.86,
-    "accountLiquid": 1552269.92,
+    "goUsed": 278260.0,
+    "goBudget": 1506643.63,
+    "accountLiquid": 1551929.93,
     "lastDailyDay": "2026-09-16",
-    "pendingSettleRub": 0.0,
-    "pendingSettleTodayRub": 0.0,
+    "pendingSettleRub": -27281.7,
+    "pendingSettleTodayRub": -27281.7,
     "ledgerUntilMs": 1789594532946,
     "manualAdjustmentRub": -80244.41,
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789642832910,
-      "capitalRub": 1552269.92,
+      "updatedMs": 1789643733193,
+      "capitalRub": 1551929.93,
       "capitalOk": true,
       "capitalReason": "",
-      "totalUsedRub": 98004.57,
-      "totalCapRub": 46568.1,
+      "totalUsedRub": 22137.96,
+      "totalCapRub": 46557.9,
       "fxLongRub": 0.0,
       "fxShortRub": 0.0,
-      "fxCapRub": 23284.05,
+      "fxCapRub": 23278.95,
       "byAsset": {
-        "BR": 75530.24,
-        "NG": 22474.33
+        "NG": 22137.96
       },
       "dayOk": true,
-      "dayPnlRub": -22535.1,
+      "dayPnlRub": -28736.06,
       "dayLimitRub": 31058.64,
       "dayReason": "",
       "unknown": [],
@@ -63,18 +62,18 @@
     }
   },
   "broker": {
-    "captured_ms": 1789642832910,
+    "captured_ms": 1789643733193,
     "totals": {
-      "portfolio": 1552269.92,
-      "currencies": 1552269.92,
+      "portfolio": 1551929.93,
+      "currencies": 1551929.93,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": 333199.63
+      "futures_nominal": -975062.32
     },
-    "expected_yield_pct": -5.39,
-    "daily_yield_rub": -17567.66,
-    "daily_yield_rel_pct": -1.11,
+    "expected_yield_pct": -4.77,
+    "daily_yield_rub": 4287.01,
+    "daily_yield_rel_pct": 0.27,
     "positions": [
       {
         "uid": "7326ae99-d9f1-4df1-8e3a-d85390686038",
@@ -84,36 +83,23 @@
         "lots": -40.0,
         "qty": -40.0,
         "avg_px": 2.91,
-        "cur_px": 2.895,
-        "expected_yield": 5050.39,
-        "var_margin": 5050.39,
-        "var_margin_settled": 5050.39
+        "cur_px": 2.896,
+        "expected_yield": 4377.01,
+        "var_margin": 4377.01,
+        "var_margin_settled": 4377.01
       },
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
         "type": "currency",
         "ticker": "RUB000UTSTOM",
         "figi": "RUB000UTSTOM",
-        "lots": 1243389.92,
-        "qty": 1243389.92,
+        "lots": 1242869.93,
+        "qty": 1242869.93,
         "avg_px": 1.0,
         "cur_px": 1.0,
         "expected_yield": 0.0,
         "var_margin": 0.0,
         "var_margin_settled": 0.0
-      },
-      {
-        "uid": "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a",
-        "type": "futures",
-        "ticker": "BRV6",
-        "figi": "FBR102600000",
-        "lots": 15.0,
-        "qty": 15.0,
-        "avg_px": 108.76,
-        "cur_px": 103.59,
-        "expected_yield": -11187.43,
-        "var_margin": -22348.05,
-        "var_margin_settled": -22348.05
       },
       {
         "uid": "d6240afe-4e9c-49b6-8835-629f431c8506",
@@ -123,8 +109,8 @@
         "lots": 18.0,
         "qty": 1800.0,
         "avg_px": 217.38,
-        "cur_px": 171.6,
-        "expected_yield": -82403.0,
+        "cur_px": 171.7,
+        "expected_yield": -82223.0,
         "var_margin": 0.0,
         "var_margin_settled": 0.0
       }
@@ -133,13 +119,13 @@
   "capitalCurveJoinTs": 1788301172998,
   "operational": {
     "go": {
-      "used_rub": 547433.65,
-      "budget_rub": 1485314.86,
+      "used_rub": 278260.0,
+      "budget_rub": 1506643.63,
       "peak_day_rub": 547433.65,
       "capital_peak_rub": 1771706.14,
-      "account_liquid_rub": 1552269.92,
-      "bot_capital_account_rub": 1552269.92,
-      "bot_capital_rub": 1534972.26
+      "account_liquid_rub": 1551929.93,
+      "bot_capital_account_rub": 1551929.93,
+      "bot_capital_rub": 1556306.94
     },
     "drift": {
       "D2": 0,
@@ -150,24 +136,24 @@
       "last": "D4 L00011"
     },
     "stats": {
-      "trades": 28,
+      "trades": 29,
       "orders_posted": 39,
-      "fills": 58,
+      "fills": 59,
       "wins": 17,
-      "losses": 11,
-      "fees_rub": 16860.7,
-      "realized_rub": 98235.37,
+      "losses": 12,
+      "fees_rub": 17803.19,
+      "realized_rub": 23231.94,
       "skipped_qty0": 0,
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1552269.92,
-      "futures": -17297.66,
+      "currencies": 1551929.93,
+      "futures": 4377.01,
       "mom_shares": 0.0,
       "user_assets": 0.0,
-      "portfolio_total": 1552269.92,
-      "capital_account": 1552269.92,
-      "capital_legacy": 1534972.26,
+      "portfolio_total": 1551929.93,
+      "capital_account": 1551929.93,
+      "capital_legacy": 1556306.94,
       "model": "legacy"
     },
     "active": {
@@ -189,12 +175,12 @@
   },
   "sleeves": {
     "core": {
-      "equity": 1571065.97,
-      "dayPct": -4.07
+      "equity": 1562652.51,
+      "dayPct": -4.58
     },
     "setA": {
-      "equity": 1632142.94,
-      "dayPct": 0.28
+      "equity": 1631806.25,
+      "dayPct": 0.26
     },
     "mom": {
       "equity": 350000.0,
@@ -202,49 +188,6 @@
     }
   },
   "positions": [
-    {
-      "id": "L00052",
-      "sleeve": "core",
-      "asset": "BR",
-      "secid": "BRV6",
-      "title": "нефть Brent (BRV6)",
-      "side": "long",
-      "lots": 15,
-      "entry": 108.764667,
-      "stop": 102.970963,
-      "tp1": null,
-      "cur": 103.57,
-      "upnl": -66589.97,
-      "risk": 83195.31,
-      "entryDay": "2026-09-10",
-      "entryTs": 1789072532751,
-      "rolls": 0,
-      "rubPerPt": 854.5939999999999,
-      "notional": 1394244.0,
-      "pctChg": -4.78,
-      "reconcileStatus": null,
-      "reconcileSinceTs": null,
-      "riskView": {
-        "policyId": "",
-        "mode": "cap",
-        "stopPx": 102.970963,
-        "stopDistPct": 5.327,
-        "riskRub": 75530.24,
-        "riskPctAccount": 4.866,
-        "feesEstimated": true,
-        "protection": "ok",
-        "entryPxStatus": "",
-        "budgetLeftRub": -51436.47
-      },
-      "brokerPnl": -11187.43,
-      "goRub": 269174.0,
-      "pnlPctGo": -24.74,
-      "brokerVarMargin": -22348.05,
-      "brokerVarMarginSettled": -22348.05,
-      "brokerAvgPx": 108.76,
-      "brokerCurPx": 103.59,
-      "brokerLots": 15.0
-    },
     {
       "id": "L00056",
       "sleeve": "setA",
@@ -256,15 +199,15 @@
       "entry": 2.91,
       "stop": 2.959,
       "tp1": 2.766964,
-      "cur": 2.895,
-      "upnl": 5050.39,
+      "cur": 2.896,
+      "upnl": 4713.7,
       "risk": 32550.67,
       "entryDay": "2026-09-17",
       "entryTs": 1789617632788,
       "rolls": 0,
       "rubPerPt": 8417.32,
       "notional": 979776.0,
-      "pctChg": 0.52,
+      "pctChg": 0.48,
       "reconcileStatus": null,
       "reconcileSinceTs": null,
       "riskView": {
@@ -272,20 +215,20 @@
         "mode": "cap",
         "stopPx": 2.959,
         "stopDistPct": 1.684,
-        "riskRub": 22474.33,
-        "riskPctAccount": 1.447,
+        "riskRub": 22137.96,
+        "riskPctAccount": 1.426,
         "feesEstimated": true,
         "protection": "ok",
         "entryPxStatus": "verified",
-        "budgetLeftRub": -51436.47
+        "budgetLeftRub": 24419.94
       },
-      "brokerPnl": 5050.39,
+      "brokerPnl": 4377.01,
       "goRub": 278260.0,
-      "pnlPctGo": 1.81,
-      "brokerVarMargin": 5050.39,
-      "brokerVarMarginSettled": 5050.39,
+      "pnlPctGo": 1.69,
+      "brokerVarMargin": 4377.01,
+      "brokerVarMarginSettled": 4377.01,
       "brokerAvgPx": 2.91,
-      "brokerCurPx": 2.895,
+      "brokerCurPx": 2.896,
       "brokerLots": -40.0
     }
   ],
@@ -766,6 +709,23 @@
       "pnl": -25257.85,
       "rMultiple": -0.3,
       "fees": 1276.78
+    },
+    {
+      "id": "L00052",
+      "sleeve": "core",
+      "asset": "BR",
+      "secid": "BRV6",
+      "title": "нефть Brent (BRV6)",
+      "side": "long",
+      "lots": 15,
+      "entryDay": "2026-09-10",
+      "entry": 108.764667,
+      "exitDay": "2026-09-17",
+      "exitPx": 102.96,
+      "exitReason": "stop",
+      "pnl": -75003.43,
+      "rMultiple": -0.9,
+      "fees": 942.49
     }
   ],
   "equity": [
@@ -22896,6 +22856,10 @@
     [
       1789642412874,
       751781.75
+    ],
+    [
+      1789643313074,
+      749127.62
     ]
   ],
   "capitalCurve": [
@@ -44966,6 +44930,10 @@
     [
       1789642412874,
       1552089.92
+    ],
+    [
+      1789643313074,
+      1552629.92
     ]
   ]
 }
