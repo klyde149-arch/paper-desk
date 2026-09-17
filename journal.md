@@ -1275,3 +1275,7 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-09-17 13:00 MSK — РФ АВТО [C2/core]: закрыта R28 SBRF LONG — -335.10 (stop)
 
 ## 2026-09-17 13:00 MSK — РФ АВТО [C3b/core]: закрыта R30 SBRF LONG — -580.17 (stop)
+
+## 2026-09-17 23:50 MSK — РФ АВТО: ролл GOLD: GDZ6 → GDU6 (ratio 0.97529)
+
+## 2026-09-17 23:50 MSK — РФ АВТО: ролл SILV: SVZ6 → SVU6 (ratio 0.9613)
