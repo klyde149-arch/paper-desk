@@ -10,56 +10,13 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  9096.36,
-    "equity_usd":  9069.1,
+    "balance_usd":  8998.54,
+    "equity_usd":  9046.72,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  9079.35,
     "day_start_date_utc":  "2026-09-18",
     "trading_halted":  false,
     "open_positions":  [
-                           {
-                               "id":  "T40",
-                               "symbol":  "BNB-USDT",
-                               "side":  "short",
-                               "qty":  5.9733,
-                               "qty_initial":  5.9733,
-                               "entry_price":  725.662236,
-                               "stop":  741.26,
-                               "stop0":  741.26,
-                               "tp1":  702.26559,
-                               "entry_utc":  "2026-09-11 20:01",
-                               "entry_ts":  1789156871856,
-                               "risk_usd":  93.17,
-                               "notional_usd":  4334.6,
-                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  false,
-                               "fees_usd":  2.38402902886434,
-                               "funding_usd":  -6.1751832638129995,
-                               "legs":  [
-
-                                        ],
-                               "mfe_px":  704.19,
-                               "mae_px":  739.96,
-                               "thesis":  {
-                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
-                                              "regime":  "BTC 4h down; BNB-USDT 4h down; F\u0026G 56",
-                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-09-11 16:00 UTC",
-                                              "indicators":  "RSI 47.8, ATR 1.56% (кэп 3%), фандинг 5E-05/8ч",
-                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
-                                              "riskPlan":  "вход ~725.662236, стоп 741.26 (2.28%), TP1 702.26559 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $93.17",
-                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
-                                              "checks":  {
-                                                             "setupA":  true,
-                                                             "btcFilter":  true,
-                                                             "flatMode":  true,
-                                                             "atrCap":  true,
-                                                             "funding":  true,
-                                                             "fearGreed":  true,
-                                                             "btcMom5d":  true,
-                                                             "atrCapLong":  true
-                                                         }
-                                          }
-                           },
                            {
                                "id":  "T42",
                                "symbol":  "BTC-USDT",
@@ -125,7 +82,7 @@
 
                                         ],
                                "mfe_px":  2435.7,
-                               "mae_px":  2447.71,
+                               "mae_px":  2451.65,
                                "thesis":  {
                                               "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
                                               "regime":  "BTC 4h down; ETH-USDT 4h down; F\u0026G 56",
@@ -148,24 +105,24 @@
                            }
                        ],
     "stats":  {
-                  "closed_trades":  40,
+                  "closed_trades":  41,
                   "wins":  13,
-                  "losses":  27,
-                  "total_fees_usd":  219.14,
-                  "total_funding_usd":  30.2,
-                  "realized_pnl_usd":  -904.87
+                  "losses":  28,
+                  "total_fees_usd":  223.96,
+                  "total_funding_usd":  24.02,
+                  "realized_pnl_usd":  -998.9
               },
-    "last_check_utc":  "2026-09-18 01:00",
+    "last_check_utc":  "2026-09-18 01:15",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1789693140000,
+                 "last_1m_ts":  1789694040000,
                  "last_4h_ts":  1789675200000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
                  "next_trade_id":  44,
                  "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-09-17",
-                 "last_tick_utc":  "2026-09-18 01:00"
+                 "last_tick_utc":  "2026-09-18 01:15"
              }
 }
