@@ -92,7 +92,7 @@
             "fees_estimated": true,
             "protection": "ok",
             "entry_px_status": "verified",
-            "budget_left_rub": 32861.0
+            "budget_left_rub": 32657.6
           }
         }
       ],
@@ -130,8 +130,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-17",
     "last_hour_ts": 1789768800000,
-    "ops_since": "2026-09-18T20:00:33Z",
-    "last_eq_snap": 1789764453016,
+    "ops_since": "2026-09-18T20:15:33Z",
+    "last_eq_snap": 1789765353145,
     "last_report_day": "2026-09-18",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
@@ -263,8 +263,8 @@
     "budget_rub": 1466189.73,
     "peak_day_rub": 152728.03,
     "capital_peak_rub": 1771706.14,
-    "account_liquid_rub": 1516846.73,
-    "bot_capital_account_rub": 1516846.73,
+    "account_liquid_rub": 1510066.73,
+    "bot_capital_account_rub": 1510066.73,
     "bot_capital_rub": 1516189.73
   },
   "drift": {
@@ -484,18 +484,18 @@
     "a72e6299-a1c0-439a-98eb-06538cec8ab4": -657.0
   },
   "broker": {
-    "captured_ms": 1789765233041,
+    "captured_ms": 1789766133052,
     "totals": {
-      "portfolio": 1516846.73,
-      "currencies": 1516846.73,
+      "portfolio": 1510066.73,
+      "currencies": 1510066.73,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
       "futures_nominal": -719374.0
     },
-    "expected_yield_pct": -4.56,
-    "daily_yield_rub": 3663.0,
-    "daily_yield_rel_pct": 0.24,
+    "expected_yield_pct": -4.58,
+    "daily_yield_rub": 10443.0,
+    "daily_yield_rel_pct": 0.69,
     "positions": [
       {
         "uid": "a72e6299-a1c0-439a-98eb-06538cec8ab4",
@@ -507,16 +507,16 @@
         "avg_px": 457.8,
         "cur_px": 458.2,
         "expected_yield": -657.0,
-        "var_margin": -657.0,
-        "var_margin_settled": -6780.0
+        "var_margin": 6123.0,
+        "var_margin_settled": 6123.0
       },
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
         "type": "currency",
         "ticker": "RUB000UTSTOM",
         "figi": "RUB000UTSTOM",
-        "lots": 1197436.73,
-        "qty": 1197436.73,
+        "lots": 1190656.73,
+        "qty": 1190656.73,
         "avg_px": 1.0,
         "cur_px": 1.0,
         "expected_yield": 0.0,
@@ -567,22 +567,22 @@
       "ts": 1789655372961
     },
     "a72e6299-a1c0-439a-98eb-06538cec8ab4": {
-      "vm": -657.0,
+      "vm": 6123.0,
       "ey": -657.0,
       "cur_px": 458.2,
       "avg_px": 457.8,
       "lots": -157.0,
       "secid": "CCX6",
-      "ts": 1789765233041
+      "ts": 1789766133052
     }
   },
   "capital_breakdown": {
-    "currencies": 1516846.73,
-    "futures": -657.0,
+    "currencies": 1510066.73,
+    "futures": 6123.0,
     "mom_shares": 0.0,
     "user_assets": 0.0,
-    "portfolio_total": 1516846.73,
-    "capital_account": 1516846.73,
+    "portfolio_total": 1510066.73,
+    "capital_account": 1510066.73,
     "capital_legacy": 1516189.73,
     "model": "legacy"
   },
@@ -600,21 +600,21 @@
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789765233041,
+    "updated_ms": 1789766133052,
     "budgets_enforced": false,
-    "capital_rub": 1516846.73,
+    "capital_rub": 1510066.73,
     "capital_ok": true,
     "capital_reason": "",
     "total_used_rub": 12644.4,
-    "total_cap_rub": 45505.4,
+    "total_cap_rub": 45302.0,
     "fx_long_rub": 0.0,
     "fx_short_rub": 0.0,
-    "fx_cap_rub": 22752.7,
+    "fx_cap_rub": 22651.0,
     "by_asset": {
       "COCOA": 12644.4
     },
     "unknown": [
-      "card L00057: котировка старше 635 с"
+      "card L00057: котировка старше 1535 с"
     ],
     "day_ok": false,
     "day_pnl_rub": null,
