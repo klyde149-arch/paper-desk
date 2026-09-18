@@ -1,22 +1,22 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789739138953,
-  "sourceAtMs": 1789738354082,
+  "generatedAtMs": 1789740039219,
+  "sourceAtMs": 1789739312787,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1516594.21,
+    "capital": 1515604.21,
     "peak": 1771706.14,
     "drawdownPct": null,
     "peakStale": true,
     "capitalModel": "legacy",
-    "accountTotal": 1516594.21,
+    "accountTotal": 1515604.21,
     "userAssets": 0.0,
     "dayBase": 1512814.21,
     "dayBaseSource": "broker_daily_yield",
-    "todayAmt": 3780.0,
-    "todayPct": 0.24,
-    "allTimePct": -5.8,
+    "todayAmt": 2790.0,
+    "todayPct": 0.18,
+    "allTimePct": -5.81,
     "allTimeAmt": -93431.82,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
@@ -31,8 +31,8 @@
     "entriesHalt": false,
     "haltReason": "",
     "goUsed": 0.0,
-    "goBudget": 1466594.21,
-    "accountLiquid": 1516594.21,
+    "goBudget": 1465694.21,
+    "accountLiquid": 1515604.21,
     "lastDailyDay": "2026-09-17",
     "pendingSettleRub": 0.0,
     "pendingSettleTodayRub": 0.0,
@@ -41,15 +41,15 @@
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789739132887,
-      "capitalRub": 1516594.21,
+      "updatedMs": 1789740033178,
+      "capitalRub": 1515604.21,
       "capitalOk": true,
       "capitalReason": "",
       "totalUsedRub": 0.0,
-      "totalCapRub": 45497.83,
+      "totalCapRub": 45468.13,
       "fxLongRub": 0.0,
       "fxShortRub": 0.0,
-      "fxCapRub": 22748.91,
+      "fxCapRub": 22734.06,
       "byAsset": {},
       "dayOk": true,
       "dayPnlRub": 0.0,
@@ -60,18 +60,18 @@
     }
   },
   "broker": {
-    "captured_ms": 1789739132887,
+    "captured_ms": 1789740033178,
     "totals": {
-      "portfolio": 1516594.21,
-      "currencies": 1516594.21,
+      "portfolio": 1515604.21,
+      "currencies": 1515604.21,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
       "futures_nominal": 0.0
     },
-    "expected_yield_pct": -4.55,
-    "daily_yield_rub": 3780.0,
-    "daily_yield_rel_pct": 0.24,
+    "expected_yield_pct": -4.61,
+    "daily_yield_rub": 2790.0,
+    "daily_yield_rel_pct": 0.18,
     "positions": [
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -94,8 +94,8 @@
         "lots": 18.0,
         "qty": 1800.0,
         "avg_px": 217.38,
-        "cur_px": 177.15,
-        "expected_yield": -72413.0,
+        "cur_px": 176.6,
+        "expected_yield": -73403.0,
         "var_margin": 0.0,
         "var_margin_settled": 0.0
       }
@@ -105,12 +105,12 @@
   "operational": {
     "go": {
       "used_rub": 0.0,
-      "budget_rub": 1466594.21,
+      "budget_rub": 1465694.21,
       "peak_day_rub": 0.0,
       "capital_peak_rub": 1771706.14,
-      "account_liquid_rub": 1516594.21,
-      "bot_capital_account_rub": 1516594.21,
-      "bot_capital_rub": 1516594.21
+      "account_liquid_rub": 1515604.21,
+      "bot_capital_account_rub": 1515604.21,
+      "bot_capital_rub": 1515604.21
     },
     "drift": {
       "D2": 0,
@@ -132,13 +132,13 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1516594.21,
+      "currencies": 1515604.21,
       "futures": 0.0,
       "mom_shares": 0.0,
       "user_assets": 0.0,
-      "portfolio_total": 1516594.21,
-      "capital_account": 1516594.21,
-      "capital_legacy": 1516594.21,
+      "portfolio_total": 1515604.21,
+      "capital_account": 1515604.21,
+      "capital_legacy": 1515604.21,
       "model": "legacy"
     },
     "active": {
@@ -23226,6 +23226,10 @@
     [
       1789738354082,
       737553.92
+    ],
+    [
+      1789739312787,
+      737553.92
     ]
   ],
   "capitalCurve": [
@@ -45708,6 +45712,10 @@
     [
       1789738354082,
       1516594.21
+    ],
+    [
+      1789739312787,
+      1516504.21
     ]
   ]
 }
