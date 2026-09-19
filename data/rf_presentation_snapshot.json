@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1789850738514,
-  "sourceAtMs": 1789850553228,
+  "generatedAtMs": 1789851638751,
+  "sourceAtMs": 1789851512955,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -41,7 +41,7 @@
     "riskBudget": {
       "mode": "cap",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1789850732796,
+      "updatedMs": 1789851632762,
       "capitalRub": 1510066.73,
       "capitalOk": true,
       "capitalReason": "",
@@ -53,18 +53,18 @@
       "byAsset": {
         "COCOA": 12645.45
       },
-      "dayOk": true,
-      "dayPnlRub": -1099.0,
-      "dayLimitRub": 30201.33,
-      "dayReason": "",
+      "dayOk": false,
+      "dayPnlRub": null,
+      "dayLimitRub": null,
+      "dayReason": "нет проверенной дневной базы",
       "unknown": [
-        "card L00057: котировка старше 17134 с"
+        "card L00057: котировка старше 18034 с"
       ],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1789850732796,
+    "captured_ms": 1789851632762,
     "totals": {
       "portfolio": 1510066.73,
       "currencies": 1510066.73,
@@ -23767,6 +23767,10 @@
     [
       1789850553228,
       736528.83
+    ],
+    [
+      1789851512955,
+      736528.83
     ]
   ],
   "capitalCurve": [
@@ -46728,6 +46732,10 @@
     ],
     [
       1789850553228,
+      1510066.73
+    ],
+    [
+      1789851512955,
       1510066.73
     ]
   ]
