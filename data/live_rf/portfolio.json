@@ -130,8 +130,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-17",
     "last_hour_ts": 1789768800000,
-    "ops_since": "2026-09-19T20:30:33Z",
-    "last_eq_snap": 1789853372954,
+    "ops_since": "2026-09-19T20:45:32Z",
+    "last_eq_snap": 1789854332886,
     "last_report_day": "2026-09-19",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
@@ -318,10 +318,140 @@
     "go_cap_rub": 1097110.66,
     "fits": false
   },
+  "risk_day": {
+    "day": "2026-09-19",
+    "base_ms": 1789767332965,
+    "vm_by_uid": {
+      "a72e6299-a1c0-439a-98eb-06538cec8ab4": 6123.0
+    },
+    "mom_eq": 350000.0,
+    "e_base": 1510066.73,
+    "fees_est_rub": 0.0
+  },
+  "consec_fail": 0,
+  "fail_since_ms": 0,
+  "fail_alert_ms": 0,
+  "broker_pnl_by_uid": {
+    "a72e6299-a1c0-439a-98eb-06538cec8ab4": -1756.0
+  },
+  "broker": {
+    "captured_ms": 1789854332886,
+    "totals": {
+      "portfolio": 1510066.73,
+      "currencies": 1510066.73,
+      "shares": 0.0,
+      "bonds": 0.0,
+      "etf": 0.0,
+      "futures_nominal": -720473.0
+    },
+    "expected_yield_pct": -4.64,
+    "daily_yield_rub": 5024.0,
+    "daily_yield_rel_pct": 0.33,
+    "positions": [
+      {
+        "uid": "a72e6299-a1c0-439a-98eb-06538cec8ab4",
+        "type": "futures",
+        "ticker": "CCX6",
+        "figi": "FCOCOA112600",
+        "lots": -157.0,
+        "qty": -157.0,
+        "avg_px": 457.8,
+        "cur_px": 458.9,
+        "expected_yield": -1756.0,
+        "var_margin": 5024.0,
+        "var_margin_settled": 5024.0
+      },
+      {
+        "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
+        "type": "currency",
+        "ticker": "RUB000UTSTOM",
+        "figi": "RUB000UTSTOM",
+        "lots": 1190656.73,
+        "qty": 1190656.73,
+        "avg_px": 1.0,
+        "cur_px": 1.0,
+        "expected_yield": 0.0,
+        "var_margin": 0.0,
+        "var_margin_settled": 0.0
+      },
+      {
+        "uid": "d6240afe-4e9c-49b6-8835-629f431c8506",
+        "type": "currency",
+        "ticker": "SLVRUB_TOM",
+        "figi": "BBG000VHQTD1",
+        "lots": 18.0,
+        "qty": 1800.0,
+        "avg_px": 217.38,
+        "cur_px": 177.45,
+        "expected_yield": -71873.0,
+        "var_margin": 0.0,
+        "var_margin_settled": 0.0
+      }
+    ]
+  },
+  "broker_vm_last": {
+    "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": {
+      "vm": -26640.75,
+      "ey": -15480.13,
+      "cur_px": 103.01,
+      "avg_px": 108.76,
+      "lots": 15.0,
+      "secid": "BRV6",
+      "ts": 1789643313074
+    },
+    "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050": {
+      "vm": -17850.0,
+      "ey": -22000.0,
+      "cur_px": 234725.0,
+      "avg_px": 238492.0,
+      "lots": 6.0,
+      "secid": "MXZ6",
+      "ts": 1789553612933
+    },
+    "7326ae99-d9f1-4df1-8e3a-d85390686038": {
+      "vm": -8788.97,
+      "ey": -8788.97,
+      "cur_px": 2.941,
+      "avg_px": 2.91,
+      "lots": -40.0,
+      "secid": "NGU6",
+      "ts": 1789655372961
+    },
+    "a72e6299-a1c0-439a-98eb-06538cec8ab4": {
+      "vm": 5024.0,
+      "ey": -1756.0,
+      "cur_px": 458.9,
+      "avg_px": 457.8,
+      "lots": -157.0,
+      "secid": "CCX6",
+      "ts": 1789854332886
+    }
+  },
+  "capital_breakdown": {
+    "currencies": 1510066.73,
+    "futures": 5024.0,
+    "mom_shares": 0.0,
+    "user_assets": 0.0,
+    "portfolio_total": 1510066.73,
+    "capital_account": 1510066.73,
+    "capital_legacy": 1515090.73,
+    "model": "legacy"
+  },
+  "risk_policy": {
+    "requested": true,
+    "mode": "cap",
+    "policy_id": "rf-early-exit-v1",
+    "applied_hash": "3235d4e76229ae0073ec324bece87eb0c60c6ca93aaaeb911359b9516cd55fe3",
+    "applied_ms": 1789302993484,
+    "rejected_reason": ""
+  },
+  "broker_pnl_by_card": {
+    "L00057": -1756.0
+  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
-    "first_ms": 1789508132837,
-    "until_ms": 1789767332965,
+    "first_ms": 1789681472941,
+    "until_ms": 1789854332886,
     "varmargin_rub": 12833.35,
     "fees_rub": -33088.24,
     "fees_other_rub": -4854.23,
@@ -463,148 +593,18 @@
       "16555262",
       "16950174064"
     ],
-    "updated_ms": 1789767332965,
+    "updated_ms": 1789854332886,
     "last_varmargin_op_ms": 1789765324781
   },
   "pending_settle": {
     "rub": 0.0,
-    "updated_ms": 1789767332965,
+    "updated_ms": 1789854332886,
     "items": []
-  },
-  "risk_day": {
-    "day": "2026-09-19",
-    "base_ms": 1789767332965,
-    "vm_by_uid": {
-      "a72e6299-a1c0-439a-98eb-06538cec8ab4": 6123.0
-    },
-    "mom_eq": 350000.0,
-    "e_base": 1510066.73,
-    "fees_est_rub": 0.0
-  },
-  "consec_fail": 0,
-  "fail_since_ms": 0,
-  "fail_alert_ms": 0,
-  "broker_pnl_by_uid": {
-    "a72e6299-a1c0-439a-98eb-06538cec8ab4": -1756.0
-  },
-  "broker": {
-    "captured_ms": 1789853433016,
-    "totals": {
-      "portfolio": 1510066.73,
-      "currencies": 1510066.73,
-      "shares": 0.0,
-      "bonds": 0.0,
-      "etf": 0.0,
-      "futures_nominal": -720473.0
-    },
-    "expected_yield_pct": -4.64,
-    "daily_yield_rub": 5024.0,
-    "daily_yield_rel_pct": 0.33,
-    "positions": [
-      {
-        "uid": "a72e6299-a1c0-439a-98eb-06538cec8ab4",
-        "type": "futures",
-        "ticker": "CCX6",
-        "figi": "FCOCOA112600",
-        "lots": -157.0,
-        "qty": -157.0,
-        "avg_px": 457.8,
-        "cur_px": 458.9,
-        "expected_yield": -1756.0,
-        "var_margin": 5024.0,
-        "var_margin_settled": 5024.0
-      },
-      {
-        "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
-        "type": "currency",
-        "ticker": "RUB000UTSTOM",
-        "figi": "RUB000UTSTOM",
-        "lots": 1190656.73,
-        "qty": 1190656.73,
-        "avg_px": 1.0,
-        "cur_px": 1.0,
-        "expected_yield": 0.0,
-        "var_margin": 0.0,
-        "var_margin_settled": 0.0
-      },
-      {
-        "uid": "d6240afe-4e9c-49b6-8835-629f431c8506",
-        "type": "currency",
-        "ticker": "SLVRUB_TOM",
-        "figi": "BBG000VHQTD1",
-        "lots": 18.0,
-        "qty": 1800.0,
-        "avg_px": 217.38,
-        "cur_px": 177.45,
-        "expected_yield": -71873.0,
-        "var_margin": 0.0,
-        "var_margin_settled": 0.0
-      }
-    ]
-  },
-  "broker_vm_last": {
-    "c8968ffd-db1c-4a35-9f6f-7013a2b7c35a": {
-      "vm": -26640.75,
-      "ey": -15480.13,
-      "cur_px": 103.01,
-      "avg_px": 108.76,
-      "lots": 15.0,
-      "secid": "BRV6",
-      "ts": 1789643313074
-    },
-    "3d96c0f8-9e6e-4c0a-bac8-44a5a1db8050": {
-      "vm": -17850.0,
-      "ey": -22000.0,
-      "cur_px": 234725.0,
-      "avg_px": 238492.0,
-      "lots": 6.0,
-      "secid": "MXZ6",
-      "ts": 1789553612933
-    },
-    "7326ae99-d9f1-4df1-8e3a-d85390686038": {
-      "vm": -8788.97,
-      "ey": -8788.97,
-      "cur_px": 2.941,
-      "avg_px": 2.91,
-      "lots": -40.0,
-      "secid": "NGU6",
-      "ts": 1789655372961
-    },
-    "a72e6299-a1c0-439a-98eb-06538cec8ab4": {
-      "vm": 5024.0,
-      "ey": -1756.0,
-      "cur_px": 458.9,
-      "avg_px": 457.8,
-      "lots": -157.0,
-      "secid": "CCX6",
-      "ts": 1789853433016
-    }
-  },
-  "capital_breakdown": {
-    "currencies": 1510066.73,
-    "futures": 5024.0,
-    "mom_shares": 0.0,
-    "user_assets": 0.0,
-    "portfolio_total": 1510066.73,
-    "capital_account": 1510066.73,
-    "capital_legacy": 1515090.73,
-    "model": "legacy"
-  },
-  "risk_policy": {
-    "requested": true,
-    "mode": "cap",
-    "policy_id": "rf-early-exit-v1",
-    "applied_hash": "3235d4e76229ae0073ec324bece87eb0c60c6ca93aaaeb911359b9516cd55fe3",
-    "applied_ms": 1789302993484,
-    "rejected_reason": ""
-  },
-  "broker_pnl_by_card": {
-    "L00057": -1756.0
   },
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789853433016,
+    "updated_ms": 1789854332886,
     "budgets_enforced": false,
     "capital_rub": 1510066.73,
     "capital_ok": true,
@@ -618,7 +618,7 @@
       "COCOA": 12645.45
     },
     "unknown": [
-      "card L00057: котировка старше 19835 с"
+      "card L00057: котировка старше 20734 с"
     ],
     "day_ok": false,
     "day_pnl_rub": null,
