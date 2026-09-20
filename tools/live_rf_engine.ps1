@@ -1146,7 +1146,18 @@ function Invoke-RiskPolicyResolve {
 function Get-RpCapital($P) {
   $cap = if ($st.go.PSObject.Properties['bot_capital_account_rub']) { $st.go.bot_capital_account_rub } else { $null }
   $ms = if ($st.PSObject.Properties['broker'] -and $null -ne $st.broker) { $st.broker.captured_ms } else { $null }
-  return (Get-RfRiskCapital $cap $ms $NowMs ([int]$P.capital_max_age_sec))
+  # выделенная торговая база (schema 2): эффективная база = min(выделенная, проверенный капитал)
+  $alloc = if ($P.PSObject.Properties['allocated_capital_rub']) { $P.allocated_capital_rub } else { $null }
+  return (Get-RfRiskCapital $cap $ms $NowMs ([int]$P.capital_max_age_sec) $alloc)
+}
+
+# Выключатель новых РЕАЛЬНЫХ входов рукава (schema 2): off|observe|live. Стопы, сопровождение и
+# выходы по открытым позициям он не трогает - это только про НОВЫЕ входы.
+function Get-RpSleeveEntryMode([string]$Sleeve) {
+  if ($null -eq $script:RP -or -not $script:RP.ok -or $null -eq $script:RP.p) { return 'live' }
+  $sp = if ($script:RP.p.PSObject.Properties[$Sleeve]) { $script:RP.p.$Sleeve } else { $null }
+  if ($null -eq $sp -or -not $sp.PSObject.Properties['new_entries'] -or -not [string]$sp.new_entries) { return 'live' }
+  return [string]$sp.new_entries
 }
 
 # Нагрузка на бюджет риска: карточки ОБОИХ рукавов (включая открытые до политики) и входные интенты,
@@ -1662,6 +1673,12 @@ function Update-RpBudgetView {
     # в режиме cap потолки и дневной предел НЕ применяются - показываем их как справочные
     budgets_enforced = (-not (Test-RpCapOnly))
     capital_rub = $E; capital_ok = [bool]$cap.ok; capital_reason = [string]$cap.reason
+    # откуда взялась база: выделенная сумма или проверенный капитал счёта. Без этого по одному
+    # числу нельзя понять, упёрлись мы в свой потолок или в реальные деньги на счёте
+    capital_binding = [string]$cap.binding
+    capital_verified_rub = $(if ($null -ne $cap.verified_rub) { [math]::Round([double]$cap.verified_rub, 2) } else { $null })
+    capital_allocated_rub = $(if ($null -ne $cap.allocated_rub) { [math]::Round([double]$cap.allocated_rub, 2) } else { $null })
+    setA_entries = (Get-RpSleeveEntryMode 'setA'); core_entries = (Get-RpSleeveEntryMode 'core')
     total_used_rub = [math]::Round([double]$open.total, 2)
     total_cap_rub = $(if ($null -ne $E) { [math]::Round($E * [double]$P.futures_open_risk_cap_pct, 2) } else { $null })
     fx_long_rub = [math]::Round([double]$open.fx_long, 2); fx_short_rub = [math]::Round([double]$open.fx_short, 2)
@@ -3157,6 +3174,10 @@ function Invoke-LiveDayHook([string]$D) {
     $dsig = Get-DonchianSide $s $i $ra
     if ([string]$dsig.side -ne '' -and -not (Test-SideAllowed $a ([string]$dsig.side))) {
       $script:ev.Add("SKIP long-only [core] $a $($dsig.side) @close $cl")
+    } elseif ([string]$dsig.side -ne '' -and (Get-RpSleeveEntryMode 'core') -ne 'live') {
+      $script:ev.Add("SKIP рукав core [$(Get-RpSleeveEntryMode 'core')] $a $($dsig.side) @close")
+      Write-RpLog 'signal-skip' ([pscustomobject]@{ sleeve = 'core'; asset = $a; side = [string]$dsig.side
+        reason = "new_entries=$(Get-RpSleeveEntryMode 'core')"; day = $D })
     } elseif ([string]$dsig.side -ne '') {
       $slC = $st.sleeves.core
       $busy = @($slC.positions).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'core' -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
@@ -3175,6 +3196,12 @@ function Invoke-LiveDayHook([string]$D) {
     $asig = Get-SetupASignal $s $i
     if ($null -ne $asig -and -not (Test-SideAllowed $a ([string]$asig.side))) {
       $script:ev.Add("SKIP long-only [setA] $a $($asig.side) @close $cl")
+    } elseif ($null -ne $asig -and (Get-RpSleeveEntryMode 'setA') -ne 'live') {
+      # выключатель рукава (этап 2 плана восстановления): сигнал есть, намерение НЕ создаём.
+      # Журнал решений видит и сигнал, и причину отказа - см. также проверку в Invoke-EntryIntentPost
+      $script:ev.Add("SKIP рукав setA [$(Get-RpSleeveEntryMode 'setA')] $a $($asig.side) @close $cl")
+      Write-RpLog 'signal-skip' ([pscustomobject]@{ sleeve = 'setA'; asset = $a; side = [string]$asig.side
+        reason = "new_entries=$(Get-RpSleeveEntryMode 'setA')"; ref_px = $cl; day = $D })
     } elseif ($null -ne $asig) {
       $slA = $st.sleeves.setA
       $busy = @($slA.positions).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'setA' -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
@@ -3235,6 +3262,17 @@ function Invoke-EntryIntentPost($it) {
   # отменяем: пауза временная, при снятии он уйдёт штатной проверкой свежести (этап 3).
   if ($st.entries_halt.active) {
     $script:ev.Add("SKIP пауза входов [$($it.sleeve)] $($it.asset): $([string]$st.entries_halt.reason)")
+    return
+  }
+  # Выключатель рукава проверяется ЗДЕСЬ, а не только при создании намерения: отложенный интент мог
+  # родиться, когда рукав ещё торговал. Интент отменяем: в отличие от паузы, это решение о рукаве,
+  # и держать его «до лучших времён» значило бы копить устаревшие намерения.
+  $entryMode = Get-RpSleeveEntryMode ([string]$it.sleeve)
+  if ($entryMode -ne 'live') {
+    Set-IntentState $it 'CANCELLED' "рукав $($it.sleeve): новые входы $entryMode"
+    $script:ev.Add("SKIP рукав $($it.sleeve) [$entryMode] $($it.asset) $($it.side)")
+    Write-RpLog 'entry-skip' ([pscustomobject]@{ sleeve = [string]$it.sleeve; asset = [string]$it.asset
+      side = [string]$it.side; reason = "new_entries=$entryMode"; intent = [string]$it.id })
     return
   }
   $sl = Get-SleeveRef ([string]$it.sleeve)
@@ -3366,6 +3404,12 @@ function Invoke-EveningConfirm {
       if ([string]$dsig.side -eq '') { continue }
       if (-not (Test-SideAllowed $a ([string]$dsig.side))) {
         $script:ev.Add("SKIP long-only [core] $a $($dsig.side) @evening $px (same-day)")
+        continue
+      }
+      if ((Get-RpSleeveEntryMode 'core') -ne 'live') {
+        $script:ev.Add("SKIP рукав core [$(Get-RpSleeveEntryMode 'core')] $a $($dsig.side) @evening $px")
+        Write-RpLog 'signal-skip' ([pscustomobject]@{ sleeve = 'core'; asset = $a; side = [string]$dsig.side
+          reason = "new_entries=$(Get-RpSleeveEntryMode 'core')"; ref_px = $px; day = $mskToday })
         continue
       }
       $dir = if ($dsig.side -eq 'long') { 'buy' } else { 'sell' }

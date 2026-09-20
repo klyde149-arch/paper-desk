@@ -277,7 +277,15 @@ function Test-RiskLib {
   # каждая ошибка обязана давать invalid: движок остановит входы, а НЕ вернётся молча к риску 5%
   $bad = @(
     @{ n = 'неизвестный режим';           f = { param($x) $x.mode = 'pilott' } },
-    @{ n = 'версия схемы 2';              f = { param($x) $x.schema_version = 2 } },
+    @{ n = 'версия схемы 3';              f = { param($x) $x.schema_version = 3 } },
+    # schema 2 обязывает объявить выключатель рукава: молча считать его 'live' нельзя
+    @{ n = 'схема 2 без setA.new_entries'; f = { param($x) $x.schema_version = 2 } },
+    @{ n = 'выделенная база в схеме 1';   f = { param($x) $x | Add-Member -NotePropertyName allocated_capital_rub -NotePropertyValue 500000 } },
+    @{ n = 'выделенная база 0';           f = { param($x) $x.schema_version = 2
+            $x.setA | Add-Member -NotePropertyName new_entries -NotePropertyValue 'off'
+            $x | Add-Member -NotePropertyName allocated_capital_rub -NotePropertyValue 0 } },
+    @{ n = 'неизвестный режим рукава';    f = { param($x) $x.schema_version = 2
+            $x.setA | Add-Member -NotePropertyName new_entries -NotePropertyValue 'paused' } },
     @{ n = 'число строкой';               f = { param($x) $x.core.risk_pct = '0.005' } },
     @{ n = 'risk_pct 0.5 (50%)';          f = { param($x) $x.core.risk_pct = 0.5 } },
     @{ n = 'отрицательный потолок';       f = { param($x) $x.futures_open_risk_cap_pct = -0.03 } },
@@ -295,9 +303,38 @@ function Test-RiskLib {
     Check "policy invalid: $($b.n)" (-not $rb.ok -and $rb.mode -eq 'invalid' -and [string]$rb.error)
   }
 
+  # --- схема 2: выделенная база и выключатели рукавов (этап 2 плана восстановления)
+  $v2 = ConvertFrom-Json $goodJson
+  $v2.schema_version = 2
+  $v2.setA | Add-Member -NotePropertyName new_entries -NotePropertyValue 'off' -Force
+  $v2 | Add-Member -NotePropertyName allocated_capital_rub -NotePropertyValue 700000 -Force
+  $r2v = Resolve-RfRiskPolicy $v2
+  Check 'policy v2: валидна' ($r2v.ok -and $r2v.p.schema_version -eq 2)
+  Check 'policy v2: выключатель setA прочитан' ([string]$r2v.p.setA.new_entries -eq 'off')
+  Check 'policy v2: core по умолчанию live' ([string]$r2v.p.core.new_entries -eq 'live')
+  Check 'policy v2: выделенная база прочитана' ($r2v.p.allocated_capital_rub -eq [decimal]700000)
+  Check 'policy v2: хеш отличается от v1' ($r2v.hash -ne $r.hash)
+  $v2b = ConvertFrom-Json ($v2 | ConvertTo-Json -Depth 5)
+  Check 'policy v2: хеш стабилен после JSON-круга' ((Resolve-RfRiskPolicy $v2b).hash -eq $r2v.hash)
+  $v2c = ConvertFrom-Json ($v2 | ConvertTo-Json -Depth 5); $v2c.allocated_capital_rub = 900000
+  Check 'policy v2: смена базы меняет хеш' ((Resolve-RfRiskPolicy $v2c).hash -ne $r2v.hash)
+  $v2d = ConvertFrom-Json ($v2 | ConvertTo-Json -Depth 5); $v2d.setA.new_entries = 'live'
+  Check 'policy v2: смена выключателя меняет хеш' ((Resolve-RfRiskPolicy $v2d).hash -ne $r2v.hash)
+
   # --- капитал
   $c = Get-RfRiskCapital 1600000 1000000 1060000 180
   Check 'capital: свежий снимок' ($c.ok -and $c.rub -eq [decimal]1600000 -and $c.age_sec -eq 60)
+  Check 'capital: без выделенной базы ограничивает счёт' ([string]$c.binding -eq 'verified')
+  # выделенная база: пополнение счёта потолок НЕ поднимает, падение капитала базу опускает
+  $cA = Get-RfRiskCapital 1600000 1000000 1060000 180 700000
+  Check 'capital: выделенная база ниже счёта - берём её' ($cA.ok -and $cA.rub -eq [decimal]700000 -and [string]$cA.binding -eq 'allocated')
+  Check 'capital: проверенный капитал сохранён рядом' ($cA.verified_rub -eq [decimal]1600000)
+  $cB = Get-RfRiskCapital 500000 1000000 1060000 180 700000
+  Check 'capital: счёт ниже выделенной базы - берём счёт' ($cB.ok -and $cB.rub -eq [decimal]500000 -and [string]$cB.binding -eq 'verified')
+  $cC = Get-RfRiskCapital 1600000 1000000 1060000 180 $null
+  Check 'capital: база не задана - прежнее поведение' ($cC.ok -and $cC.rub -eq [decimal]1600000)
+  $cD = Get-RfRiskCapital 1600000 1000000 1060000 180 700000
+  Check 'capital: устаревший снимок не спасает выделенная база' (-not (Get-RfRiskCapital 1600000 1000000 1360000 180 700000).ok)
   Check 'capital: устаревший снимок (200 с)' (-not (Get-RfRiskCapital 1600000 1000000 1200000 180).ok)
   Check 'capital: ноль' (-not (Get-RfRiskCapital 0 1000000 1000000 180).ok)
   Check 'capital: отрицательный' (-not (Get-RfRiskCapital -5 1000000 1000000 180).ok)

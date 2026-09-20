@@ -113,7 +113,10 @@ function Resolve-RfRiskPolicy($Raw) {
     return $v
   }
 
-  $ver = Need-Num $Raw 'schema_version' 1 1 -Path 'schema_version' -Int
+  # schema_version 2 (этап 2 плана восстановления 2026-09-19): добавлены выделенная торговая база
+  # allocated_capital_rub и выключатель новых входов setA.new_entries. Версия 1 остаётся валидной и
+  # означает прежний смысл: база = проверенный капитал счёта, Setup A торгует.
+  $ver = Need-Num $Raw 'schema_version' 1 2 -Path 'schema_version' -Int
   $pid0 = RkProp $Raw 'policy_id'
   $policyId = ''
   if ($pid0 -isnot [string] -or $pid0 -notmatch '^[a-z0-9][a-z0-9.\-]{2,63}$') { $errs.Add("policy_id: ожидалась строка [a-z0-9.-], 3-64 символа") }
@@ -134,6 +137,22 @@ function Resolve-RfRiskPolicy($Raw) {
   $dayHalt = Need-Num $Raw 'daily_entry_loss_halt_pct' 0 '0.10' -LoOpen -Path 'daily_entry_loss_halt_pct'
   $qAge = Need-Num $Raw 'quote_max_age_sec' 1 86400 -Path 'quote_max_age_sec' -Int
   $cAge = Need-Num $Raw 'capital_max_age_sec' 1 86400 -Path 'capital_max_age_sec' -Int
+  # Выделенная торговая база: ЯВНАЯ сумма, которой боту разрешено рисковать. Эффективная база =
+  # min(выделенная, проверенный капитал счёта) - см. Get-RfRiskCapital. Пополнение счёта потолок НЕ
+  # поднимает (в этом весь смысл поля), падение доступного капитала - учитывается.
+  $alloc = $null
+  if (RkHas $Raw 'allocated_capital_rub') { $alloc = Need-Num $Raw 'allocated_capital_rub' '1000' '1000000000' -Path 'allocated_capital_rub' }
+  if ($null -ne $ver -and [int]$ver -lt 2 -and $null -ne $alloc) {
+    $errs.Add('allocated_capital_rub: поле появилось в schema_version 2, а заявлена версия 1')
+  }
+  # Выключатель новых РЕАЛЬНЫХ входов рукава: off - не входить вовсе, observe - решение считается и
+  # журналируется, но заявка не отправляется, live - обычная работа. Стопы, сопровождение и выходы
+  # по уже открытым позициям выключатель НЕ трогает.
+  $setaEntries = 'live'
+  if (RkHas $seta 'new_entries') { $setaEntries = Need-Str $seta 'new_entries' 'setA.new_entries' @('off','observe','live') }
+  elseif ($null -ne $ver -and [int]$ver -ge 2) { $errs.Add('setA.new_entries: обязательное поле в schema_version 2 (off|observe|live)') }
+  $coreEntries = 'live'
+  if (RkHas $core 'new_entries') { $coreEntries = Need-Str $core 'new_entries' 'core.new_entries' @('off','observe','live') }
 
   $cost = [pscustomobject]@{ fee_pct_side = $script:RF_RISK_COST_DEFAULT.fee_pct_side
     stop_slip_pct = $script:RF_RISK_COST_DEFAULT.stop_slip_pct; source = $script:RF_RISK_COST_DEFAULT.source }
@@ -158,8 +177,9 @@ function Resolve-RfRiskPolicy($Raw) {
   }
   $p = [pscustomobject]@{
     policy_id = $policyId; schema_version = [int]$ver; mode = $mode
-    core = [pscustomobject]@{ stop_cap_pct = $cCap; risk_pct = $cRisk }
-    setA = [pscustomobject]@{ stop_cap_pct = $aCap; risk_pct = $aRisk }
+    core = [pscustomobject]@{ stop_cap_pct = $cCap; risk_pct = $cRisk; new_entries = $coreEntries }
+    setA = [pscustomobject]@{ stop_cap_pct = $aCap; risk_pct = $aRisk; new_entries = $setaEntries }
+    allocated_capital_rub = $alloc
     futures_open_risk_cap_pct = $totCap; fx_same_direction_cap_pct = $fxCap
     daily_entry_loss_halt_pct = $dayHalt
     quote_max_age_sec = [int]$qAge; capital_max_age_sec = [int]$cAge
@@ -171,6 +191,8 @@ function Resolve-RfRiskPolicy($Raw) {
     "schema_version=$($p.schema_version)", "policy_id=$($p.policy_id)",
     "apply_to=new_entries", "capital_source=broker_verified", "sizing_rule=$($script:RF_RISK_SIZING_RULE)",
     "core.stop_cap_pct=$(RkFmt $p.core.stop_cap_pct)", "core.risk_pct=$(RkFmt $p.core.risk_pct)",
+    "core.new_entries=$($p.core.new_entries)", "setA.new_entries=$($p.setA.new_entries)",
+    "allocated_capital_rub=$(RkFmt $p.allocated_capital_rub)",
     "setA.stop_cap_pct=$(RkFmt $p.setA.stop_cap_pct)", "setA.risk_pct=$(RkFmt $p.setA.risk_pct)",
     "futures_open_risk_cap_pct=$(RkFmt $p.futures_open_risk_cap_pct)", "fx_same_direction_cap_pct=$(RkFmt $p.fx_same_direction_cap_pct)",
     "daily_entry_loss_halt_pct=$(RkFmt $p.daily_entry_loss_halt_pct)",
@@ -186,8 +208,9 @@ function Resolve-RfRiskPolicy($Raw) {
 # Капитал политики - bot_capital_account_rub из снимка брокера этого тика (капитал на последний клиринг:
 # валюты + акции бота; внутридневная вариационка в него не входит - плавающий результат учитывается
 # отдельно через R_mark и дневной P&L). Свежесть - по времени СНИМКА, а не чтения файла.
-function Get-RfRiskCapital($CapitalRub, $CapturedMs, [long]$NowMs, [int]$MaxAgeSec) {
-  $r = [pscustomobject]@{ ok = $false; rub = [decimal]0; age_sec = $null; src = 'bot_capital_account_rub'; reason = '' }
+function Get-RfRiskCapital($CapitalRub, $CapturedMs, [long]$NowMs, [int]$MaxAgeSec, $AllocatedRub = $null) {
+  $r = [pscustomobject]@{ ok = $false; rub = [decimal]0; age_sec = $null; src = 'bot_capital_account_rub'
+    reason = ''; verified_rub = [decimal]0; allocated_rub = $null; binding = '' }
   if ($null -eq $CapitalRub -or -not (RkIsNum $CapitalRub)) { $r.reason = 'капитал не посчитан'; return $r }
   $cap = RkDec $CapitalRub
   if ($cap -le 0) { $r.reason = "капитал $(RkFmt $cap) <= 0"; return $r }
@@ -195,7 +218,19 @@ function Get-RfRiskCapital($CapitalRub, $CapturedMs, [long]$NowMs, [int]$MaxAgeS
   $age = [math]::Round(($NowMs - [long]$CapturedMs) / 1000.0, 1)
   $r.age_sec = $age
   if ($age -lt 0 -or $age -gt $MaxAgeSec) { $r.reason = "снимок капитала устарел ($age с, допустимо $MaxAgeSec с)"; return $r }
-  $r.ok = $true; $r.rub = $cap
+  $r.verified_rub = $cap
+  # Эффективная база = min(выделенная, проверенный капитал). Пополнение счёта потолок не поднимает;
+  # падение доступного капитала базу опускает. Отрицательной/нулевой база быть не может - тогда
+  # входов нет вовсе (решение принимает вызывающий по ok=false).
+  $alloc = RkDec $AllocatedRub
+  if ($null -ne $alloc -and $alloc -gt 0) {
+    $r.allocated_rub = $alloc
+    if ($alloc -le $cap) { $r.rub = $alloc; $r.binding = 'allocated'; $r.src = 'allocated_capital_rub' }
+    else { $r.rub = $cap; $r.binding = 'verified'; $r.src = 'bot_capital_account_rub<allocated' }
+  } else {
+    $r.rub = $cap; $r.binding = 'verified'
+  }
+  $r.ok = $true
   return $r
 }
 

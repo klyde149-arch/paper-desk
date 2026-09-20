@@ -1245,6 +1245,92 @@ function Scn-ManualAdjSupersedeNoTarget {
   Check 'supersede-none: заявок не было' ((Get-Calls $r 'PostOrder').Count -eq 0)
 }
 
+
+# --- выключатель Setup A (этап 2 плана восстановления 2026-09-19): отложенный интент рукава,
+# созданный ДО выключения, отправляться не должен - проверка стоит в точке отправки, а не только
+# при рождении намерения
+function Scn-SetupAEntriesOff {
+  $r = New-Scenario 'seta-entries-off'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'setA' 'NG' 'buy' 0.229 0.1145 2.9 0.02)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfigV2 'pilot' 700000 'off' 'live')
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'setA-off: заявок не было' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  Check 'setA-off: позиция не открыта' (@($st.sleeves.setA.positions).Count -eq 0)
+  $it = @(@($st.pending_intents) | Where-Object { $null -ne $_ -and $_.kind -eq 'entry' })
+  Check 'setA-off: намерение не осталось живым' ($it.Count -eq 0 -or [string]$it[0].state -eq 'CANCELLED')
+  Check 'setA-off: пауза входов НЕ включалась (это не халт)' (-not [bool]$st.entries_halt.active)
+}
+
+# --- выключенный рукав продолжает ВЕСТИ открытую позицию: защита восстанавливается.
+# Выключатель - про новые входы, а не про брошенные деньги.
+function Scn-SetupAOffKeepsPosition {
+  $r = New-Scenario 'seta-off-keeps-position'
+  $s = New-BaseState $r
+  $c = New-Card 'setA' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12
+  $c.stop_order_id = ''   # защита потеряна - движок обязан её восстановить и при выключенном рукаве
+  $s.sleeves.setA.positions = @($c)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000 @([pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='19';nano=0} })
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfigV2 'pilot' 700000 'off' 'live')
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'setA-off: позиция жива' (@($st.sleeves.setA.positions).Count -eq 1)
+  Check 'setA-off: защита восстановлена' ((Get-Calls $r 'PostStopOrder').Count -eq 1)
+  Check 'setA-off: входных заявок нет' ((Get-Calls $r 'PostOrder').Count -eq 0)
+}
+
+# --- выделенная торговая база: объём считается от НЕЁ, а не от капитала счёта.
+# 1 600 000 на счёте, выделено 700 000 -> бюджет сделки 0,5% = 3 500, а не 8 000.
+function Scn-AllocatedCapitalSizing {
+  $r = New-Scenario 'rp-allocated-base'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfigV2 'pilot' 700000 'live' 'live')
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $rb = $st.risk_budget
+  Check 'allocated: база = выделенная сумма' ([math]::Abs([double]$rb.capital_rub - 700000) -lt 0.01)
+  Check 'allocated: источник базы назван' ([string]$rb.capital_binding -eq 'allocated')
+  Check 'allocated: проверенный капитал сохранён рядом' ([math]::Abs([double]$rb.capital_verified_rub - 1600000) -lt 0.01)
+  Check 'allocated: потолок общего риска от выделенной базы (3%)' ([math]::Abs([double]$rb.total_cap_rub - 21000) -lt 0.01)
+  Check 'allocated: выключатель setA виден в сводке' ([string]$rb.setA_entries -eq 'live')
+  $pos = @($st.sleeves.core.positions)
+  if ($pos.Count) { Check 'allocated: бюджет сделки 0,5% от 700 000 = 3 500' ([math]::Abs([double]$pos[0].risk_rub - 3500) -lt 0.01) }
+  else { Check 'allocated: бюджет сделки 0,5% от 700 000 = 3 500 (позиция не открыта)' $false }
+}
+
+# --- пополнение счёта НЕ поднимает выделенный потолок (приёмка этапа 2)
+function Scn-AllocatedCapitalTopUp {
+  $r = New-Scenario 'rp-allocated-topup'
+  $s = New-BaseState $r
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 5000000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfigV2 'pilot' 700000 'off' 'live')
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'allocated-topup: база осталась выделенной' ([math]::Abs([double]$st.risk_budget.capital_rub - 700000) -lt 0.01)
+  Check 'allocated-topup: потолок не вырос' ([math]::Abs([double]$st.risk_budget.total_cap_rub - 21000) -lt 0.01)
+}
+
+# --- счёт ПРОСЕЛ ниже выделенной базы: база опускается за счётом
+function Scn-AllocatedCapitalDrawdown {
+  $r = New-Scenario 'rp-allocated-dd'
+  $s = New-BaseState $r
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 400000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfigV2 'pilot' 700000 'off' 'live')
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'allocated-dd: база опустилась до счёта' ([math]::Abs([double]$st.risk_budget.capital_rub - 400000) -lt 0.01)
+  Check 'allocated-dd: источник базы - счёт' ([string]$st.risk_budget.capital_binding -eq 'verified')
+}
+
 # --- 42. evening-entry: Путь A - вечерняя цена пробивает канал -> вход СЕГОДНЯ (не завтра)
 # CNY синтетика (New-BaseState): 40 плоских будних баров close=11.686, h-l=range=0.2614,
 # заканчиваются 2026-07-14 -> chHi(база-20, rearm нет) = 11.686+0.2614/2 = 11.8167.
@@ -2214,6 +2300,15 @@ function New-RpConfig([string]$Mode = 'shadow', [double]$CoreRisk = 0.005, [doub
     futures_open_risk_cap_pct = 0.03; fx_same_direction_cap_pct = 0.015; daily_entry_loss_halt_pct = 0.02
     sizing_rule = 'min_original_and_capped_same_budget'; quote_max_age_sec = 60; capital_max_age_sec = 180 } }
 }
+# конфиг схемы 2: выделенная торговая база + выключатели новых входов по рукавам (этап 2 плана)
+function New-RpConfigV2([string]$Mode = 'pilot', $Allocated = $null, [string]$SetAEntries = 'off', [string]$CoreEntries = 'live') {
+  $c = New-RpConfig $Mode
+  $c.rf_risk_policy.schema_version = 2
+  $c.rf_risk_policy.core | Add-Member -NotePropertyName new_entries -NotePropertyValue $CoreEntries -Force
+  $c.rf_risk_policy.setA | Add-Member -NotePropertyName new_entries -NotePropertyValue $SetAEntries -Force
+  if ($null -ne $Allocated) { $c.rf_risk_policy | Add-Member -NotePropertyName allocated_capital_rub -NotePropertyValue $Allocated -Force }
+  return $c
+}
 # снимок портфеля с итогами счёта (без totalAmount* Set-BotCapital капитал не считает) и фьючерсными строками
 function Write-BrokerCapital([string]$Root, [double]$Rub, $FutRows = @()) {
   $m = [pscustomobject]@{ currency = 'rub'; units = ([string][long]$Rub); nano = 0 }
@@ -2755,7 +2850,9 @@ $scenarios = @(
   ${function:Scn-RpConfirmPxTighten}, ${function:Scn-RpPartialFillsVwap}, ${function:Scn-RpConfirmPxBreach},
   ${function:Scn-RpConfirmPxUnresolved}, ${function:Scn-RpReduce}, ${function:Scn-RpRollPolicy},
   ${function:Scn-RpVirtualPair}, ${function:Scn-RpRiskView},
-  ${function:Scn-RpCapOnly}, ${function:Scn-RpCapNoBudgetBlock}
+  ${function:Scn-RpCapOnly}, ${function:Scn-RpCapNoBudgetBlock},
+  ${function:Scn-SetupAEntriesOff}, ${function:Scn-SetupAOffKeepsPosition},
+  ${function:Scn-AllocatedCapitalSizing}, ${function:Scn-AllocatedCapitalTopUp}, ${function:Scn-AllocatedCapitalDrawdown}
 )
 # LRF_ONLY=<regex>: прогнать только сценарии, чьё имя функции ему соответствует (быстрая итерация),
 # например LRF_ONLY='StopReplace|D5'

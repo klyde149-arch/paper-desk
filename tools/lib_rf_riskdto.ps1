@@ -27,6 +27,10 @@ function ConvertTo-RfRiskBudgetDto($B) {
   return [ordered]@{
     mode = [string]$B.mode; policyId = [string]$B.policy_id; updatedMs = $B.updated_ms
     capitalRub = $B.capital_rub; capitalOk = [bool]$B.capital_ok; capitalReason = [string]$B.capital_reason
+    capitalBinding = [string]$B.capital_binding; capitalVerifiedRub = $B.capital_verified_rub
+    capitalAllocatedRub = $B.capital_allocated_rub
+    budgetsEnforced = [bool]$B.budgets_enforced
+    setAEntries = [string]$B.setA_entries; coreEntries = [string]$B.core_entries
     totalUsedRub = $B.total_used_rub; totalCapRub = $B.total_cap_rub
     fxLongRub = $B.fx_long_rub; fxShortRub = $B.fx_short_rub; fxCapRub = $B.fx_cap_rub
     byAsset = $byAsset
