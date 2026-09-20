@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1562329.0968941727,
       "month_start_eq": 1632488.16,
-      "day_start_eq": 1562652.5128441728,
+      "day_start_eq": 1562329.0968941727,
       "halt_day": null,
       "positions": [
         {
@@ -124,14 +124,14 @@
   "profile_eq": 736761.02,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1512814.21,
-  "day_start_date": "2026-09-17",
+  "day_start_eq": 1515561.73,
+  "day_start_date": "2026-09-18",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-17",
-    "last_hour_ts": 1789941600000,
-    "ops_since": "2026-09-20T20:15:33Z",
-    "last_eq_snap": 1789938453018,
+    "last_daily_day": "2026-09-20",
+    "last_hour_ts": 1789945200000,
+    "ops_since": "2026-09-20T20:30:33Z",
+    "last_eq_snap": 1789939353070,
     "last_report_day": "2026-09-20",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
@@ -155,16 +155,16 @@
       "next_lasttrade": "2026-10-28"
     },
     "GOLD": {
-      "secid": "GDU6",
-      "lasttrade": "2026-09-18",
-      "next": "GDZ6",
-      "next_lasttrade": "2026-12-18"
+      "secid": "GDZ6",
+      "lasttrade": "2026-12-18",
+      "next": "GDH7",
+      "next_lasttrade": "2027-03-19"
     },
     "SILV": {
-      "secid": "SVU6",
-      "lasttrade": "2026-09-18",
-      "next": "SVZ6",
-      "next_lasttrade": "2026-12-18"
+      "secid": "SVZ6",
+      "lasttrade": "2026-12-18",
+      "next": "SVH7",
+      "next_lasttrade": "2027-03-19"
     },
     "Si": {
       "secid": "SiZ6",
@@ -322,15 +322,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "readiness": {
-    "day": "2026-09-17",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2114756.51,
-    "go_cap_rub": 1097110.66,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1789684172896,
@@ -494,6 +485,15 @@
     "e_base": 1510066.73,
     "fees_est_rub": 0.0
   },
+  "readiness": {
+    "day": "2026-09-20",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2184230.84,
+    "go_cap_rub": 1099171.3,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
@@ -501,7 +501,7 @@
     "a72e6299-a1c0-439a-98eb-06538cec8ab4": -1285.0
   },
   "broker": {
-    "captured_ms": 1789938933082,
+    "captured_ms": 1789939833182,
     "totals": {
       "portfolio": 1510066.73,
       "currencies": 1510066.73,
@@ -590,7 +590,7 @@
       "avg_px": 457.8,
       "lots": -157.0,
       "secid": "CCX6",
-      "ts": 1789938933082
+      "ts": 1789939833182
     }
   },
   "capital_breakdown": {
@@ -617,7 +617,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789938933082,
+    "updated_ms": 1789939833182,
     "budgets_enforced": true,
     "capital_rub": 1510066.73,
     "capital_ok": true,
@@ -636,7 +636,7 @@
       "COCOA": 12645.0
     },
     "unknown": [
-      "card L00057: котировка старше 18946 с"
+      "card L00057: котировка старше 19846 с"
     ],
     "day_ok": false,
     "day_pnl_rub": null,
