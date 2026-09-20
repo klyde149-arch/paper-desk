@@ -693,6 +693,13 @@ function Close-CardLedger($Card, [double]$ExitPx, [string]$Reason, [double]$FeeR
   if ($Card.PSObject.Properties['accounting'] -and [string]$Card.accounting) {
     $rec | Add-Member -NotePropertyName accounting -NotePropertyValue ([string]$Card.accounting) -Force
   }
+  # Основание внешнего закрытия (этап 1 плана восстановления): какой операцией брокера закрытие
+  # обнаружено и какой признак его отнёс к внешним. Кто именно закрыл - бот НЕ знает: приложение,
+  # маржинальное закрытие брокером, экспирация выглядят одинаково. Пишем 'unknown' и не выдаём
+  # догадку за факт: на этих сделках потом строятся выводы о стратегии.
+  if ($Card.PSObject.Properties['exit_evidence'] -and $null -ne $Card.exit_evidence) {
+    $rec | Add-Member -NotePropertyName exitEvidence -NotePropertyValue $Card.exit_evidence -Force
+  }
   # Аддитивные поля риск-политики: ТОЛЬКО для её карточек. Смысл легаси-полей (riskRub, rMultiple)
   # не меняется - иначе сравнение с историей контура поехало бы. ТЗ §12: расходы по ногам раздельно,
   # результат в трёх базах (цена, нотионал, ГО), MAE/MFE и источник выхода.
@@ -2151,6 +2158,60 @@ function Set-SleeveBase([string]$Sn, [double]$Target, [string]$Reason) {
   return ("{0} {1} -> {2}" -f $Sn, (Fmt-Money $old '₽' 0), (Fmt-Money ([double]$sl.eq_rub) '₽' 0))
 }
 
+# Адресное гашение ручной коррекции учёта (этап 1 плана восстановления 2026-09-19).
+# Конфиг + вотермарка = ровно один раз, как sleeve_rebase: править portfolio.json руками нельзя,
+# его перезаписывает своим тик на VPS.
+# ЗАЧЕМ: manual_adjustments заводились вручную для случаев, когда вариационка закрытой позиции
+# якобы не доехала до broker_ledger. Запись manual-2026-09-09-NG-close (-80 244,41 ₽) оказалась
+# двойным учётом: её автор смотрел клиринг ДАТЫ ЗАКРЫТИЯ (09.09, там +4 432,92), а брокер списал
+# газовый убыток вариационкой ДНЁМ РАНЬШЕ - 08.09, -76 692,78 ₽ (тот самый ночной скачок из
+# комментария к BROKER_LEDGER_FROM). Фьючерс рассчитывается ежедневно, а не в момент закрытия.
+# Сверка снимка 2026-09-20: broker_ledger.varmargin_rub и fees сходятся с операциями брокера до
+# копейки, а корректировка добавляет расхождение ровно на свою величину.
+# КАК: сумма обнуляется, прежнее значение и основание остаются в самой записи (аудит), статус
+# 'superseded'. Запись НЕ удаляется: удалить - значит потерять след ручного вмешательства.
+function Invoke-ManualAdjSupersede {
+  # $LIVE - [ordered]@{} (хеш-таблица), а не объект: ключ проверяется Contains, PSObject.Properties
+  # на нём слеп (первый прогон сценария 2026-09-20 молча ничего не делал)
+  $cfg = if ($LIVE.Contains('manual_adj_supersede')) { $LIVE.manual_adj_supersede } else { $null }
+  if ($null -eq $cfg) { return }
+  $id = [string]$cfg.id
+  if (-not $id -or [string]$st.watermarks.manual_adj_supersede_id -eq $id) { return }
+  if (-not $st.PSObject.Properties['manual_adjustments'] -or $null -eq $st.manual_adjustments) {
+    # нечего гасить - вотермарку всё равно ставим, иначе конфиг будет пытаться каждый тик
+    $st.watermarks | Add-Member -NotePropertyName manual_adj_supersede_id -NotePropertyValue $id -Force
+    Write-LiveLog "manual-adj supersede [$id]: ручных коррекций в состоянии нет"
+    Save-State; return
+  }
+  $done = @()
+  foreach ($t in @($cfg.targets)) {
+    if ($null -eq $t) { continue }
+    $adjId = [string]$t.adj_id
+    foreach ($m in @($st.manual_adjustments)) {
+      if ($null -eq $m -or [string]$m.id -ne $adjId) { continue }
+      if ([string]$m.status -eq 'superseded') { continue }   # повтор безопасен
+      $was = [double]$m.rub
+      $m | Add-Member -NotePropertyName status -NotePropertyValue 'superseded' -Force
+      $m | Add-Member -NotePropertyName rub_original -NotePropertyValue $was -Force
+      $m | Add-Member -NotePropertyName superseded_by -NotePropertyValue ([string]$t.basis) -Force
+      $m | Add-Member -NotePropertyName supersede_id -NotePropertyValue $id -Force
+      $m | Add-Member -NotePropertyName superseded_ms -NotePropertyValue $NowMs -Force
+      # обнуляем саму сумму, а не только помечаем статусом: потребитель, который про статус не
+      # знает (старая версия снапшота, Mini App до обновления), иначе продолжит двоить
+      $m.rub = 0.0
+      $done += ("{0}: {1} -> 0" -f $adjId, (Fmt-Money $was '₽' 2))
+    }
+  }
+  $st.watermarks | Add-Member -NotePropertyName manual_adj_supersede_id -NotePropertyValue $id -Force
+  Save-State
+  if ($done.Count) {
+    Write-LiveLog ("manual-adj supersede [{0}]: {1}" -f $id, ($done -join '; '))
+    Alert ("учёт: разовая ручная коррекция погашена как двойной учёт ({0}). Результат бота с запуска изменится на эту сумму; сделки и позиции не затронуты." -f ($done -join '; '))
+  } else {
+    Write-LiveLog "manual-adj supersede [$id]: подходящих записей не найдено (уже погашены?)"
+  }
+}
+
 # Разовый ручной ребейз (конфиг + вотермарка = ровно один раз). Аварийный рычаг, работает и при
 # выключенном авто-ребейзе - им же выставляли базу вручную 2026-08-12.
 function Invoke-SleeveRebase {
@@ -2328,6 +2389,15 @@ function Invoke-Reconcile($stopIds) {
             }
             Alert ("позиция {0} ({1}) закрыта не ботом — стоп-заявка не срабатывала. Учтено как внешнее закрытие; при сравнении с бэктестом такие сделки исключаются." -f $c.id, (RfName $c))
           }
+          # основание решения - в саму сделку (см. Close-CardLedger): по какой операции брокера
+          # закрытие найдено и какой из двух независимых признаков сработал
+          $c | Add-Member -NotePropertyName exit_evidence -NotePropertyValue ([pscustomobject]@{
+            source = $(if ($extClose) { 'external' } else { 'broker-stop' })
+            actor = $(if ($extClose) { 'unknown' } else { 'broker-stop-order' })
+            op_id = [string](Get-TiField $op 'id')
+            signal = $(if ($stopAlive) { 'stop-order-alive' } elseif ($extClose) { 'px-beyond-stop' } else { 'stop-could-fire' })
+            detected_ms = $NowMs
+          }) -Force
           Close-CardLedger $c $px $(if ($extClose) { 'manual-ext' } else { 'stop' }) $fee
         } else {
           # ОДНОКРАТНОЕ real=0 подтверждаем ещё одним тиком (инцидент 2026-07-27: разовый битый
@@ -4241,6 +4311,9 @@ try {
   Invoke-RiskPolicyResolve
   # 3b. разовый ручной ребейз рукавов на новую базу капитала (конфиг + вотермарка = ровно один раз)
   Invoke-SleeveRebase
+  # 3b'. адресное гашение ручных коррекций учёта (тот же принцип конфиг+вотермарка). Только
+  # отчётность: ни позиций, ни заявок, ни сайзинга не трогает
+  Invoke-ManualAdjSupersede
   # 3c. авто-ребейз (выключен по умолчанию, см. Invoke-AutoRebase)
   Invoke-AutoRebase
 

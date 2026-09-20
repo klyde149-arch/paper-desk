@@ -102,8 +102,13 @@ function Build-RfPresentationSnapshot($State) {
   # -80 244,41 ₽ по стопу, разобрано и подтверждено вручную по trades.json + сверке с брокерским
   # леджером за сутки). В отличие от pending_settle, НЕ гасится ближайшим клирингом - висит,
   # пока кто-то не уберёт запись явно (после сверки с реальной суммой на счёте у брокера).
+  # status='superseded' - коррекция разобрана и погашена как двойной учёт (Invoke-ManualAdjSupersede,
+  # этап 1 плана восстановления): сама запись остаётся в аудите с rub_original, но в итог не идёт.
   $manualAdj = 0.0
-  foreach ($m in @($State.manual_adjustments)) { if ($null -ne $m) { $manualAdj += [double]$m.rub } }
+  foreach ($m in @($State.manual_adjustments)) {
+    if ($null -eq $m -or [string]$m.status -eq 'superseded') { continue }
+    $manualAdj += [double]$m.rub
+  }
   $dayBase = $null; $daySource = 'day_start_eq_stale'; $todayAmt = $null; $todayPct = $null
   # «Сегодня» - число САМОГО брокера (daily_yield / daily_yield_relative), то же, что видно в
   # приложении. Наш прежний расчёт (капитал - база дня) брал базу из day_start_eq либо из

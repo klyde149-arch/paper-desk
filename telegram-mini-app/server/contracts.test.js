@@ -188,6 +188,37 @@ test('RF fallback folds manual_adjustments into allTimeAmt (разовая ру�
   assert.equal(d.summary.manualAdjustmentRub, -80244.41);
 });
 
+test('RF: погашенная коррекция (status=superseded) в итог не идёт, но остаётся в аудите', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-rf-superseded-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const now = Date.now();
+  const dataDir = path.join(root, 'rf');
+  writeJson(path.join(dataDir, 'portfolio.json'), {
+    mode: 'prod', profile_eq: 800000, peak_eq: 820000, meta: { base_rub: 700000 },
+    day_start_eq: 100000, day_start_date: mskDay(now), watermarks: { last_eq_snap: now - 60000 },
+    go: { bot_capital_rub: 105000, capital_peak_rub: 110000, used_rub: 20000, budget_rub: 50000 },
+    entries_halt: { active: false, reason: '' },
+    broker_ledger: { varmargin_rub: 115226.12, fees_rub: -28692.96 },
+    capital_breakdown: { futures: -1316.08 },
+    // ОБЪЕКТ, а не массив: именно так запись лежит в боевом portfolio.json. Прежний код звал
+    // .reduce прямо на нём и падал бы TypeError - Mini App был остановлен и до этого не дошёл.
+    manual_adjustments: {
+      id: 'manual-2026-09-09-NG-close', ts: now, day: '2026-09-09', card: 'L00046', secid: 'NGU6',
+      rub: 0, rub_original: -80244.41, status: 'superseded',
+      superseded_by: 'вариационка 08.09 -76 692,78 уже в broker_ledger'
+    },
+    sleeves: { core: { positions: [] }, setA: { positions: [] } }
+  });
+  writeJson(path.join(dataDir, 'equity.json'), [{ ts: now - 120000, bot_capital: 100000, account_liquid: 100000, total: 750000 }]);
+  writeJson(path.join(dataDir, 'trades.json'), []);
+  writeJson(path.join(root, 'names.json'), { fut: {} });
+
+  const d = readRfDashboard({ dataDir, namesPath: path.join(root, 'names.json'), currency: 'RUB' });
+  // 115226.12 + (-1316.08) + (-28692.96) = 85217.08 - двойного учёта больше нет
+  assert.equal(d.summary.allTimeAmt, 85217.08);
+  assert.equal(d.summary.manualAdjustmentRub, 0);
+});
+
 test('RF presentation snapshot is preferred and keeps its stale source timestamp', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mini-rf-presentation-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

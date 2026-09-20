@@ -1199,6 +1199,52 @@ function Scn-SleeveRebase {
   Check 'rebase: month_start_eq тоже не уехал повторно' ([math]::Abs([double]$st2.sleeves.core.month_start_eq - 900000.0) -lt 0.01)
 }
 
+# --- адресное гашение ручной коррекции учёта (этап 1 плана восстановления 2026-09-19).
+# Запись лежит в state ОБЪЕКТОМ, как в бою (не массивом) - форма проверяется заодно.
+function Scn-ManualAdjSupersede {
+  $r = New-Scenario 'manual-adj-supersede'
+  $s = New-BaseState $r
+  $s | Add-Member -NotePropertyName manual_adjustments -NotePropertyValue ([pscustomobject]@{
+    id = 'manual-2026-09-09-NG-close'; ts = 1788986640000; day = '2026-09-09'; card = 'L00046'
+    secid = 'NGU6'; reason = 'разовая коррекция'; rub = -80244.41 }) -Force
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{
+    manual_adj_supersede = [pscustomobject]@{ id = 'test-supersede-1'; targets = @(
+      [pscustomobject]@{ adj_id = 'manual-2026-09-09-NG-close'; basis = 'вариационка 08.09 уже в broker_ledger' }) } })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  $m = @($st.manual_adjustments)[0]
+  Check 'supersede: сумма обнулена' ([double]$m.rub -eq 0.0)
+  Check 'supersede: статус superseded' ([string]$m.status -eq 'superseded')
+  Check 'supersede: прежнее значение в аудите' ([math]::Abs([double]$m.rub_original - (-80244.41)) -lt 0.001)
+  Check 'supersede: основание записано' ([string]$m.superseded_by -like '*broker_ledger*')
+  Check 'supersede: запись НЕ удалена' ([string]$m.id -eq 'manual-2026-09-09-NG-close')
+  Check 'supersede: вотермарка выставлена' ([string]$st.watermarks.manual_adj_supersede_id -eq 'test-supersede-1')
+  # второй тик с тем же id: повтор миграции не меняет итог (приёмка этапа 1)
+  [void](Run-Tick $r '2026-07-15 11:15')
+  $st2 = Get-State $r
+  $m2 = @($st2.manual_adjustments)[0]
+  Check 'supersede: повтор не изменил сумму' ([double]$m2.rub -eq 0.0)
+  Check 'supersede: повтор не затёр аудит' ([math]::Abs([double]$m2.rub_original - (-80244.41)) -lt 0.001)
+  # позиции и заявки миграция не трогает
+  Check 'supersede: заявок не было' ((Get-Calls $r 'PostOrder').Count -eq 0 -and (Get-Calls $r 'CancelOrder').Count -eq 0)
+}
+
+# --- миграция без подходящей записи: вотермарка встаёт, состояние не портится
+function Scn-ManualAdjSupersedeNoTarget {
+  $r = New-Scenario 'manual-adj-supersede-none'
+  $s = New-BaseState $r
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{
+    manual_adj_supersede = [pscustomobject]@{ id = 'test-supersede-2'; targets = @(
+      [pscustomobject]@{ adj_id = 'нет-такой-записи'; basis = 'проверка' }) } })
+  [void](Run-Tick $r '2026-07-15 11:00')
+  $st = Get-State $r
+  Check 'supersede-none: тик прошёл' ([string]$st.mode -eq 'prod')
+  Check 'supersede-none: вотермарка выставлена' ([string]$st.watermarks.manual_adj_supersede_id -eq 'test-supersede-2')
+  Check 'supersede-none: заявок не было' ((Get-Calls $r 'PostOrder').Count -eq 0)
+}
+
 # --- 42. evening-entry: Путь A - вечерняя цена пробивает канал -> вход СЕГОДНЯ (не завтра)
 # CNY синтетика (New-BaseState): 40 плоских будних баров close=11.686, h-l=range=0.2614,
 # заканчиваются 2026-07-14 -> chHi(база-20, rearm нет) = 11.686+0.2614/2 = 11.8167.
@@ -2683,6 +2729,7 @@ $scenarios = @(
   ${function:Scn-CrashRecovery}, ${function:Scn-Funding}, ${function:Scn-DryrunE2e},
   ${function:Scn-FundingGated}, ${function:Scn-Post400}, ${function:Scn-AdoptOpsFail},
   ${function:Scn-EmptySnapshot}, ${function:Scn-SleeveRebase},
+  ${function:Scn-ManualAdjSupersede}, ${function:Scn-ManualAdjSupersedeNoTarget},
   ${function:Scn-EveningEntry}, ${function:Scn-EveningNoSignal}, ${function:Scn-EveningIdempotent},
   ${function:Scn-EveningExistingPosition}, ${function:Scn-EveningHalt},
   ${function:Scn-GoNewBelowCap}, ${function:Scn-GoNewBetween}, ${function:Scn-GoNewAboveTrim},

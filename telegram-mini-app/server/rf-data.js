@@ -305,7 +305,12 @@ export function readRfDashboard({ dataDir, namesPath, currency = 'RUB' }) {
     .reduce((sum, it) => sum + (num(it?.rub) ?? 0), 0);
   // Разовые ручные коррекции (portfolio.manual_adjustments) - зеркало tools/bake_rf_candles.ps1.
   // НЕ гасятся клирингом сами, в отличие от pending_settle - см. комментарий там.
-  const manualAdj = (portfolio.manual_adjustments ?? []).reduce((sum, m) => sum + (num(m?.rub) ?? 0), 0);
+  // status === 'superseded' - коррекция разобрана и погашена как двойной учёт (движок,
+  // Invoke-ManualAdjSupersede): запись остаётся в аудите с rub_original, но в итог не идёт.
+  const manualAdj = [portfolio.manual_adjustments ?? []]
+    .flat()
+    .filter((m) => m && m.status !== 'superseded')
+    .reduce((sum, m) => sum + (num(m?.rub) ?? 0), 0);
   const allTimeAmt = ledger !== null && num(ledger.varmargin_rub) !== null
     ? num(ledger.varmargin_rub) + curVm + pendAll + manualAdj + (num(ledger.fees_rub) ?? 0)
     : null;
