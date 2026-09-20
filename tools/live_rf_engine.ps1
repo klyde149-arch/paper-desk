@@ -3131,13 +3131,37 @@ function Invoke-LiveDayHook([string]$D) {
     $atr = Ser-ATR14 $s $i
     $bar = $s[$i]
 
-    # ролл: как paper (<=4 дней до LASTTRADEDATE активного или биржа сменила фронт)
+    # ролл: как paper (<=4 дней до LASTTRADEDATE активного или биржа сменила фронт).
+    # ОДНОНАПРАВЛЕННО (этап 3 плана восстановления 2026-09-19): срок нового контракта обязан быть
+    # ПОЗЖЕ срока текущего активного. Боевой инцидент 15-18.09.2026: Get-FutFronts отдаёт фронтом
+    # ближайший НЕИСТЁКШИЙ контракт, поэтому ещё 4 дня после ролла вперёд фронтом остаётся СТАРЫЙ
+    # контракт, условие $curActive -ne $frontNow срабатывало снова - и активный контракт уезжал
+    # НАЗАД, в истекающий. GOLD: GDU6 -> GDZ6 (15.09) -> GDU6 (17.09) -> GDZ6 (18.09), то же по
+    # SILV. Каждый переброс домножал ВСЮ дневную серию (Invoke-SeriesRollRescale), из-за чего
+    # живые серии GOLD/SILV разошлись с каноническими бумажными на всех 1702 барах (0,87% и 1,29%),
+    # тогда как NG/BR/COCOA совпадают точно. Позиций по этим активам не было - реальных сделок
+    # туда-обратно не случилось.
     $lt = [string]$st.fronts.$a.lasttrade
     $curActive = [string]$st.active.$a
     $frontNow = [string]$st.fronts.$a.secid
+    # срок активного контракта: из кэша инструментов, а не из записи фронта - фронт может уже
+    # описывать ДРУГОЙ контракт
+    $activeLt = ''
+    try { $activeLt = [string](Get-Inst $curActive 'fut').last_trade_date } catch { $activeLt = '' }
     $needRoll = $false; $toSec = ''
     if ($curActive -ne $frontNow) { $needRoll = $true; $toSec = $frontNow }
     elseif ($st.fronts.$a.next -and ((([datetime]$lt) - ([datetime]$D)).TotalDays -le 4)) { $needRoll = $true; $toSec = [string]$st.fronts.$a.next }
+    if ($needRoll -and $toSec -and $activeLt) {
+      $toLt = ''
+      try { $toLt = [string](Get-Inst $toSec 'fut').last_trade_date } catch { $toLt = '' }
+      # решение - чистой функцией (lib_rf_signals): его можно проверить в тесте без сети и хука
+      $rollOk = Test-RollTargetAllowed $activeLt $toLt
+      if (-not $rollOk.allow) {
+        # смена МЕТАДАННЫХ биржевого списка - не повод перекладывать позицию
+        Write-LiveLog "roll $a отклонён ($curActive -> $toSec): $($rollOk.reason)"
+        $needRoll = $false
+      }
+    }
     if ($needRoll) {
       # рескейл серии тем же кодом, что paper (иначе разойдутся сигналы!)
       # uid'ы - только для фолбэка на свечи T-Invest при недоступном ISS (инцидент 2026-09-10);
@@ -3156,6 +3180,12 @@ function Invoke-LiveDayHook([string]$D) {
             $c.roll_signal_to = $toSec
           }
         }
+        # смена активного контракта и пересчёт серии - это МЕТАДАННЫЕ; фактическая перекладка
+        # позиции произойдёт отдельно, в окне роллов, и будет видна своими заявками (этап 3)
+        $rolled = @($st.sleeves.core.positions + $st.sleeves.setA.positions | Where-Object { $null -ne $_ -and $_.asset -eq $a -and [string]$_.roll_signal_to })
+        Write-LiveLog ("roll $a метаданные: активный контракт $curActive -> $toSec, серия пересчитана x$([math]::Round($ratio,5)); позиций к перекладке: $($rolled.Count)")
+        Write-RpLog 'roll_meta' ([pscustomobject]@{ asset = $a; from = $curActive; to = $toSec
+          ratio = [math]::Round($ratio, 6); from_lasttrade = $activeLt; positions_to_roll = $rolled.Count; day = $D })
         $script:ev.Add("ROLL-SIGNAL $a $curActive -> $toSec (ratio $([math]::Round($ratio,5)))")
       } else { Write-LiveLog "roll $a deferred (нет баров $curActive/$toSec на $D)" }
     }

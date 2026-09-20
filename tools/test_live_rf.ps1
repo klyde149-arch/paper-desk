@@ -303,6 +303,23 @@ function Test-RiskLib {
     Check "policy invalid: $($b.n)" (-not $rb.ok -and $rb.mode -eq 'invalid' -and [string]$rb.error)
   }
 
+  # --- однонаправленность срока контракта (этап 3 плана восстановления).
+  # Боевой инцидент 15-18.09.2026: GOLD GDU6 -> GDZ6 -> GDU6 -> GDZ6, серия домножалась каждый раз.
+  . (Join-Path $PSScriptRoot 'lib_rf_signals.ps1')
+  $rb = Test-RollTargetAllowed '2026-12-18' '2026-09-18'
+  Check 'roll: откат к более раннему сроку запрещён' (-not $rb.allow -and [string]$rb.reason -like '*откат*')
+  $rf = Test-RollTargetAllowed '2026-09-18' '2026-12-18'
+  Check 'roll: вперёд разрешён' ($rf.allow)
+  $re = Test-RollTargetAllowed '2026-12-18' '2026-12-18'
+  Check 'roll: равные сроки разрешены (не запираем позицию до экспирации)' ($re.allow)
+  $ru = Test-RollTargetAllowed '2026-12-18' ''
+  Check 'roll: неизвестный срок цели запрещён' (-not $ru.allow)
+  $rn = Test-RollTargetAllowed '' '2026-09-18'
+  Check 'roll: неизвестен срок активного - поведение прежнее' ($rn.allow)
+  # ровно боевая пара дат инцидента
+  $rg = Test-RollTargetAllowed '2026-12-18' '2026-09-18'
+  Check 'roll: боевой случай GDZ6 -> GDU6 не проходит' (-not $rg.allow)
+
   # --- схема 2: выделенная база и выключатели рукавов (этап 2 плана восстановления)
   $v2 = ConvertFrom-Json $goodJson
   $v2.schema_version = 2

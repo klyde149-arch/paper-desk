@@ -65,6 +65,25 @@ function Update-DailySeries([string]$Name, [string]$Kind, [string]$Secid, [strin
   Save-Ser $Name
 }
 
+# Однонаправленность срока при ролле (этап 3 плана восстановления 2026-09-19).
+# Боевой инцидент 15-18.09.2026: Get-FutFronts отдаёт фронтом ближайший НЕИСТЁКШИЙ контракт,
+# поэтому ещё несколько дней после ролла вперёд фронтом остаётся СТАРЫЙ контракт, и условие
+# «активный != фронт» гнало активный контракт НАЗАД, в истекающий. GOLD: GDU6 -> GDZ6 (15.09) ->
+# GDU6 (17.09) -> GDZ6 (18.09), то же по SILV. Каждый переброс домножал ВСЮ дневную серию.
+# Чистая функция: решение принимается только по двум датам и воспроизводимо в тесте.
+#   allow=$false + reason - переключаться нельзя.
+# Равные даты НЕ запрещаем: заблокировать законный ролл - значит оставить позицию досиживать до
+# экспирации, а это хуже перекладки в контракт с тем же сроком.
+function Test-RollTargetAllowed([string]$FromLastTrade, [string]$ToLastTrade) {
+  if (-not $FromLastTrade) { return [pscustomobject]@{ allow = $true; reason = 'срок активного неизвестен - решение прежнее' } }
+  if (-not $ToLastTrade) { return [pscustomobject]@{ allow = $false; reason = 'срок целевого контракта неизвестен' } }
+  if ($ToLastTrade -lt $FromLastTrade) {
+    return [pscustomobject]@{ allow = $false
+      reason = "цель истекает $ToLastTrade, раньше активного ($FromLastTrade) - откат к более раннему сроку запрещён" }
+  }
+  return [pscustomobject]@{ allow = $true; reason = '' }
+}
+
 # рескейл непрерывной серии при ролле фронта: история * ratio (якорь = новый контракт)
 function Invoke-SeriesRollRescale([string]$Name, [double]$Ratio) {
   $s = Get-Ser $Name

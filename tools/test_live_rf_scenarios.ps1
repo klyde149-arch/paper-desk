@@ -2332,6 +2332,14 @@ function Scn-HaltOpsSurvivesGoClear {
 }
 
 
+
+# ПОЧЕМУ ролла нет в сценарной матрице: дневной хук первым делом обновляет фронты через
+# Get-FutFronts, а тот ходит в ЖИВОЙ MOEX ISS - стенд в этой части НЕ герметичен, и заданные
+# сценарием fronts затираются реальными рыночными данными (проверено 2026-09-20: в песочницу
+# приехали настоящие BRV6 до 01.10 и GDZ6 до 18.12). Поэтому однонаправленность срока проверяется
+# юнит-тестами чистой функции Test-RollTargetAllowed (tools/test_live_rf.ps1, секция risklib),
+# а не сценарием, который зависел бы от даты прогона и доступности биржи.
+
 # ================= этап 3 плана восстановления: исполнение входа (2026-09-20) =================
 
 # --- устаревшая котировка: вход НЕ уходит, интент остаётся ждать (временная проблема данных,
@@ -2485,6 +2493,21 @@ function New-RpConfig([string]$Mode = 'shadow', [double]$CoreRisk = 0.005, [doub
     futures_open_risk_cap_pct = 0.03; fx_same_direction_cap_pct = 0.015; daily_entry_loss_halt_pct = 0.02
     sizing_rule = 'min_original_and_capped_same_budget'; quote_max_age_sec = 60; capital_max_age_sec = 180 } }
 }
+# Кэш инструментов сценария. Мок FutureBy отдаёт ОДИН и тот же инструмент на любой тикер,
+# поэтому сроки контрактов различать через него нельзя. Get-Inst читает этот кэш и не идёт в API,
+# пока запись свежее суток - так сценарий задаёт РАЗНЫЕ даты экспирации по тикерам.
+function Write-InstrumentsCache([string]$Root, [hashtable]$ByTicker, [string]$MskTime = '2026-07-15 10:00') {
+  $rec = [ordered]@{}
+  foreach ($tk in $ByTicker.Keys) {
+    $d = $ByTicker[$tk]
+    $rec[$tk] = [pscustomobject]@{ ticker = $tk; kind = 'fut'; uid = "uid-$tk"; figi = "F$tk"; lot = 1
+      min_price_increment = 0.001; rub_per_pt = 7749.12; go_buy = 6340.0; go_sell = 6340.0
+      last_trade_date = [string]$d; expiration = [string]$d
+      refreshed = (MsToUtcStr (MskToNowMs $MskTime)) }
+  }
+  Write-Json (Join-Path $Root 'data\live_rf\instruments.json') ([pscustomobject]$rec)
+}
+
 # конфиг схемы 2: выделенная торговая база + выключатели новых входов по рукавам (этап 2 плана)
 function New-RpConfigV2([string]$Mode = 'pilot', $Allocated = $null, [string]$SetAEntries = 'off', [string]$CoreEntries = 'live') {
   $c = New-RpConfig $Mode
