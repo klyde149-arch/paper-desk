@@ -79,24 +79,24 @@
           "entry_px_status": "verified",
           "risk_at_stop_rub": 12644.4,
           "risk_pct_account": 0.833,
-          "cur_px": 458.5,
-          "upnl_rub": -1128.0,
-          "cur_px_ms": 1789895718468,
+          "cur_px": 458.4,
+          "upnl_rub": -971.0,
+          "cur_px_ms": 1789896624717,
           "risk_view": {
             "policy_id": "rf-early-exit-v1",
             "mode": "cap",
             "stop_px": 465.4,
             "stop_dist_pct": 1.664,
-            "risk_rub": 12644.85,
+            "risk_rub": 12644.7,
             "risk_pct_account": 0.833,
             "fees_estimated": true,
             "protection": "ok",
             "entry_px_status": "verified",
-            "budget_left_rub": 32657.15
+            "budget_left_rub": 32657.3
           }
         }
       ],
-      "equity_mtm": 1561201.1
+      "equity_mtm": 1561358.1
     },
     "setA": {
       "eq_rub": 1512814.21,
@@ -121,7 +121,7 @@
       }
     }
   },
-  "profile_eq": 736838.42,
+  "profile_eq": 736915.81,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
   "day_start_eq": 1512814.21,
@@ -130,15 +130,16 @@
   "watermarks": {
     "last_daily_day": "2026-09-17",
     "last_hour_ts": 1789768800000,
-    "ops_since": "2026-09-20T08:15:32Z",
-    "last_eq_snap": 1789895553236,
+    "ops_since": "2026-09-20T08:30:33Z",
+    "last_eq_snap": 1789896513342,
     "last_report_day": "2026-09-19",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
     "auto_rebase_day": "2026-09-18",
     "evening_confirm_day": "2026-09-18",
-    "broker_ledger_day": "2026-09-20"
+    "broker_ledger_day": "2026-09-20",
+    "manual_adj_supersede_id": "2026-09-20-gas-double-count"
   },
   "fronts": {
     "BR": {
@@ -267,12 +268,12 @@
   },
   "go": {
     "used_rub": 152728.03,
-    "budget_rub": 1465875.73,
+    "budget_rub": 1465718.73,
     "peak_day_rub": 152728.03,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1510066.73,
     "bot_capital_account_rub": 1510066.73,
-    "bot_capital_rub": 1515875.73
+    "bot_capital_rub": 1516032.73
   },
   "drift": {
     "D2": 0,
@@ -313,7 +314,12 @@
       "card": "L00046",
       "secid": "NGU6",
       "reason": "L00046 NGU6 long 48 lots, стоп сработал 09.09 20:44 UTC (23:44 MSK) с pnlRub=-80244.41 (trades.json). Закрытие пришлось на щель между старым и новым кодом отчётности: деплой pending_settle встал в git только между 20:46 и 20:53 UTC, штамп var_margin для этой позиции никогда не создавался. Проверено: клиринг 00:00 MSK 09-10 (21:00-21:35 UTC) отработал (broker_ledger.until_ms сдвинулся, watermarks.broker_ledger_day='2026-09-10'), но broker_ledger.varmargin_rub при этом ВЫРОС на +4432.92, а не упал - вариационка по газу ни разу не была подхвачена автоматически. Спустя 11+ часов и один полный клиринг расхождение не самоисправилось. Разовая ручная коррекция вместо сломанного pending_settle - см. tools/bake_rf_candles.ps1 (State.manual_adjustments).",
-      "rub": -80244.41
+      "rub": 0.0,
+      "status": "superseded",
+      "rub_original": -80244.41,
+      "superseded_by": "двойной учёт: вариационка газа списана клирингом 08.09 (-76692.78, op 7599096) и уже входит в broker_ledger.varmargin_rub; сверка снимка 2026-09-20 (rf_money_reconcile) расхождений не даёт",
+      "supersede_id": "2026-09-20-gas-double-count",
+      "superseded_ms": 1789896273495
     }
   ],
   "readiness": {
@@ -492,21 +498,21 @@
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {
-    "a72e6299-a1c0-439a-98eb-06538cec8ab4": -971.0
+    "a72e6299-a1c0-439a-98eb-06538cec8ab4": -814.0
   },
   "broker": {
-    "captured_ms": 1789895732950,
+    "captured_ms": 1789896633346,
     "totals": {
       "portfolio": 1510066.73,
       "currencies": 1510066.73,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": -719845.0
+      "futures_nominal": -719688.0
     },
-    "expected_yield_pct": -4.6,
-    "daily_yield_rub": 5809.0,
-    "daily_yield_rel_pct": 0.38,
+    "expected_yield_pct": -4.59,
+    "daily_yield_rub": 5966.0,
+    "daily_yield_rel_pct": 0.39,
     "positions": [
       {
         "uid": "a72e6299-a1c0-439a-98eb-06538cec8ab4",
@@ -516,10 +522,10 @@
         "lots": -157.0,
         "qty": -157.0,
         "avg_px": 457.8,
-        "cur_px": 458.5,
-        "expected_yield": -971.0,
-        "var_margin": 5809.0,
-        "var_margin_settled": 5809.0
+        "cur_px": 458.4,
+        "expected_yield": -814.0,
+        "var_margin": 5966.0,
+        "var_margin_settled": 5966.0
       },
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -578,23 +584,23 @@
       "ts": 1789655372961
     },
     "a72e6299-a1c0-439a-98eb-06538cec8ab4": {
-      "vm": 5809.0,
-      "ey": -971.0,
-      "cur_px": 458.5,
+      "vm": 5966.0,
+      "ey": -814.0,
+      "cur_px": 458.4,
       "avg_px": 457.8,
       "lots": -157.0,
       "secid": "CCX6",
-      "ts": 1789895732950
+      "ts": 1789896633346
     }
   },
   "capital_breakdown": {
     "currencies": 1510066.73,
-    "futures": 5809.0,
+    "futures": 5966.0,
     "mom_shares": 0.0,
     "user_assets": 0.0,
     "portfolio_total": 1510066.73,
     "capital_account": 1510066.73,
-    "capital_legacy": 1515875.73,
+    "capital_legacy": 1516032.73,
     "model": "legacy"
   },
   "risk_policy": {
@@ -606,27 +612,27 @@
     "rejected_reason": ""
   },
   "broker_pnl_by_card": {
-    "L00057": -971.0
+    "L00057": -814.0
   },
   "risk_budget": {
     "mode": "cap",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789895732950,
+    "updated_ms": 1789896633346,
     "budgets_enforced": false,
     "capital_rub": 1510066.73,
     "capital_ok": true,
     "capital_reason": "",
-    "total_used_rub": 12644.85,
+    "total_used_rub": 12644.7,
     "total_cap_rub": 45302.0,
     "fx_long_rub": 0.0,
     "fx_short_rub": 0.0,
     "fx_cap_rub": 22651.0,
     "by_asset": {
-      "COCOA": 12644.85
+      "COCOA": 12644.7
     },
     "unknown": [],
     "day_ok": true,
-    "day_pnl_rub": 785.0,
+    "day_pnl_rub": 942.0,
     "day_limit_rub": 30201.33,
     "day_reason": ""
   }
