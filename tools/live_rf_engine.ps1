@@ -334,24 +334,98 @@ function Bump-OrdersToday {
   $st.watermarks.orders_day_n = [int]$st.watermarks.orders_day_n + 1
   $st.stats.orders_posted = [int]$st.stats.orders_posted + 1
 }
-function Set-EntriesHalt([string]$Reason) {
-  if (-not $st.entries_halt.active) {
-    $st.entries_halt.active = $true; $st.entries_halt.reason = $Reason; $st.entries_halt.since = MsToUtcStr $NowMs
-    Alert "новые входы приостановлены ($Reason). Открытые позиции продолжают вестись как обычно."
-  } elseif ([string]$st.entries_halt.reason -like 'ГО *' -and $Reason -like 'ГО *' -and [string]$st.entries_halt.reason -ne $Reason) {
-    # тот же ГО-халт, но процент уехал: освежаем текст, не трогая since и без повторного алерта.
-    # ВАЖНО: обновляем ТОЛЬКО внутри одной категории - иначе ГО-причина могла бы затереть,
-    # например, дрифт-халт D4, и Clear-EntriesHalt снял бы его, пока расхождение ещё живо.
-    $st.entries_halt.reason = $Reason
+# ---- пауза входов: НЕСКОЛЬКО независимых причин (этап 0 плана восстановления 2026-09-19) ----
+# Одна строка-причина теряла блокировки. Боевой сценарий потери: висит дрифт-халт D4 -> тик видит
+# kill-файл HALT_RF_ENTRIES, но Set-EntriesHalt писал причину ТОЛЬКО когда халта ещё нет, поэтому
+# причина не записывалась -> сверка в этом же тике снимала D4 -> окно входов (шаг 7 тика) открыто,
+# хотя kill-файл лежит на месте. Зеркальная потеря: ГО-халт затирал текст чужой причины.
+# Теперь причины живут списком, у каждой свой код категории; снятие одной не трогает остальные.
+# Поля active/reason/since остаются: их читают дашборд, снапшот и тесты. reason = текст самой
+# ранней действующей причины (+N, если их больше), since = её время.
+function Get-HaltCode([string]$Reason) {
+  # код категории выводится из текста, чтобы старое состояние и любой пропущенный вызов
+  # Set-EntriesHalt без -Code попадали в ту же категорию, что и раньше
+  switch -Wildcard ($Reason) {
+    'HALT_RF_ENTRIES file' { return 'ops' }
+    'ГО *'                 { return 'go' }
+    'day -*'               { return 'day' }
+    'D2 *'                 { return 'D2' }
+    'D4 *'                 { return 'D4:' + (($Reason -split ' ')[1]) }
+    'D5R *'                { return 'D5R:' + (($Reason -split ' ')[1]) }
+    'RP конфиг*'           { return 'rp_config' }
+    'RP инвариант*'        { return 'rp_invariant' }
+    'orders/day*'          { return 'orders_day' }
+    'emergency close*'     { return 'emergency:' + (($Reason -split '[ :]')[2]) }
+    'suspicious DD*'       { return 'dd_suspicious' }
+    default                { return 'other:' + ($Reason.ToLower() -replace '\s+', '_') }
   }
 }
-# снятие халта: применять только к своей категории причин (см. Set-EntriesHalt). Дрифт-халты
-# снимаются в Invoke-Reconcile, дневные - в дневном хуке.
-function Clear-EntriesHalt([string]$Why) {
-  if (-not $st.entries_halt.active) { return }
-  Write-LiveLog "entries_halt снят: $Why (было: '$($st.entries_halt.reason)')"
-  $st.entries_halt.active = $false; $st.entries_halt.reason = ''; $st.entries_halt.since = ''
-  Alert "новые входы возобновлены ($Why)."
+function Get-HaltReasons {
+  if ($null -eq $st.entries_halt -or -not $st.entries_halt.PSObject.Properties['reasons']) { return @() }
+  return @(@($st.entries_halt.reasons) | Where-Object { $null -ne $_ })
+}
+# единственное место, где меняются поля халта: список причин -> совместимые active/reason/since
+function Set-HaltReasons($List) {
+  $arr = ToArr (@($List) | Where-Object { $null -ne $_ })
+  if ($st.entries_halt.PSObject.Properties['reasons']) { $st.entries_halt.reasons = $arr }
+  else { $st.entries_halt | Add-Member -NotePropertyName reasons -NotePropertyValue $arr -Force }
+  $st.entries_halt.active = ($arr.Count -gt 0)
+  if ($arr.Count -eq 0) { $st.entries_halt.reason = ''; $st.entries_halt.since = ''; return }
+  # суффикс (+N) не ломает существующие проверки вида 'ГО *' / 'day -*' / 'D5R*': он в хвосте
+  $st.entries_halt.reason = [string]$arr[0].text + $(if ($arr.Count -gt 1) { " (+$($arr.Count - 1))" } else { '' })
+  $st.entries_halt.since  = [string]$arr[0].since
+}
+function Test-HaltCode([string]$CodeLike) {
+  return (@(Get-HaltReasons | Where-Object { [string]$_.code -like $CodeLike }).Count -gt 0)
+}
+function Set-EntriesHalt([string]$Reason, [string]$Code = '') {
+  if (-not $Code) { $Code = Get-HaltCode $Reason }
+  $cur = @(Get-HaltReasons)
+  $hit = @($cur | Where-Object { [string]$_.code -eq $Code })
+  if ($hit.Count) {
+    # та же категория, но текст уехал (ГО-процент, номер карточки): освежаем без повторного алерта
+    if ([string]$hit[0].text -ne $Reason) { $hit[0].text = $Reason; Set-HaltReasons $cur }
+    return
+  }
+  $wasActive = ($cur.Count -gt 0)
+  $new = [pscustomobject]@{ code = $Code; text = $Reason; since = (MsToUtcStr $NowMs) }
+  Set-HaltReasons (@($cur) + $new)
+  if ($wasActive) {
+    # раньше вторая причина молча терялась - и снятие первой открывало входы
+    Alert "к паузе входов добавлена причина ($Reason). Действующих причин: $($cur.Count + 1)."
+  } else {
+    Alert "новые входы приостановлены ($Reason). Открытые позиции продолжают вестись как обычно."
+  }
+}
+# Снятие строго по своей категории: $CodeLike - код или маска ('D*' = все дрифт-причины, как было
+# по тексту). Умолчание '*' снимает всё - оставлено для ручного вмешательства, боевые вызовы
+# обязаны передавать свою категорию, иначе они снимут, например, операционную паузу.
+function Clear-EntriesHalt([string]$Why, [string]$CodeLike = '*') {
+  $cur = @(Get-HaltReasons)
+  if (-not $cur.Count) { return }
+  $gone = @($cur | Where-Object { [string]$_.code -like $CodeLike })
+  if (-not $gone.Count) { return }
+  $left = @($cur | Where-Object { [string]$_.code -notlike $CodeLike })
+  Write-LiveLog ("entries_halt: снято '{0}' ({1}); осталось причин: {2}" -f ($gone.text -join '; '), $Why, $left.Count)
+  Set-HaltReasons $left
+  if ($left.Count) { Alert ("причина паузы снята ({0}), но входы остаются на паузе: {1}." -f $Why, ($left.text -join '; ')) }
+  else { Alert "новые входы возобновлены ($Why)." }
+}
+# Миграция состояния под список причин. Уровень скрипта: после загрузки state и определения
+# функций, но ДО любой торговой логики (весь тик живёт в функциях ниже). Откат кода безопасен:
+# старый движок читает те же active/reason/since и просто не видит поля reasons.
+if ($null -eq $st.entries_halt) {
+  $st | Add-Member -NotePropertyName entries_halt -NotePropertyValue ([pscustomobject]@{
+    active = $false; reason = ''; since = ''; reasons = @() }) -Force
+} elseif (-not $st.entries_halt.PSObject.Properties['reasons'] -or $null -eq $st.entries_halt.reasons) {
+  $seed = @()
+  if ([bool]$st.entries_halt.active) {
+    # пустой текст при активном халте - блокировку сохраняем (пропуск причины открыл бы входы)
+    $txt = if ([string]$st.entries_halt.reason) { [string]$st.entries_halt.reason } else { 'причина не сохранена (миграция состояния)' }
+    $seed = @([pscustomobject]@{ code = (Get-HaltCode $txt); text = $txt
+      since = $(if ([string]$st.entries_halt.since) { [string]$st.entries_halt.since } else { MsToUtcStr $NowMs }) })
+  }
+  Set-HaltReasons $seed
 }
 
 # цена филла ЗА ЕДИНИЦУ из ответа PostOrder/GetOrderState. Боевые факты:
@@ -1057,7 +1131,7 @@ function Invoke-RiskPolicyResolve {
     }
   }
   if (-not $script:RP.ok) { Set-EntriesHalt ("RP конфиг: " + $rec.rejected_reason) }
-  elseif ([string]$st.entries_halt.reason -like 'RP конфиг*') { Clear-EntriesHalt 'конфиг риск-политики снова корректен' }
+  elseif (Test-HaltCode 'rp_config') { Clear-EntriesHalt 'конфиг риск-политики снова корректен' 'rp_config' }
 }
 
 # Капитал политики: bot_capital_account_rub из снимка брокера этого тика (капитал на последний
@@ -2329,9 +2403,9 @@ function Invoke-Reconcile($stopIds) {
   # тике новых дрифт-халтов не поднималось и ни одна карточка не в карантине - причина 'D*' устарела
   # (расхождение само рассосалось, ручного вмешательства не требуется) - снимаем автоматически.
   $anyQuarantine = @((@($st.sleeves.core.positions) + @($st.sleeves.setA.positions)) | Where-Object { $_.quarantine }).Count -gt 0
-  if ($st.entries_halt.active -and [string]$st.entries_halt.reason -like 'D*' -and -not $anyQuarantine -and -not $driftHaltThisTick) {
-    Write-LiveLog "reconcile: дрифт-халт '$($st.entries_halt.reason)' снят - расхождение больше не подтверждается"
-    $st.entries_halt.active = $false; $st.entries_halt.reason = ''
+  if ((Test-HaltCode 'D*') -and -not $anyQuarantine -and -not $driftHaltThisTick) {
+    # снимаем ТОЛЬКО дрифт-категории: операционная пауза и прочие причины остаются (этап 0)
+    Clear-EntriesHalt 'расхождение больше не подтверждается' 'D*'
   }
 }
 
@@ -2946,9 +3020,7 @@ function Invoke-LiveDayHook([string]$D) {
     $st.sleeves.core.day_start_eq = [double]$st.sleeves.core.eq_rub
     $st.sleeves.setA.day_start_eq = [double]$st.sleeves.setA.eq_rub
     $st.sleeves.core.halt_day = $null; $st.sleeves.setA.halt_day = $null
-    if ($st.entries_halt.active -and [string]$st.entries_halt.reason -like 'day -*') {
-      $st.entries_halt.active = $false; $st.entries_halt.reason = ''   # дневной халт снимается новым днём
-    }
+    if (Test-HaltCode 'day') { Clear-EntriesHalt 'новый торговый день' 'day' }   # только дневная причина
     $st.go.peak_day_rub = 0.0
   }
 
@@ -3087,6 +3159,14 @@ function Invoke-EntryWindow {
 # entry-интента. Вынесено из Invoke-EntryWindow, чтобы тот же путь могла переиспользовать вечерняя
 # same-day проверка (Invoke-EveningConfirm) - единая точка сайзинга/ГО-чека/постановки, не дублирование.
 function Invoke-EntryIntentPost($it) {
+  # Пауза входов проверяется и ЗДЕСЬ, в единственной точке отправки, а не только в окнах-вызовах:
+  # интент мог родиться до паузы и дожидаться в state (Test-InstrumentTrading ниже возвращает
+  # управление, не трогая интент), а окна - не единственный мыслимый путь сюда. Интент не
+  # отменяем: пауза временная, при снятии он уйдёт штатной проверкой свежести (этап 3).
+  if ($st.entries_halt.active) {
+    $script:ev.Add("SKIP пауза входов [$($it.sleeve)] $($it.asset): $([string]$st.entries_halt.reason)")
+    return
+  }
   $sl = Get-SleeveRef ([string]$it.sleeve)
   if ([string]$sl.halt_day -eq $mskToday) { Set-IntentState $it 'CANCELLED' 'sleeve halt'; return }
   # страховка на реальных деньгах: интент мог быть создан ДО появления гейта (восстановлен из
@@ -3562,12 +3642,12 @@ function Invoke-Governors {
       }
     } elseif ($goPct -gt [double]$LIVE.go_cap_pct) {
       Set-EntriesHalt ("ГО {0:P0} > кэпа" -f $goPct)
-    } elseif ([string]$st.entries_halt.reason -like 'ГО *') {
+    } elseif (Test-HaltCode 'go') {
       # ГО вернулось под кэп - свой же халт снимаем сами. Инцидент 2026-08-07: ветки снятия не
       # существовало, halt «ГО 72 % > кэпа» провисел 3 дня при фактических 19 %, боевой контур
       # пропустил сигналы GOLD/SILV/RTS (бумажный двойник их взял) - RTS с 2026-08-12 выведен из
       # универсума, пример исторический.
-      Clear-EntriesHalt ("ГО {0:P0}, кэп {1:P0}" -f $goPct, [double]$LIVE.go_cap_pct)
+      Clear-EntriesHalt ("ГО {0:P0}, кэп {1:P0}" -f $goPct, [double]$LIVE.go_cap_pct) 'go'
     }
   }
 }
@@ -4116,8 +4196,8 @@ try {
     Save-State
     return
   }
-  if (Test-Path (Join-Path $Root 'data\HALT_RF_ENTRIES')) { Set-EntriesHalt 'HALT_RF_ENTRIES file' }
-  elseif ([string]$st.entries_halt.reason -eq 'HALT_RF_ENTRIES file') { Clear-EntriesHalt 'kill-файл HALT_RF_ENTRIES удалён' }
+  if (Test-Path (Join-Path $Root 'data\HALT_RF_ENTRIES')) { Set-EntriesHalt 'HALT_RF_ENTRIES file' 'ops' }
+  elseif (Test-HaltCode 'ops') { Clear-EntriesHalt 'kill-файл HALT_RF_ENTRIES удалён' 'ops' }
 
   # 2. выходные: лёгкий тик (сверка раз в ~30 мин, никаких заявок)
   $weekendLight = ((Test-Weekend) -and -not $LIVE.trade_weekends)

@@ -59,6 +59,10 @@ Save-Dump 'stop_orders_all.json' (Invoke-TInvest 'StopOrdersService' 'GetStopOrd
 # 2. портфель и позиции на момент выгрузки
 Save-Dump 'portfolio.json' (Get-TiPortfolio $acc) 'OperationsService.GetPortfolio'
 Save-Dump 'positions.json' (Get-TiPositions $acc) 'OperationsService.GetPositions'
+# 2a. НЕИСПОЛНЕННЫЕ обычные заявки: снимок этапа 0 обязан показать не только позиции и стопы, но и
+# то, что ещё висит у брокера. Локальный запрет новых намерений заявку у брокера не отменяет:
+# без этого файла «уже отправленный вход» нельзя ни увидеть, ни сверить после паузы.
+Save-Dump 'orders_active.json' (Get-TiOrders $acc) 'OrdersService.GetOrders'
 # 3a. операции окнами по 31 день - тот же метод, которым пользуется движок
 $ops = New-Object System.Collections.Generic.List[object]
 $a = [DateTimeOffset]::Parse($From).ToUnixTimeMilliseconds()

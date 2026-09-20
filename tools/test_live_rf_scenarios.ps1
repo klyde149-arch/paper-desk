@@ -2085,6 +2085,80 @@ function Scn-HaltEntriesFileRemoved {
   Check 'halt-removed: вход исполнен' ((Get-Calls $r 'PostOrder').Count -eq 1 -and @($st.sleeves.core.positions).Count -eq 1)
 }
 
+# --- операционная пауза (этап 0 плана восстановления 2026-09-19): несколько причин халта живут
+# независимо. Это боевой сценарий ПОТЕРИ блокировки: висит дрифт-халт D4, тик видит kill-файл,
+# старый код причину не записывал (Set-EntriesHalt писал только при неактивном халте), сверка в
+# этом же тике снимала D4 - и окно входов открывалось при лежащем на месте kill-файле.
+# Состояние сознательно задано в СТАРОМ формате (одна строка-причина): заодно проверяем миграцию.
+function Scn-HaltOpsSurvivesDriftClear {
+  $r = New-Scenario 'halt-ops-vs-drift'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  $s.entries_halt = [pscustomobject]@{ active = $true; reason = 'D4 Ltest'; since = '2026-07-15 09:00' }
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  # снимок брокера обязан быть НЕПУСТЫМ: на пустом сверка штатно откладывается целиком и
+  # дрифт-причина не снимается - тогда сценарий проверял бы не то (первый прогон 2026-09-20)
+  Write-Json (Join-Path $r 'mock\OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = @(
+    [pscustomobject]@{ instrumentUid='uid-RUBCASH'; instrumentType='currency'; quantityLots=[pscustomobject]@{units='700000';nano=0} } ) })
+  New-Item -ItemType Directory -Force (Join-Path $r 'data') | Out-Null
+  Set-Content (Join-Path $r 'data\HALT_RF_ENTRIES') 'operational pause' -Encoding ASCII
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $reasons = @(@($st.entries_halt.reasons) | Where-Object { $null -ne $_ })
+  Check 'halt-ops: дрифт-причина снята сверкой' (@($reasons | Where-Object { [string]$_.code -like 'D*' }).Count -eq 0)
+  Check 'halt-ops: операционная пауза осталась' ([bool]$st.entries_halt.active -and @($reasons | Where-Object { [string]$_.code -eq 'ops' }).Count -eq 1)
+  Check 'halt-ops: вход не отправлен' ((Get-Calls $r 'PostOrder').Count -eq 0)
+}
+
+# --- пауза переживает перезапуск (два независимых тика) и не мешает выходу по сигналу:
+# приёмка этапа 0 - «новые входы не отправляются; выходы и восстановление защиты продолжаются»
+function Scn-HaltOpsExitStillWorks {
+  $r = New-Scenario 'halt-ops-exit'
+  $s = New-BaseState $r
+  $s.active | Add-Member -NotePropertyName VTBR -NotePropertyValue 'VBU6' -Force
+  $c = New-Card 'setA' 'VTBR' 'VBU6' 'uid-VBU6' 'long' 5 2.9 2.6 7749.12
+  $s.sleeves.setA.positions = @($c)
+  $ex = New-EntryIntent 'setA' 'VTBR' 'sell' 0.229 0.1145 2.9 0.02
+  $ex.kind = 'exit'; $ex.lots = 5; $ex.ticker = 'VBU6'; $ex.uid = 'uid-VBU6'
+  $ex.ctx = [pscustomobject]@{ card_id = $c.id; reason = 'trail-ema20' }
+  # плюс обычный вход, который паузой обязан быть остановлен
+  $en = New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05
+  $en.id = 'i00002'
+  $s.pending_intents = @($ex, $en)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  New-Item -ItemType Directory -Force (Join-Path $r 'data') | Out-Null
+  Set-Content (Join-Path $r 'data\HALT_RF_ENTRIES') 'operational pause' -Encoding ASCII
+  [void](Run-Tick $r '2026-07-15 10:05')
+  [void](Run-Tick $r '2026-07-15 10:06')   # перезапуск: причина читается из state + файла заново
+  $st = Get-State $r
+  $reasons = @(@($st.entries_halt.reasons) | Where-Object { $null -ne $_ })
+  Check 'halt-ops-exit: пауза пережила второй тик' ([bool]$st.entries_halt.active -and @($reasons | Where-Object { [string]$_.code -eq 'ops' }).Count -eq 1)
+  Check 'halt-ops-exit: причина не задвоилась' ($reasons.Count -eq 1)
+  # ровно одна заявка - выход; вход не ушёл
+  $posts = @((Get-Calls $r 'PostOrder') | Where-Object { $null -ne $_ })
+  Check 'halt-ops-exit: выход по сигналу отправлен' ($posts.Count -eq 1)
+  Check 'halt-ops-exit: вход остановлен' (@($st.sleeves.core.positions).Count -eq 0)
+}
+
+# --- снятие ГО-причины не трогает операционную паузу (зеркальная проверка: раньше ГО-текст
+# затирал чужую причину, а Clear-EntriesHalt снимал халт целиком)
+function Scn-HaltOpsSurvivesGoClear {
+  $r = New-Scenario 'halt-ops-vs-go'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  $s.entries_halt = [pscustomobject]@{ active = $true; reason = 'ГО 77% > кэпа'; since = '2026-07-15 09:00' }
+  $s.go = [pscustomobject]@{ used_rub = 0.0; budget_rub = 700000.0; peak_day_rub = 0.0 }   # ГО вернулось под кэп
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  New-Item -ItemType Directory -Force (Join-Path $r 'data') | Out-Null
+  Set-Content (Join-Path $r 'data\HALT_RF_ENTRIES') 'operational pause' -Encoding ASCII
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  $reasons = @(@($st.entries_halt.reasons) | Where-Object { $null -ne $_ })
+  Check 'halt-ops-go: ГО-причина снята' (@($reasons | Where-Object { [string]$_.code -eq 'go' }).Count -eq 0)
+  Check 'halt-ops-go: операционная пауза осталась' ([bool]$st.entries_halt.active -and @($reasons | Where-Object { [string]$_.code -eq 'ops' }).Count -eq 1)
+  Check 'halt-ops-go: вход не отправлен' ((Get-Calls $r 'PostOrder').Count -eq 0)
+}
+
 # ================= риск-политика rf-early-exit-v1: движок (2026-09-11) =================
 function New-RpConfig([string]$Mode = 'shadow', [double]$CoreRisk = 0.005, [double]$SetARisk = 0.005) {
   [pscustomobject]@{ rf_risk_policy = [pscustomobject]@{ schema_version = 1; policy_id = 'rf-early-exit-v1'; mode = $Mode
@@ -2627,6 +2701,7 @@ $scenarios = @(
   ${function:Scn-StopReplaceCancelLost}, ${function:Scn-StopReplaceCancel4xx}, ${function:Scn-StopReplaceStaleIntent},
   ${function:Scn-D5Tp1Resync}, ${function:Scn-D5Tp1Drop}, ${function:Scn-D5Reversal},
   ${function:Scn-OrphanSweep}, ${function:Scn-StopPostLostAdopt}, ${function:Scn-HaltEntriesFileRemoved},
+  ${function:Scn-HaltOpsSurvivesDriftClear}, ${function:Scn-HaltOpsExitStillWorks}, ${function:Scn-HaltOpsSurvivesGoClear},
   ${function:Scn-RpOffParity}, ${function:Scn-RpShadowNoMutation}, ${function:Scn-RpPilotSizing}, ${function:Scn-RpPilotQrefZero},
   ${function:Scn-RpInvalidConfig}, ${function:Scn-RpCapitalStale}, ${function:Scn-RpTotalCapLegacyBlocks},
   ${function:Scn-RpTwoEntriesReserve}, ${function:Scn-RpNoLoosen},
