@@ -38,7 +38,7 @@
           "tp1_order_id": "",
           "tp1_done": false,
           "be_moved": false,
-          "mfe_pts": 457.781529,
+          "mfe_pts": 457.6,
           "atr_entry": 24.814286,
           "risk_rub": 78132.63,
           "rub_per_pt": 10.0,
@@ -72,7 +72,7 @@
           "stop_initial_px": 465.4,
           "capital_rub": 1517134.21,
           "fees_entry_rub": 322.38,
-          "mae_pts": 456.3,
+          "mae_pts": 459.7,
           "risk_budget_rub": null,
           "entry_px_tries": 2,
           "entry_px_ok": true,
@@ -129,10 +129,10 @@
   "peak_eq": 837288.71,
   "watermarks": {
     "last_daily_day": "2026-09-17",
-    "last_hour_ts": 1789768800000,
-    "ops_since": "2026-09-20T19:45:33Z",
-    "last_eq_snap": 1789936593153,
-    "last_report_day": "2026-09-19",
+    "last_hour_ts": 1789941600000,
+    "ops_since": "2026-09-20T20:00:32Z",
+    "last_eq_snap": 1789937493247,
+    "last_report_day": "2026-09-20",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
@@ -298,12 +298,12 @@
     "signal_mismatch": 0
   },
   "report_base": {
-    "day": "2026-09-19",
-    "ts": 1789851333599,
-    "profile_eq": 736528.83,
+    "day": "2026-09-20",
+    "ts": 1789937733171,
+    "profile_eq": 736761.02,
     "bot_capital_rub": 1510066.73,
     "positions": {
-      "L00057": -1756.0
+      "L00057": -1285.0
     }
   },
   "manual_adjustments": [
@@ -501,7 +501,7 @@
     "a72e6299-a1c0-439a-98eb-06538cec8ab4": -1285.0
   },
   "broker": {
-    "captured_ms": 1789937133082,
+    "captured_ms": 1789938032929,
     "totals": {
       "portfolio": 1510066.73,
       "currencies": 1510066.73,
@@ -590,7 +590,7 @@
       "avg_px": 457.8,
       "lots": -157.0,
       "secid": "CCX6",
-      "ts": 1789937133082
+      "ts": 1789938032929
     }
   },
   "capital_breakdown": {
@@ -617,7 +617,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789937133082,
+    "updated_ms": 1789938032929,
     "budgets_enforced": true,
     "capital_rub": 1510066.73,
     "capital_ok": true,
@@ -636,11 +636,11 @@
       "COCOA": 12645.0
     },
     "unknown": [
-      "card L00057: котировка старше 17146 с"
+      "card L00057: котировка старше 18046 с"
     ],
-    "day_ok": true,
-    "day_pnl_rub": 471.0,
-    "day_limit_rub": 30201.33,
-    "day_reason": ""
+    "day_ok": false,
+    "day_pnl_rub": null,
+    "day_limit_rub": null,
+    "day_reason": "нет проверенной дневной базы"
   }
 }
