@@ -41,6 +41,9 @@ $LIVE = [ordered]@{
   margin_disabled   = $false     # маржиналка на счёте отключена -> не звать GetMarginAttributes
   long_only         = @('VTBR','SBRF')   # активы, по которым разрешён ТОЛЬКО лонг (см. Test-SideAllowed)
   profile_day_halt  = 0.08       # доп. предохранитель: профиль-день -8% -> entries_halt до завтра
+  # перепроверка «пробой жив» перед отправкой (этап 3 плана восстановления). ИЗМЕНЕНИЕ ПРАВИЛ:
+  # бэктест входит на следующем открытии без неё. Выключается через config.json.
+  entry_signal_recheck = $true
   hard_dd           = 0.35       # АВАРИЙНЫЙ СТОП: -35% от пика -> закрыть всё + HALT_RF_LIVE (решение пользователя)
   max_orders_day    = 20         # предохранитель флуда (нюанс #11: сделки:заявки не хуже 1:10)
   max_attempts      = 3          # лимит попыток state machine на intent
@@ -75,6 +78,15 @@ $LIVE = [ordered]@{
 # клиринговые паузы MSK. Боевой факт 2026-07-17 (TradingSchedules + бары ISS): в ЕТС промежуточных
 # клирингов НЕТ, только ночной 23:50-00:30 (интервал clearing 20:50-21:30Z).
 $CLEARING = @(@('23:48','23:59'), @('00:00','00:32'))
+# Срок годности входного сигнала в календарных днях (этап 3 плана восстановления): интент ждёт
+# открытия следующей сессии, но пробой трёхдневной давности уже описывает не тот рынок.
+# 4 дня покрывают длинные выходные и один праздник подряд.
+$SIGNAL_TTL_DAYS = 4
+# Сколько раз подряд вход может упереться во ВРЕМЕННУЮ проблему данных цены, прежде чем отказ
+# станет окончательным (иначе интент ломится в рынок всё окно).
+$ENTRY_DATA_MAX_TRIES = 6
+# Предел возраста котировки, когда риск-политика выключена (в ней есть своё quote_max_age_sec).
+$QUOTE_MAX_AGE_FALLBACK = 300
 
 $lrfDir = Join-Path $Root 'data\live_rf'
 $serDir = Join-Path $lrfDir 'series'   # СОБСТВЕННЫЕ серии live-контура (lib_rf_signals читает $serDir)
@@ -3184,10 +3196,12 @@ function Invoke-LiveDayHook([string]$D) {
       $has = @($slC.positions | Where-Object { $_.asset -eq $a }).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'core' -and $_.asset -eq $a -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
       if ([string]$slC.halt_day -ne $D -and $busy -lt $MAXCONC -and -not $has) {
         $dir = if ($dsig.side -eq 'long') { 'buy' } else { 'sell' }
+        $lvl = Get-SignalLevel $dsig ([string]$dsig.side)
         [void](New-Intent 'entry' @{ sleeve = 'core'; asset = $a; side = $dir; created_day = $D
           t_signal = (UtcStrToMs "$D 23:50")
           ctx = [pscustomobject]@{ stop_dist = [math]::Round([double]$ATR_STOP_CORE * $atr, 6); atr = [math]::Round($atr, 6)
             risk_pct = [double]$LIVE.core_risk; ref_px = $cl
+            level = $lvl; sig_key = (Get-SignalKey 'core' $a ([string]$dsig.side) $D $lvl); sig_src = 'donchian-close'
             note = "donchian close $cl vs [$([math]::Round([double]$dsig.lo,4)) / $([math]::Round([double]$dsig.hi,4))]" } })
         $script:ev.Add("SIGNAL [core] $a $($dsig.side) @close $cl")
       }
@@ -3208,10 +3222,14 @@ function Invoke-LiveDayHook([string]$D) {
       $has = @($slA.positions | Where-Object { $_.asset -eq $a }).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'setA' -and $_.asset -eq $a -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
       if ([string]$slA.halt_day -ne $D -and $busy -lt $MAXCONC -and -not $has) {
         $dir = if ($asig.side -eq 'long') { 'buy' } else { 'sell' }
+        # у setA входа уровня пробоя нет (вход по откату), поэтому level не задаётся и
+        # повторная проверка «пробой жив» к нему не применяется - только свежесть цены
         [void](New-Intent 'entry' @{ sleeve = 'setA'; asset = $a; side = $dir; created_day = $D
           t_signal = (UtcStrToMs "$D 23:50")
           ctx = [pscustomobject]@{ swing = [math]::Round([double]$asig.swing, 6); atr = [math]::Round($atr, 6)
-            stop_dist = 0; risk_pct = [double]$LIVE.seta_risk; ref_px = $cl; note = 'setup A pullback' } })
+            stop_dist = 0; risk_pct = [double]$LIVE.seta_risk; ref_px = $cl
+            sig_key = (Get-SignalKey 'setA' $a ([string]$asig.side) $D $null); sig_src = 'setupA-pullback'
+            note = 'setup A pullback' } })
         $script:ev.Add("SIGNAL [setA] $a $($asig.side) @close $cl")
       }
     }
@@ -3250,6 +3268,49 @@ function Invoke-EntryWindow {
     if ([string]$it.created_day -ge $mskToday) { continue }   # вход на открытии СЛЕДУЮЩЕЙ сессии (как paper)
     Invoke-EntryIntentPost $it
   }
+}
+
+# Уровень пробоя, который сигнал подтвердил: лонг пробивает верх канала, шорт - низ.
+# Хранится в ctx СТРУКТУРНО (а не только в тексте note), потому что перед отправкой по нему
+# заново проверяется, жив ли пробой (этап 3 плана восстановления).
+function Get-SignalLevel($Sig, [string]$Side) {
+  if ($null -eq $Sig) { return $null }
+  $v = if ($Side -eq 'long') { $Sig.hi } else { $Sig.lo }
+  if ($null -eq $v) { return $null }
+  $d = [double]$v
+  if ($d -le 0) { return $null }
+  return [math]::Round($d, 6)
+}
+# Стабильный ключ САМОГО сигнала: один пробой = один ключ, сколько бы раз путь ни перезапускался.
+# Нужен, чтобы сбой между обработкой сигнала и сохранением состояния не породил два РАЗНЫХ
+# намерения по одному и тому же пробою, и чтобы решение можно было проследить в журнале.
+function Get-SignalKey([string]$Sleeve, [string]$Asset, [string]$Side, [string]$Day, $Level) {
+  $lv = if ($null -ne $Level) { ([double]$Level).ToString('F6', [Globalization.CultureInfo]::InvariantCulture) } else { 'na' }
+  return ("{0}|{1}|{2}|{3}|{4}" -f $Sleeve, $Asset, $Side, $Day, $lv)
+}
+
+# Свежая котировка инструмента ПЕРЕД отправкой (этап 3 плана восстановления 2026-09-19).
+# Возраст считается по времени САМОЙ КОТИРОВКИ (поле time ответа), а не по моменту получения
+# HTTP-ответа: брокер может отдать вчерашнюю цену мгновенно, и «быстрый ответ» ничего не говорит
+# о свежести данных. Отрицательный или неизвестный возраст - проблема данных, а не повод входить.
+# Возвращает { ok, px, ms, age_sec, reason }.
+function Get-FreshQuote([string]$Uid, [int]$MaxAgeSec) {
+  $r = [pscustomobject]@{ ok = $false; px = 0.0; ms = [long]0; age_sec = $null; reason = '' }
+  $lp = $null
+  try { foreach ($x in (Get-TiLastPrices @($Uid))) { if ($null -ne $x) { $lp = $x } } }
+  catch { $r.reason = "котировка недоступна: $($_.Exception.Message)"; return $r }
+  if ($null -eq $lp) { $r.reason = 'котировка не пришла'; return $r }
+  $px = [double](Q2D $lp.price)
+  if ($px -le 0) { $r.reason = "цена $px <= 0"; return $r }
+  $ms = [long]0
+  try { $tm = Get-TiField $lp 'time'; if ($null -ne $tm -and [string]$tm) { $ms = [long](ConvertTo-TiMs $tm) } } catch {}
+  if ($ms -le 0) { $r.px = $px; $r.reason = 'у котировки нет времени'; return $r }
+  $age = [math]::Round(($NowMs - $ms) / 1000.0, 1)
+  $r.px = $px; $r.ms = $ms; $r.age_sec = $age
+  if ($age -lt 0) { $r.reason = "время котировки в будущем ($age с)"; return $r }
+  if ($age -gt $MaxAgeSec) { $r.reason = "котировка старше $age с (допустимо $MaxAgeSec с)"; return $r }
+  $r.ok = $true
+  return $r
 }
 
 # сайзинг (пункты -> рубли, боевой нюанс #1) + кэп MAXLEV + предиктивный ГО-чек + постановка одного
@@ -3292,14 +3353,83 @@ function Invoke-EntryIntentPost($it) {
     $nx = [string]$st.fronts.$([string]$it.asset).next
     if ($nx) { $secid = $nx; $inst = Get-Inst $secid 'fut' } else { Set-IntentState $it 'CANCELLED' 'фронт в зоне экспирации'; return }
   }
+  $contractChanged = ([string]$it.ticker -and [string]$it.ticker -ne $secid)
   $it.ticker = $secid; $it.uid = [string]$inst.uid
   if (-not (Test-InstrumentTrading ([string]$inst.uid))) { return }   # утро: торги ещё не открылись - интент ждёт
+
+  # --- срок годности сигнала: интент ждёт открытия СЛЕДУЮЩЕЙ сессии, но если сессий не было
+  # несколько дней (длинные выходные, остановка торгов, простой контура), исходный пробой уже
+  # ничего не описывает. Входить по нему - значит торговать прошлое.
+  if ([string]$it.created_day) {
+    $ageDays = (([datetime]$mskToday) - ([datetime][string]$it.created_day)).TotalDays
+    if ($ageDays -gt [int]$SIGNAL_TTL_DAYS) {
+      Set-IntentState $it 'CANCELLED' "сигнал устарел: $([int]$ageDays) дн (предел $SIGNAL_TTL_DAYS)"
+      $script:ev.Add("SKIP устаревший сигнал [$($it.sleeve)] $($it.asset): $([int]$ageDays) дн")
+      Write-RpLog 'entry-skip' ([pscustomobject]@{ sleeve = [string]$it.sleeve; asset = [string]$it.asset
+        side = [string]$it.side; reason = 'signal-ttl'; age_days = [int]$ageDays; intent = [string]$it.id })
+      return
+    }
+  }
+
+  # --- свежая котировка ВЫБРАННОГО контракта перед отправкой
+  $maxAge = if ($null -ne $script:RP -and $script:RP.ok -and $null -ne $script:RP.p) { [int]$script:RP.p.quote_max_age_sec } else { [int]$QUOTE_MAX_AGE_FALLBACK }
+  $q = Get-FreshQuote ([string]$inst.uid) $maxAge
+  if (-not $q.ok) {
+    # ВРЕМЕННАЯ ошибка данных: интент не отменяем, но число попыток ограничено - иначе он будет
+    # ломиться в рынок всё окно. Отличается и от «сигнал отменён», и от «лимит не позволяет».
+    $tries = [int]$it.data_fails + 1
+    $it | Add-Member -NotePropertyName data_fails -NotePropertyValue $tries -Force
+    $it | Add-Member -NotePropertyName last_error -NotePropertyValue ([string]$q.reason) -Force
+    if ($tries -ge [int]$ENTRY_DATA_MAX_TRIES) {
+      Set-IntentState $it 'CANCELLED' "данные цены: $($q.reason)"
+      $script:ev.Add("SKIP данные цены [$($it.sleeve)] $($it.asset): $($q.reason) (попыток $tries)")
+    } else {
+      $script:ev.Add("WAIT данные цены [$($it.sleeve)] $($it.asset): $($q.reason) (попытка $tries)")
+    }
+    Write-RpLog 'entry-data-fail' ([pscustomobject]@{ sleeve = [string]$it.sleeve; asset = [string]$it.asset
+      reason = [string]$q.reason; tries = $tries; intent = [string]$it.id })
+    return
+  }
+  $freshPx = [double]$q.px
+  $it.ctx | Add-Member -NotePropertyName quote_px -NotePropertyValue $freshPx -Force
+  $it.ctx | Add-Member -NotePropertyName quote_ms -NotePropertyValue ([long]$q.ms) -Force
+  $it.ctx | Add-Member -NotePropertyName quote_age_sec -NotePropertyValue $q.age_sec -Force
+  $it | Add-Member -NotePropertyName t_decision -NotePropertyValue $NowMs -Force
+
+  # --- повторная проверка сигнала по свежей цене: пробой должен быть ЖИВ на момент отправки.
+  # Уровень канала хранится в ctx структурно (level), а не только в тексте note.
+  # ВНИМАНИЕ: это изменение ПРАВИЛ входа, а не инфраструктуры. Бэктест, на котором посчитан эдж,
+  # входит на открытии следующей сессии БЕЗ такой проверки. Этап 3 плана восстановления требует её
+  # («нет входов по устаревшему намерению»), поэтому по умолчанию включена, но выключается одним
+  # ключом config.json: "entry_signal_recheck": false.
+  $recheck = if ($LIVE.Contains('entry_signal_recheck')) { [bool]$LIVE.entry_signal_recheck } else { $true }
+  if ($recheck -and $null -ne $it.ctx -and $it.ctx.PSObject.Properties['level'] -and [double]$it.ctx.level -gt 0) {
+    $lvl = [double]$it.ctx.level
+    $sm = if ([string]$it.side -eq 'buy') { 1.0 } else { -1.0 }
+    if (($sm * ($freshPx - $lvl)) -lt 0) {
+      Set-IntentState $it 'CANCELLED' "сигнал отменён: цена $freshPx вернулась за уровень $lvl"
+      $script:ev.Add("SKIP сигнал отменён [$($it.sleeve)] $($it.asset): $freshPx vs уровень $lvl")
+      Write-RpLog 'entry-skip' ([pscustomobject]@{ sleeve = [string]$it.sleeve; asset = [string]$it.asset
+        side = [string]$it.side; reason = 'signal-void'; px = $freshPx; level = $lvl; intent = [string]$it.id })
+      return
+    }
+  }
+  if ($contractChanged) {
+    # контракт сменился между рождением намерения и отправкой: уровни и размер пересчитываются
+    # от его собственной шкалы, старые цифры к нему неприменимы
+    Write-LiveLog "entry $($it.id): контракт сменился на $secid - размер и уровни пересчитаны по свежей цене $freshPx"
+    Write-RpLog 'entry-contract-change' ([pscustomobject]@{ asset = [string]$it.asset; to = $secid
+      px = $freshPx; intent = [string]$it.id })
+  }
   $s = Get-Ser ([string]$it.asset)
   # ctx.ref_px уже несёт цену, по которой сигнал был признан валидным (дневное закрытие для
   # обычного пути, живая вечерняя цена для same-day пути) - предпочитаем её хвосту серии, который
   # для same-day интента вечером ещё НЕ содержит сегодняшний бар (появится только в 00:20-хуке).
   # Для обычного пути к моменту исполнения (следующая сессия) это то же самое значение.
-  $refPx = if ([double]$it.ctx.ref_px -gt 0) { [double]$it.ctx.ref_px } else { [double]$s[$s.Count - 1].c }
+  # Опорная цена сайзинга - СВЕЖАЯ котировка, а не цена, по которой сигнал был признан валидным:
+  # заявка уходит рыночной ИМЕННО СЕЙЧАС, и стоп-предел (доля цены входа) с нагрузкой на лот
+  # обязаны считаться от текущей цены. ref_px остаётся в ctx как цена сигнала (этап 3).
+  $refPx = $freshPx
   $stopDist = [double]$it.ctx.stop_dist
   if ([string]$it.sleeve -eq 'setA') {
     $sm = if ($it.side -eq 'buy') { 1.0 } else { -1.0 }
@@ -3343,6 +3473,57 @@ function Invoke-EntryIntentPost($it) {
   [void](Post-IntentMarket $it ([string]$it.side) ([int]$lots))
 }
 
+# ---- вечерняя проверка: результат ПО ИНСТРУМЕНТУ (этап 3 плана восстановления) ----
+# Терминальные исходы ('ok', 'no-signal', 'skip:*', 'error-final') на сегодня закрыты.
+# Ошибка данных ('error:N') повторяется, пока попыток меньше EVENING_MAX_TRIES.
+$script:EVENING_MAX_TRIES = 3
+function Get-EveningMap {
+  if (-not $st.watermarks.PSObject.Properties['evening_confirm'] -or $null -eq $st.watermarks.evening_confirm) {
+    $st.watermarks | Add-Member -NotePropertyName evening_confirm -NotePropertyValue ([pscustomobject]@{
+      day = ''; by_asset = [pscustomobject]@{} }) -Force
+  }
+  return $st.watermarks.evening_confirm
+}
+function Reset-EveningDay {
+  $m = Get-EveningMap
+  if ([string]$m.day -ne $mskToday) {
+    $m.day = $mskToday
+    $m.by_asset = [pscustomobject]@{}
+    # миграция со старой единой отметки: если день уже был закрыт ею, вечер сегодня не переигрываем
+    if ([string]$st.watermarks.evening_confirm_day -eq $mskToday) {
+      foreach ($a in $ASSETS) { $m.by_asset | Add-Member -NotePropertyName $a -NotePropertyValue 'skip:legacy-watermark' -Force }
+    }
+  }
+}
+function Test-EveningDone([string]$Asset) {
+  $m = Get-EveningMap
+  if (-not $m.by_asset.PSObject.Properties[$Asset]) { return $false }
+  $v = [string]$m.by_asset.$Asset
+  if ($v -like 'error:*') {
+    $n = 0; [void][int]::TryParse(($v -replace '^error:', ''), [ref]$n)
+    return ($n -ge $script:EVENING_MAX_TRIES)
+  }
+  return $true   # ok / no-signal / skip:* / error-final
+}
+function Set-EveningResult([string]$Asset, [string]$Result) {
+  $m = Get-EveningMap
+  $m.by_asset | Add-Member -NotePropertyName $Asset -NotePropertyValue $Result -Force
+}
+function Add-EveningError([string]$Asset, [string]$Msg) {
+  $m = Get-EveningMap
+  $n = 0
+  if ($m.by_asset.PSObject.Properties[$Asset]) {
+    $v = [string]$m.by_asset.$Asset
+    if ($v -like 'error:*') { [void][int]::TryParse(($v -replace '^error:', ''), [ref]$n) }
+  }
+  $n++
+  $final = ($n -ge $script:EVENING_MAX_TRIES)
+  Set-EveningResult $Asset $(if ($final) { 'error-final' } else { "error:$n" })
+  Write-LiveLog ("evening-confirm {0}: попытка {1}/{2} не удалась: {3}{4}" -f $Asset, $n, $script:EVENING_MAX_TRIES, $Msg,
+    $(if ($final) { ' - на сегодня отказ зафиксирован' } else { '' }))
+  if ($final) { $script:ev.Add("FAIL evening $Asset : $Msg") }
+}
+
 function Invoke-EveningConfirm {
   # Путь A (2026-08). Бэктестер, на котором посчитан весь опубликованный эдж рукава B, всегда
   # исполнял брейкаут-вход по цене ЗАКРЫТИЯ ТОГО ЖЕ дня (tools/backtest.ps1: $entry=$cl) - живой
@@ -3364,26 +3545,32 @@ function Invoke-EveningConfirm {
   # инструмента) - он намеренно НЕ считается «занятым», и хук получает честный второй шанс на
   # официально финализированной цене.
   if ($st.entries_halt.active) { return }
-  if ([string]$st.watermarks.evening_confirm_day -eq $mskToday) { return }
-  $st.watermarks | Add-Member -NotePropertyName evening_confirm_day -NotePropertyValue $mskToday -Force
+  # Результат ведётся ПО ИНСТРУМЕНТУ (этап 3 плана восстановления 2026-09-19). Прежняя единая
+  # отметка evening_confirm_day ставилась ДО цикла: ошибка сети на третьем активе выключала все
+  # остальные до завтра, а успешная обработка и сбой были неразличимы. Теперь «нет сигнала» и
+  # «пропущен» терминальны на сегодня (иначе повтор каждую минуту окна превратил бы вечернюю
+  # проверку в непрерывное наблюдение - другую стратегию), а ошибка данных повторяется
+  # ограниченное число раз.
+  Reset-EveningDay
   foreach ($a in $ASSETS) {
     if (@($LIVE.whitelist).Count -and $LIVE.whitelist -notcontains $a) { continue }
+    if (Test-EveningDone $a) { continue }
     try {
       $slC = $st.sleeves.core
-      if ([string]$slC.halt_day -eq $mskToday) { continue }
+      if ([string]$slC.halt_day -eq $mskToday) { Set-EveningResult $a 'skip:sleeve-halt'; continue }
       $busy = @($slC.positions).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'core' -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
       $has = @($slC.positions | Where-Object { $_.asset -eq $a }).Count + @($st.pending_intents | Where-Object { $_.kind -eq 'entry' -and $_.sleeve -eq 'core' -and $_.asset -eq $a -and $_.state -in @('INTENT','POSTED','PARTIAL','LOST') }).Count
-      if ($busy -ge $MAXCONC -or $has) { continue }
+      if ($busy -ge $MAXCONC -or $has) { Set-EveningResult $a 'skip:busy'; continue }
       $secid = [string]$st.active.$a
-      if (-not $secid) { continue }
+      if (-not $secid) { Set-EveningResult $a 'skip:no-contract'; continue }
       $s = Get-Ser $a
       if ($s.Count -lt ($BRK_N + 1)) { continue }
       # серия обязана заканчиваться НЕ позже вчерашнего и не отставать больше чем на выходные/
       # праздники (>4 дн - подозрение на застрявшую серию, инцидент 2026-08-12/13 "слепые пять";
       # молча не считаем, обычный путь 00:20-хука разберётся сам)
       $lastDay = SerDay $s[$s.Count - 1]
-      if ($lastDay -ge $mskToday) { continue }
-      if ((([datetime]$mskToday) - ([datetime]$lastDay)).TotalDays -gt 4) { continue }
+      if ($lastDay -ge $mskToday) { Set-EveningResult $a 'skip:series-today'; continue }
+      if ((([datetime]$mskToday) - ([datetime]$lastDay)).TotalDays -gt 4) { Set-EveningResult $a 'skip:series-stale'; continue }
       $atr = Ser-ATR14 $s ($s.Count - 1)
       if ([double]::IsNaN($atr) -or $atr -le 0) { continue }
       $inst = $null
@@ -3401,26 +3588,33 @@ function Invoke-EveningConfirm {
       $key = "c3b_$a"
       $ra = if ($st.rearm.PSObject.Properties[$key]) { $st.rearm.$key } else { $null }
       $dsig = Get-DonchianSide $tmp ($tmp.Count - 1) $ra
-      if ([string]$dsig.side -eq '') { continue }
+      if ([string]$dsig.side -eq '') { Set-EveningResult $a 'no-signal'; continue }
       if (-not (Test-SideAllowed $a ([string]$dsig.side))) {
         $script:ev.Add("SKIP long-only [core] $a $($dsig.side) @evening $px (same-day)")
-        continue
+        Set-EveningResult $a 'skip:long-only'; continue
       }
       if ((Get-RpSleeveEntryMode 'core') -ne 'live') {
         $script:ev.Add("SKIP рукав core [$(Get-RpSleeveEntryMode 'core')] $a $($dsig.side) @evening $px")
         Write-RpLog 'signal-skip' ([pscustomobject]@{ sleeve = 'core'; asset = $a; side = [string]$dsig.side
           reason = "new_entries=$(Get-RpSleeveEntryMode 'core')"; ref_px = $px; day = $mskToday })
-        continue
+        Set-EveningResult $a 'skip:sleeve-off'; continue
       }
       $dir = if ($dsig.side -eq 'long') { 'buy' } else { 'sell' }
+      $lvl = Get-SignalLevel $dsig ([string]$dsig.side)
       $it = New-Intent 'entry' @{ sleeve = 'core'; asset = $a; side = $dir; created_day = $mskToday
         t_signal = $NowMs
         ctx = [pscustomobject]@{ stop_dist = [math]::Round([double]$ATR_STOP_CORE * $atr, 6); atr = [math]::Round($atr, 6)
           risk_pct = [double]$LIVE.core_risk; ref_px = $px
+          level = $lvl; sig_key = (Get-SignalKey 'core' $a ([string]$dsig.side) $mskToday $lvl); sig_src = 'donchian-evening'
           note = "evening donchian $px vs [$([math]::Round([double]$dsig.lo,4)) / $([math]::Round([double]$dsig.hi,4))]" } }
       $script:ev.Add("SIGNAL [core] $a $($dsig.side) @evening $px (same-day)")
       Invoke-EntryIntentPost $it
-    } catch { Write-LiveLog "evening-confirm ${a}: $($_.Exception.Message)" }
+      Set-EveningResult $a 'ok'
+    } catch {
+      # ошибка ДАННЫХ по одному активу: остальные обрабатываются, этот получает ограниченный
+      # повтор в пределах окна (раньше падение здесь молча съедало весь вечер)
+      Add-EveningError $a ([string]$_.Exception.Message)
+    }
   }
 }
 

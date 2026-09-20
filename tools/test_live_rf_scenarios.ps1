@@ -107,7 +107,17 @@ function Write-DefaultFixtures([string]$Mock) {
   Write-Json (Join-Path $Mock 'OperationsService.GetPortfolio.json') ([pscustomobject]@{ positions = @() })
   Write-Json (Join-Path $Mock 'StopOrdersService.GetStopOrders.json') ([pscustomobject]@{ stopOrders = @() })
   Write-Json (Join-Path $Mock 'OperationsService.GetOperations.json') ([pscustomobject]@{ operations = @() })
-  Write-Json (Join-Path $Mock 'MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @() })
+  # Цены по умолчанию равны закрытию синтетических серий (Write-SynthSeries), поэтому MTM
+  # считает ровно то же, что и раньше на фолбэке «нет котировки -> хвост серии». Время каждой
+  # котировки проставляет Run-Tick от времени тика: с этапа 3 вход требует СВЕЖУЮ котировку с её
+  # собственным временем, и статичная метка в файле годилась бы только для одного тика.
+  Write-Json (Join-Path $Mock 'MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @(
+    [pscustomobject]@{ instrumentUid = 'uid-NGQ6'; price = [pscustomobject]@{ units = '2'; nano = 900000000 } },
+    [pscustomobject]@{ instrumentUid = 'uid-NGU6'; price = [pscustomobject]@{ units = '2'; nano = 900000000 } },
+    [pscustomobject]@{ instrumentUid = 'uid-CRU6'; price = [pscustomobject]@{ units = '11'; nano = 686000000 } },
+    [pscustomobject]@{ instrumentUid = 'uid-CRZ6'; price = [pscustomobject]@{ units = '11'; nano = 686000000 } },
+    [pscustomobject]@{ instrumentUid = 'uid-VBU6'; price = [pscustomobject]@{ units = '2'; nano = 900000000 } }
+  ) })
   Write-Json (Join-Path $Mock 'MarketDataService.GetTradingStatus.json') ([pscustomobject]@{ tradingStatus = 'SECURITY_TRADING_STATUS_NORMAL_TRADING' })
   Write-Json (Join-Path $Mock 'OperationsService.GetPositions.json') ([pscustomobject]@{
     money = @([pscustomobject]@{ currency = 'rub'; units = '700000'; nano = 0 }) })
@@ -158,6 +168,32 @@ function Run-Tick([string]$Root, [string]$MskTime, [string]$Mode = 'prod', [swit
   # иначе Alert() сценария уходит настоящим сообщением владельцу и клиенту
   $oldTg = @($env:TG_BOT_TOKEN, $env:TG_CHAT_ID, $env:TG_CHAT_ID_FUT)
   $shell = if ($env:LRF_TEST_SHELL) { [string]$env:LRF_TEST_SHELL } else { 'powershell' }
+  # Свежесть котировки считается по ВРЕМЕНИ САМОЙ КОТИРОВКИ (этап 3). Фикстуре, которая время не
+  # указала, проставляем его от времени этого тика: отсутствие метки в файле - не предмет
+  # проверки сценария. Сценарий, который проверяет ИМЕННО устаревшую или безвременную котировку,
+  # задаёт time явно (в т.ч. пустой строкой) - такое значение не трогаем.
+  $lpPath = Join-Path $Root 'mock\MarketDataService.GetLastPrices.json'
+  if (Test-Path $lpPath) {
+    try {
+      $lpDoc = Get-Content $lpPath -Raw -Encoding UTF8 | ConvertFrom-Json
+      $iso = (MsToUtc ($nowMs - 5000)).ToString('yyyy-MM-ddTHH:mm:ssZ')
+      $touched = $false
+      foreach ($lp in @($lpDoc.lastPrices)) {
+        if ($null -eq $lp) { continue }
+        # Время, проставленное НАМИ, освежаем на КАЖДОМ тике и помечаем __auto: иначе метка,
+        # выданная на первом тике, к следующему уже просрочена (65 с при пределе 60 - первый
+        # прогон 2026-09-20 именно так ронял rp-invalid). Время, заданное самим сценарием,
+        # не трогаем никогда: оно и есть предмет проверки.
+        $isAuto = ($lp.PSObject.Properties['__auto'] -and [bool]$lp.__auto)
+        if ($isAuto -or -not $lp.PSObject.Properties['time']) {
+          $lp | Add-Member -NotePropertyName time -NotePropertyValue $iso -Force
+          $lp | Add-Member -NotePropertyName __auto -NotePropertyValue $true -Force
+          $touched = $true
+        }
+      }
+      if ($touched) { Write-Json $lpPath $lpDoc }
+    } catch { }
+  }
   try {
     $env:TG_BOT_TOKEN = $null; $env:TG_CHAT_ID = $null; $env:TG_CHAT_ID_FUT = $null
     $env:TINVEST_MODE = $Mode; $env:TINVEST_MOCK_DIR = Join-Path $Root 'mock'
@@ -1346,7 +1382,9 @@ function Scn-EveningEntry {
   $pos = @($st.sleeves.core.positions | Where-Object { $_.asset -eq 'CNY' })
   Check 'evening: карточка CNY создана' ($pos.Count -eq 1)
   if ($pos.Count) { Check 'evening: вход СЕГОДНЯ (15.07), не завтра' ([string]$pos[0].entry_day -eq '2026-07-15') }
-  Check 'evening: вотермарка выставлена' ([string]$st.watermarks.evening_confirm_day -eq '2026-07-15')
+  # результат теперь ПО ИНСТРУМЕНТУ (этап 3): единой отметки на весь вечер больше нет
+  Check 'evening: день отмечен' ([string]$st.watermarks.evening_confirm.day -eq '2026-07-15')
+  Check 'evening: результат CNY = ok' ([string]$st.watermarks.evening_confirm.by_asset.CNY -eq 'ok')
 }
 
 # --- 43. evening-no-signal: цена внутри канала -> сигнала нет, состояние не тронуто
@@ -1364,7 +1402,9 @@ function Scn-EveningNoSignal {
   $st = Get-State $r
   Check 'evening-no-signal: карточек нет' (@($st.sleeves.core.positions).Count -eq 0)
   Check 'evening-no-signal: интентов нет' (@($st.pending_intents).Count -eq 0)
-  Check 'evening-no-signal: вотермарка всё равно выставлена (не долбим каждую минуту окна)' ([string]$st.watermarks.evening_confirm_day -eq '2026-07-15')
+  # «нет сигнала» ТЕРМИНАЛЕН на сегодня: иначе повтор каждую минуту окна превратил бы вечернюю
+  # проверку в непрерывное наблюдение - другую стратегию
+  Check 'evening-no-signal: результат терминален (не долбим каждую минуту окна)' ([string]$st.watermarks.evening_confirm.by_asset.CNY -eq 'no-signal')
 }
 
 # --- 44. evening-idempotent: тот же вечер дважды в окне -> не задваивает
@@ -2291,6 +2331,151 @@ function Scn-HaltOpsSurvivesGoClear {
   Check 'halt-ops-go: вход не отправлен' ((Get-Calls $r 'PostOrder').Count -eq 0)
 }
 
+
+# ================= этап 3 плана восстановления: исполнение входа (2026-09-20) =================
+
+# --- устаревшая котировка: вход НЕ уходит, интент остаётся ждать (временная проблема данных,
+# а не отмена сигнала). Время котировки задано сценарием явно - Run-Tick его не трогает.
+function Scn-EntryStaleQuote {
+  $r = New-Scenario 'entry-stale-quote'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  # котировка на час старше тика (10:05 MSK = 07:05Z)
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @(
+    [pscustomobject]@{ instrumentUid = 'uid-NGQ6'; price = [pscustomobject]@{ units = '2'; nano = 900000000 }
+      time = '2026-07-15T06:05:00Z' }) })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'stale-quote: заявка не ушла' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  $it = @(@($st.pending_intents) | Where-Object { $null -ne $_ -and $_.kind -eq 'entry' })
+  Check 'stale-quote: интент ЖДЁТ, а не отменён' ($it.Count -eq 1 -and [string]$it[0].state -eq 'INTENT')
+  Check 'stale-quote: попытка засчитана' ($it.Count -eq 1 -and [int]$it[0].data_fails -ge 1)
+  Check 'stale-quote: причина записана' ($it.Count -eq 1 -and [string]$it[0].last_error -like '*старше*')
+  Check 'stale-quote: сопровождение не выключено (тик прошёл)' ([string]$st.mode -eq 'prod')
+}
+
+# --- котировка БЕЗ времени: «быстрый ответ» не значит свежие данные. Вход не уходит.
+function Scn-EntryQuoteNoTime {
+  $r = New-Scenario 'entry-quote-no-time'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @(
+    [pscustomobject]@{ instrumentUid = 'uid-NGQ6'; price = [pscustomobject]@{ units = '2'; nano = 900000000 }
+      time = '' }) })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  Check 'quote-no-time: заявка не ушла' ((Get-Calls $r 'PostOrder').Count -eq 0)
+}
+
+# --- время котировки В БУДУЩЕМ: это проблема данных, а не повод входить
+function Scn-EntryQuoteFuture {
+  $r = New-Scenario 'entry-quote-future'
+  $s = New-BaseState $r
+  $s.pending_intents = @(New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @(
+    [pscustomobject]@{ instrumentUid = 'uid-NGQ6'; price = [pscustomobject]@{ units = '2'; nano = 900000000 }
+      time = '2026-07-15T09:05:00Z' }) })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  Check 'quote-future: заявка не ушла' ((Get-Calls $r 'PostOrder').Count -eq 0)
+}
+
+# --- пробой ВЕРНУЛСЯ за уровень к моменту отправки: сигнал отменён (терминально), а не «ждём».
+# Это приёмка этапа 3: «устаревший утренний сигнал отменяется».
+function Scn-EntrySignalVoided {
+  $r = New-Scenario 'entry-signal-voided'
+  $s = New-BaseState $r
+  $it = New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05
+  $it.ctx | Add-Member -NotePropertyName level -NotePropertyValue 2.95 -Force   # пробой был выше 2.95
+  $s.pending_intents = @($it)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  # цена по умолчанию 2.9 - ниже уровня 2.95, пробой больше не подтверждается
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'signal-voided: заявка не ушла' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  $left = @(@($st.pending_intents) | Where-Object { $null -ne $_ -and $_.kind -eq 'entry' })
+  Check 'signal-voided: интент отменён, а не ждёт' ($left.Count -eq 0 -or [string]$left[0].state -eq 'CANCELLED')
+  $log = Get-Content (Join-Path $r 'data\live_rf\tick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  Check 'signal-voided: причина названа отменой сигнала' ([string]$log -match 'сигнал отмен')
+}
+
+# --- пробой ЖИВ на момент отправки: вход проходит (контрольный случай к предыдущему)
+function Scn-EntrySignalAlive {
+  $r = New-Scenario 'entry-signal-alive'
+  $s = New-BaseState $r
+  $it = New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05
+  $it.ctx | Add-Member -NotePropertyName level -NotePropertyValue 2.85 -Force   # цена 2.9 всё ещё выше
+  $s.pending_intents = @($it)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'signal-alive: заявка ушла' ((Get-Calls $r 'PostOrder').Count -eq 1)
+  Check 'signal-alive: карточка создана' (@($st.sleeves.core.positions).Count -eq 1)
+  $log = Get-Content (Join-Path $r 'data\live_rf	ick_log.txt') -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+  Check 'signal-alive: путь свежей котировки не жаловался' ([string]$log -notmatch 'данные цены')
+}
+
+# --- выключатель перепроверки: тот же отменённый пробой при entry_signal_recheck=false проходит.
+# Это ИЗМЕНЕНИЕ ПРАВИЛ, и оно обязано выключаться одним ключом.
+function Scn-EntryRecheckDisabled {
+  $r = New-Scenario 'entry-recheck-off'
+  $s = New-BaseState $r
+  $it = New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05
+  $it.ctx | Add-Member -NotePropertyName level -NotePropertyValue 2.95 -Force
+  $s.pending_intents = @($it)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  $cfg = New-RpConfig 'pilot'
+  $cfg | Add-Member -NotePropertyName entry_signal_recheck -NotePropertyValue $false -Force
+  Write-Json (Join-Path $r 'data\live_rf\config.json') $cfg
+  [void](Run-Tick $r '2026-07-15 10:05')
+  Check 'recheck-off: вход прошёл (перепроверка выключена)' ((Get-Calls $r 'PostOrder').Count -eq 1)
+}
+
+# --- сигнал протух по сроку: интент пролежал дольше предела -> отменён
+function Scn-EntrySignalTtl {
+  $r = New-Scenario 'entry-signal-ttl'
+  $s = New-BaseState $r
+  $it = New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05
+  $it.created_day = '2026-07-05'   # 10 дней до тика
+  $s.pending_intents = @($it)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000
+  Write-Json (Join-Path $r 'data\live_rf\config.json') (New-RpConfig 'pilot')
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'signal-ttl: заявка не ушла' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  $left = @(@($st.pending_intents) | Where-Object { $null -ne $_ -and $_.kind -eq 'entry' })
+  Check 'signal-ttl: интент отменён' ($left.Count -eq 0 -or [string]$left[0].state -eq 'CANCELLED')
+}
+
+# --- ошибка данных по ОДНОМУ вечернему активу не выключает остальные и не закрывает день
+function Scn-EveningPerAssetError {
+  $r = New-Scenario 'evening-per-asset'
+  $s = New-BaseState $r
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  # цены нет вовсе -> вечерний путь по активу падает на «цены нет» (continue), но день не закрыт
+  Write-Json (Join-Path $r 'mock\MarketDataService.GetLastPrices.json') ([pscustomobject]@{ lastPrices = @() })
+  [void](Run-Tick $r '2026-07-15 23:40')
+  $st = Get-State $r
+  Check 'evening-per-asset: день отмечен сегодняшним' ([string]$st.watermarks.evening_confirm.day -eq '2026-07-15')
+  # ни один актив не получил 'ok': цены не было
+  $vals = @($st.watermarks.evening_confirm.by_asset.PSObject.Properties | ForEach-Object { [string]$_.Value })
+  Check 'evening-per-asset: ни одного ok без цены' (@($vals | Where-Object { $_ -eq 'ok' }).Count -eq 0)
+  Check 'evening-per-asset: заявок нет' ((Get-Calls $r 'PostOrder').Count -eq 0)
+}
+
 # ================= риск-политика rf-early-exit-v1: движок (2026-09-11) =================
 function New-RpConfig([string]$Mode = 'shadow', [double]$CoreRisk = 0.005, [double]$SetARisk = 0.005) {
   [pscustomobject]@{ rf_risk_policy = [pscustomobject]@{ schema_version = 1; policy_id = 'rf-early-exit-v1'; mode = $Mode
@@ -2852,7 +3037,10 @@ $scenarios = @(
   ${function:Scn-RpVirtualPair}, ${function:Scn-RpRiskView},
   ${function:Scn-RpCapOnly}, ${function:Scn-RpCapNoBudgetBlock},
   ${function:Scn-SetupAEntriesOff}, ${function:Scn-SetupAOffKeepsPosition},
-  ${function:Scn-AllocatedCapitalSizing}, ${function:Scn-AllocatedCapitalTopUp}, ${function:Scn-AllocatedCapitalDrawdown}
+  ${function:Scn-AllocatedCapitalSizing}, ${function:Scn-AllocatedCapitalTopUp}, ${function:Scn-AllocatedCapitalDrawdown},
+  ${function:Scn-EntryStaleQuote}, ${function:Scn-EntryQuoteNoTime}, ${function:Scn-EntryQuoteFuture},
+  ${function:Scn-EntrySignalVoided}, ${function:Scn-EntrySignalAlive}, ${function:Scn-EntryRecheckDisabled},
+  ${function:Scn-EntrySignalTtl}, ${function:Scn-EveningPerAssetError}
 )
 # LRF_ONLY=<regex>: прогнать только сценарии, чьё имя функции ему соответствует (быстрая итерация),
 # например LRF_ONLY='StopReplace|D5'
