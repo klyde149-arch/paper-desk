@@ -129,17 +129,17 @@
   "peak_eq": 837288.71,
   "watermarks": {
     "last_daily_day": "2026-09-20",
-    "last_hour_ts": 1789945200000,
-    "ops_since": "2026-09-20T21:15:33Z",
-    "last_eq_snap": 1789942173091,
+    "last_hour_ts": 1789948800000,
+    "ops_since": "2026-09-20T21:30:33Z",
+    "last_eq_snap": 1789943073294,
     "last_report_day": "2026-09-20",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
     "auto_rebase_day": "2026-09-18",
     "evening_confirm_day": "2026-09-18",
-    "broker_ledger_day": "2026-09-20",
-    "manual_adj_supersede_id": "2026-09-20-gas-double-count"
+    "manual_adj_supersede_id": "2026-09-20-gas-double-count",
+    "broker_ledger_day": "2026-09-21"
   },
   "fronts": {
     "BR": {
@@ -322,16 +322,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "risk_day": {
-    "day": "2026-09-20",
-    "base_ms": 1789857033253,
-    "vm_by_uid": {
-      "a72e6299-a1c0-439a-98eb-06538cec8ab4": 5024.0
-    },
-    "mom_eq": 350000.0,
-    "e_base": 1510066.73,
-    "fees_est_rub": 0.0
-  },
   "readiness": {
     "day": "2026-09-20",
     "checked_n": 11,
@@ -348,7 +338,7 @@
     "a72e6299-a1c0-439a-98eb-06538cec8ab4": -1285.0
   },
   "broker": {
-    "captured_ms": 1789942533043,
+    "captured_ms": 1789943433300,
     "totals": {
       "portfolio": 1510066.73,
       "currencies": 1510066.73,
@@ -437,7 +427,7 @@
       "avg_px": 457.8,
       "lots": -157.0,
       "secid": "CCX6",
-      "ts": 1789942533043
+      "ts": 1789943433300
     }
   },
   "capital_breakdown": {
@@ -463,8 +453,8 @@
   },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
-    "first_ms": 1789769672960,
-    "until_ms": 1789942533043,
+    "first_ms": 1789770572993,
+    "until_ms": 1789943433300,
     "varmargin_rub": 12833.35,
     "fees_rub": -33088.24,
     "fees_other_rub": -4854.23,
@@ -606,18 +596,28 @@
       "16555262",
       "16950174064"
     ],
-    "updated_ms": 1789942533043,
+    "updated_ms": 1789943433300,
     "last_varmargin_op_ms": 1789765324781
   },
   "pending_settle": {
     "rub": 0.0,
-    "updated_ms": 1789942533043,
+    "updated_ms": 1789943433300,
     "items": []
+  },
+  "risk_day": {
+    "day": "2026-09-21",
+    "base_ms": 1789943433300,
+    "vm_by_uid": {
+      "a72e6299-a1c0-439a-98eb-06538cec8ab4": 5495.0
+    },
+    "mom_eq": 350000.0,
+    "e_base": 1510066.73,
+    "fees_est_rub": 0.0
   },
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1789942533043,
+    "updated_ms": 1789943433300,
     "budgets_enforced": true,
     "capital_rub": 1510066.73,
     "capital_ok": true,
@@ -636,11 +636,11 @@
       "COCOA": 12645.0
     },
     "unknown": [
-      "card L00057: котировка старше 22546 с"
+      "card L00057: котировка старше 23447 с"
     ],
-    "day_ok": false,
-    "day_pnl_rub": null,
-    "day_limit_rub": null,
-    "day_reason": "нет проверенной дневной базы"
+    "day_ok": true,
+    "day_pnl_rub": 0.0,
+    "day_limit_rub": 30201.33,
+    "day_reason": ""
   }
 }
