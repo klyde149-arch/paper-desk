@@ -361,9 +361,13 @@ function Get-HaltCode([string]$Reason) {
     'HALT_RF_ENTRIES file' { return 'ops' }
     'ГО *'                 { return 'go' }
     'day -*'               { return 'day' }
-    'D2 *'                 { return 'D2' }
-    'D4 *'                 { return 'D4:' + (($Reason -split ' ')[1]) }
-    'D5R *'                { return 'D5R:' + (($Reason -split ' ')[1]) }
+    # ГРАБЛЯ: префикс 'D' нельзя использовать как маску - PowerShell -like НЕ различает регистр,
+    # и 'D*' ловит заодно код 'day'. Сценарий day-halt-restart поймал это на живом коде: снятие
+    # дрифт-халта сбрасывало дневную блокировку, и вход открывался. У прежнего текстового
+    # сравнения ($reason -like 'D*' против 'day -8.1%') была ровно та же дыра.
+    'D2 *'                 { return 'drift_D2' }
+    'D4 *'                 { return 'drift_D4:' + (($Reason -split ' ')[1]) }
+    'D5R *'                { return 'drift_D5R:' + (($Reason -split ' ')[1]) }
     'RP конфиг*'           { return 'rp_config' }
     'RP инвариант*'        { return 'rp_invariant' }
     'orders/day*'          { return 'orders_day' }
@@ -2521,9 +2525,9 @@ function Invoke-Reconcile($stopIds) {
   # тике новых дрифт-халтов не поднималось и ни одна карточка не в карантине - причина 'D*' устарела
   # (расхождение само рассосалось, ручного вмешательства не требуется) - снимаем автоматически.
   $anyQuarantine = @((@($st.sleeves.core.positions) + @($st.sleeves.setA.positions)) | Where-Object { $_.quarantine }).Count -gt 0
-  if ((Test-HaltCode 'D*') -and -not $anyQuarantine -and -not $driftHaltThisTick) {
+  if ((Test-HaltCode 'drift_*') -and -not $anyQuarantine -and -not $driftHaltThisTick) {
     # снимаем ТОЛЬКО дрифт-категории: операционная пауза и прочие причины остаются (этап 0)
-    Clear-EntriesHalt 'расхождение больше не подтверждается' 'D*'
+    Clear-EntriesHalt 'расхождение больше не подтверждается' 'drift_*'
   }
 }
 

@@ -2277,7 +2277,7 @@ function Scn-HaltOpsSurvivesDriftClear {
   [void](Run-Tick $r '2026-07-15 10:05')
   $st = Get-State $r
   $reasons = @(@($st.entries_halt.reasons) | Where-Object { $null -ne $_ })
-  Check 'halt-ops: дрифт-причина снята сверкой' (@($reasons | Where-Object { [string]$_.code -like 'D*' }).Count -eq 0)
+  Check 'halt-ops: дрифт-причина снята сверкой' (@($reasons | Where-Object { [string]$_.code -like 'drift_*' }).Count -eq 0)
   Check 'halt-ops: операционная пауза осталась' ([bool]$st.entries_halt.active -and @($reasons | Where-Object { [string]$_.code -eq 'ops' }).Count -eq 1)
   Check 'halt-ops: вход не отправлен' ((Get-Calls $r 'PostOrder').Count -eq 0)
 }
@@ -2339,6 +2339,107 @@ function Scn-HaltOpsSurvivesGoClear {
 # приехали настоящие BRV6 до 01.10 и GDZ6 до 18.12). Поэтому однонаправленность срока проверяется
 # юнит-тестами чистой функции Test-RollTargetAllowed (tools/test_live_rf.ps1, секция risklib),
 # а не сценарием, который зависел бы от даты прогона и доступности биржи.
+
+
+# ================= приёмка этапа 5 плана: оставшиеся обязательные проверки =================
+
+# --- дневной предел + ПЕРЕЗАПУСК: блокировка переживает тик, выходы при этом доступны.
+# Плановая строка: «Дневной предел + перезапуск -> блокировка сохраняется; выходы доступны».
+function Scn-DayHaltSurvivesRestart {
+  $r = New-Scenario 'day-halt-restart'
+  $s = New-BaseState $r
+  # позиция + exit-интент по ней: выход обязан пройти при активном дневном халте
+  $c = New-Card 'setA' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12
+  $s.sleeves.setA.positions = @($c)
+  $ex = New-EntryIntent 'setA' 'NG' 'sell' 0.229 0.1145 2.9 0.02
+  $ex.kind = 'exit'; $ex.lots = 19; $ex.ticker = 'NGQ6'; $ex.uid = 'uid-NGQ6'
+  $ex.ctx = [pscustomobject]@{ card_id = $c.id; reason = 'trail-ema20' }
+  # плюс вход, который обязан остаться заблокированным
+  $en = New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05
+  $en.id = 'i00002'
+  $s.pending_intents = @($ex, $en)
+  # дневной халт уже стоит (старый формат - заодно проверяем миграцию)
+  $s.entries_halt = [pscustomobject]@{ active = $true; reason = 'day -8.1%'; since = '2026-07-15 09:00' }
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000 @([pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='19';nano=0} })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $posts1 = @((Get-Calls $r 'PostOrder') | Where-Object { $null -ne $_ })
+  Check 'day-halt-restart: выход отправлен при активной блокировке' ($posts1.Count -eq 1)
+  # позиции у брокера больше нет - иначе следующий тик законно закроет её как ЧУЖУЮ (D2),
+  # и сценарий проверял бы аварийное закрытие вместо переживания блокировки
+  Write-BrokerCapital $r 1600000
+  [void](Run-Tick $r '2026-07-15 10:06')   # перезапуск: состояние читается с диска заново
+  $st = Get-State $r
+  $reasons = @(@($st.entries_halt.reasons) | Where-Object { $null -ne $_ })
+  Check 'day-halt-restart: блокировка пережила перезапуск' ([bool]$st.entries_halt.active -and @($reasons | Where-Object { [string]$_.code -eq 'day' }).Count -eq 1)
+  Check 'day-halt-restart: вход не открылся' (@($st.sleeves.core.positions).Count -eq 0)
+}
+
+# --- ЧАСТИЧНОЕ исполнение + перезапуск: открытая часть и остаток заявки учтены без пропуска и
+# без двойного резерва. Плановая строка §8.
+function Scn-PartialFillRestart {
+  $r = New-Scenario 'partial-fill-restart'
+  $s = New-BaseState $r
+  $it = New-EntryIntent 'core' 'NG' 'buy' 0.229 0.1145 2.9 0.05
+  # attempts на пределе (max_attempts=3): движок ОБЯЗАН зафиксировать фактически набранное, а не
+  # добирать остаток. Добор новым ключом при attempts < предела - задуманное поведение, не дефект:
+  # первая версия этого сценария ошибочно требовала «повторной заявки не было» и падала на нём.
+  $it.state = 'PARTIAL'; $it.attempts = 3; $it.lots = 19; $it.filled_lots = 7
+  $it.uid = 'uid-NGQ6'; $it.ticker = 'NGQ6'; $it.broker_order_id = 'ord-partial'
+  $it.ctx | Add-Member -NotePropertyName risk_rub -NotePropertyValue 35000.0 -Force
+  $s.pending_intents = @($it)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000 @([pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='7';nano=0} })
+  # брокер подтверждает: исполнено 7 из 19, заявка закрыта
+  Write-Json (Join-Path $r 'mock\OrdersService.GetOrderState.json') ([pscustomobject]@{
+    executionReportStatus = 'EXECUTION_REPORT_STATUS_FILL'; lotsExecuted = '7'
+    initialOrderPricePt = [pscustomobject]@{ units = '2'; nano = 905000000 }
+    executedOrderPrice = [pscustomobject]@{ units = '157531'; nano = 0; currency = 'rub' } })
+  [void](Run-Tick $r '2026-07-15 10:05')
+  [void](Run-Tick $r '2026-07-15 10:06')   # перезапуск
+  $st = Get-State $r
+  $pos = @($st.sleeves.core.positions)
+  Check 'partial-restart: карточка ровно одна' ($pos.Count -eq 1)
+  if ($pos.Count) { Check 'partial-restart: лотов столько, сколько исполнено (7)' ([int]$pos[0].lots -eq 7) }
+  Check 'partial-restart: добора не было (попытки исчерпаны)' ((Get-Calls $r 'PostOrder').Count -eq 0)
+  # резерв риска учтён ОДИН раз: открытая часть в карточке, зависшего интента на те же лоты нет
+  $live = @(@($st.pending_intents) | Where-Object { $null -ne $_ -and $_.kind -eq 'entry' -and [string]$_.state -notin @('CANCELLED','EXPIRED','FILLED') })
+  Check 'partial-restart: интент не остался висеть на те же лоты' ($live.Count -eq 0)
+}
+
+# --- ОТКАТ КОДА: состояние, написанное новым кодом (список причин халта, поля политики схемы 2),
+# читается при конфиге БЕЗ риск-политики - как после возврата на предыдущую конфигурацию.
+# Плановое требование: состояние совместимо ЛИБО входы остаются заблокированы.
+function Scn-RollbackCompat {
+  $r = New-Scenario 'rollback-compat'
+  $s = New-BaseState $r
+  $c = New-Card 'core' 'NG' 'NGQ6' 'uid-NGQ6' 'long' 19 2.905 2.676 7749.12
+  # карточка, рождённая политикой: у неё есть поля, которых старый код не знает
+  $c | Add-Member -NotePropertyName risk_policy -NotePropertyValue ([pscustomobject]@{
+    policy_id = 'rf-early-exit-v1'; version = 2; hash = ('a' * 64); mode = 'pilot'
+    stop_cap_pct = 0.02; risk_pct = 0.005
+    cost = [pscustomobject]@{ fee_pct_side = 0.00045; stop_slip_pct = 0.0005; source = 'test' }
+    excess_tolerance_pct = 0.1 }) -Force
+  $c | Add-Member -NotePropertyName risk_budget_rub -NotePropertyValue 8000.0 -Force
+  $c | Add-Member -NotePropertyName entry_px_status -NotePropertyValue 'verified' -Force
+  $s.sleeves.core.positions = @($c)
+  # халт в НОВОМ формате (список причин)
+  $s.entries_halt = [pscustomobject]@{ active = $true; reason = 'HALT_RF_ENTRIES file'; since = '2026-07-15 09:00'
+    reasons = @([pscustomobject]@{ code = 'ops'; text = 'HALT_RF_ENTRIES file'; since = '2026-07-15 09:00' }) }
+  $s.pending_intents = @(New-EntryIntent 'core' 'CNY' 'buy' 0.5 0.2614 11.686 0.05)
+  Write-Json (Join-Path $r 'data\live_rf\portfolio.json') $s
+  Write-BrokerCapital $r 1600000 @([pscustomobject]@{ instrumentUid='uid-NGQ6'; instrumentType='futures'; quantityLots=[pscustomobject]@{units='19';nano=0} })
+  # конфиг БЕЗ rf_risk_policy - откат на предыдущую конфигурацию
+  Write-Json (Join-Path $r 'data\live_rf\config.json') ([pscustomobject]@{ base_rub = 700000 })
+  New-Item -ItemType Directory -Force (Join-Path $r 'data') | Out-Null
+  Set-Content (Join-Path $r 'data\HALT_RF_ENTRIES') 'pause' -Encoding ASCII
+  [void](Run-Tick $r '2026-07-15 10:05')
+  $st = Get-State $r
+  Check 'rollback: тик выжил на состоянии нового формата' ([string]$st.mode -eq 'prod')
+  Check 'rollback: позиция не потеряна' (@($st.sleeves.core.positions).Count -eq 1)
+  Check 'rollback: входы остаются заблокированными' ([bool]$st.entries_halt.active)
+  Check 'rollback: новых заявок нет' ((Get-Calls $r 'PostOrder').Count -eq 0)
+}
 
 # ================= этап 3 плана восстановления: исполнение входа (2026-09-20) =================
 
@@ -3063,7 +3164,8 @@ $scenarios = @(
   ${function:Scn-AllocatedCapitalSizing}, ${function:Scn-AllocatedCapitalTopUp}, ${function:Scn-AllocatedCapitalDrawdown},
   ${function:Scn-EntryStaleQuote}, ${function:Scn-EntryQuoteNoTime}, ${function:Scn-EntryQuoteFuture},
   ${function:Scn-EntrySignalVoided}, ${function:Scn-EntrySignalAlive}, ${function:Scn-EntryRecheckDisabled},
-  ${function:Scn-EntrySignalTtl}, ${function:Scn-EveningPerAssetError}
+  ${function:Scn-EntrySignalTtl}, ${function:Scn-EveningPerAssetError},
+  ${function:Scn-DayHaltSurvivesRestart}, ${function:Scn-PartialFillRestart}, ${function:Scn-RollbackCompat}
 )
 # LRF_ONLY=<regex>: прогнать только сценарии, чьё имя функции ему соответствует (быстрая итерация),
 # например LRF_ONLY='StopReplace|D5'
