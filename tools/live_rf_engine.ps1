@@ -1287,8 +1287,27 @@ function Get-RpDecision($It, $Inst, [double]$RefPx, [double]$StopDist, $Caps) {
     day_ok = [bool]$day.ok; day_loss = $(if ($day.ok) { [double]$day.loss } else { $null }); day_reason = [string]$day.reason
   }
 }
-function New-RpDecisionLog($It, [double]$RefPx, $D, $LegacyLots) {
+# Состав полей закреплён планом восстановления (§7): актив/контракт, версия правил, временные
+# метки, уровень пробоя, ATR, расстояние до уровня, цена и её возраст, исходный/эффективный стоп,
+# лоты, риск до/после, ГО, причина допуска/отказа. Секретов здесь нет и быть не должно.
+function New-RpDecisionLog($It, [double]$RefPx, $D, $LegacyLots, $Inst = $null) {
+  $ctx = $It.ctx
+  $lvl = if ($null -ne $ctx -and $ctx.PSObject.Properties['level'] -and [double]$ctx.level -gt 0) { [double]$ctx.level } else { $null }
+  $goPer = if ($null -ne $Inst) { $(if ([string]$It.side -eq 'buy') { [double]$Inst.go_buy } else { [double]$Inst.go_sell }) } else { $null }
+  $reserved = if ($null -ne $D.charge_per_lot -and $D.q_final) { [double]$D.charge_per_lot * [int]$D.q_final } else { $null }
   return [pscustomobject]@{ intent = [string]$It.id; sleeve = [string]$It.sleeve; asset = [string]$It.asset; side = [string]$It.side
+    contract = [string]$It.ticker
+    rules_version = [string]$script:RP.hash; policy_id = [string]$script:RP.policy_id; rules_mode = [string]$script:RP.mode
+    sig_key = $(if ($null -ne $ctx -and $ctx.PSObject.Properties['sig_key']) { [string]$ctx.sig_key } else { '' })
+    sig_src = $(if ($null -ne $ctx -and $ctx.PSObject.Properties['sig_src']) { [string]$ctx.sig_src } else { '' })
+    t_signal = [long]$It.t_signal
+    t_decision = $(if ($It.PSObject.Properties['t_decision']) { [long]$It.t_decision } else { [long]$NowMs })
+    level = $lvl; atr = $(if ($null -ne $ctx -and $ctx.PSObject.Properties['atr']) { [double]$ctx.atr } else { $null })
+    dist_to_level = $(if ($null -ne $lvl) { [math]::Round($RefPx - $lvl, 6) } else { $null })
+    quote_age_sec = $(if ($null -ne $ctx -and $ctx.PSObject.Properties['quote_age_sec']) { $ctx.quote_age_sec } else { $null })
+    go_rub = $(if ($null -ne $goPer -and $D.q_final) { [math]::Round($goPer * [int]$D.q_final, 2) } else { $null })
+    risk_before_rub = [math]::Round($D.open_total, 2)
+    risk_after_rub = $(if ($null -ne $reserved) { [math]::Round([double]$D.open_total + $reserved, 2) } else { $null })
     ref_px = $RefPx; legacy_lots = $LegacyLots; allow = $D.allow; kind = $D.kind; q_final = $D.q_final; q_reference = $D.q_reference
     q_capped = $D.q_capped; binding = $D.binding; stop = $D.stop; stop_strategy = $D.stop_strategy; capped = $D.capped
     budget_rub = [math]::Round($D.budget_rub, 2); capital_rub = $D.capital_rub; open_total = [math]::Round($D.open_total, 2)
@@ -1306,7 +1325,7 @@ function Add-RpShadow($It, $Sl, $Inst, [double]$RefPx, [double]$StopDist, [int]$
       q_final = $d.q_final; q_reference = $d.q_reference; legacy_lots = $LegacyLots; stop = $d.stop; stop_strategy = $d.stop_strategy
       budget_rub = [math]::Round($d.budget_rub, 2); capital_rub = $d.capital_rub; open_total = [math]::Round($d.open_total, 2)
       day_loss = $d.day_loss; reasons = @($d.reasons) }) -Force
-    Write-RpLog 'decision' (New-RpDecisionLog $It $RefPx $d $LegacyLots)
+    Write-RpLog 'decision' (New-RpDecisionLog $It $RefPx $d $LegacyLots $Inst)
   } catch { Write-LiveLog "risk-policy shadow $($It.id): $($_.Exception.Message)" }   # тень не имеет права ронять боевой вход
 }
 # Режим pilot/active: вход сайзится и защищается по политике. Резерв риска пишется в интент ДО
@@ -1315,7 +1334,7 @@ function Invoke-RpEntryPost($It, $Sl, $Inst, [double]$RefPx, [double]$StopDist) 
   $levCap = [int][math]::Floor(([double]$MAXLEV * [double]$Sl.eq_rub) / ($RefPx * [double]$Inst.rub_per_pt))
   $caps = [ordered]@{ maxlev = $levCap; override = $(if ([int]$LIVE.max_lots_override -gt 0) { [int]$LIVE.max_lots_override } else { $null }) }
   $d = Get-RpDecision $It $Inst $RefPx $StopDist $caps
-  Write-RpLog 'decision' (New-RpDecisionLog $It $RefPx $d $null)
+  Write-RpLog 'decision' (New-RpDecisionLog $It $RefPx $d $null $Inst)
   if (-not $d.allow) {
     $why = (@($d.reasons) -join '; ')
     if ($d.kind -eq 'hard') {

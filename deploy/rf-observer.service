@@ -1,0 +1,21 @@
+[Unit]
+Description=paper-desk RF strategy observer (virtual portfolios, никогда не торгует)
+Wants=network-online.target
+After=network-online.target
+OnFailure=tick-alert@%n.service
+
+[Service]
+Type=oneshot
+User=trader
+# EnvironmentFile НЕ подключается СОЗНАТЕЛЬНО: наблюдателю не нужен торговый токен, и без него
+# он не смог бы отправить заявку, даже если бы код этого захотел. Второй рубеж поверх того, что
+# lib_tinvest.ps1 в нём вообще не дот-сорсится.
+Environment=LC_ALL=C.UTF-8
+WorkingDirectory=/home/trader/paper-desk
+# Пишет только в data/live_rf/observer. Git не трогает: его файлы уезжают в ближайшем
+# публикующем коммите тика, как и свечи bake.
+ExecStart=/usr/bin/flock -n /run/lock/rf-observer.lock /usr/bin/pwsh -NoProfile -File tools/rf_observer.ps1
+# Запас на часовые свечи по всем активам. Убийство наблюдателя на полпути не стоит ничего:
+# состояние он пишет атомарно в конце, а пропущенный день подхватится следующим запуском.
+TimeoutStartSec=300
+Restart=no

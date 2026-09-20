@@ -5,7 +5,7 @@
 # pwsh.exe) - дочерние тики движка в PowerShell 7, как на VPS.
 # Каждый сценарий: чистый data-каталог + mock-сценарий + прогон N тиков live_rf_engine с -NowMs + assert'ы.
 param(
-  [string]$Only = ''   # '' = всё; 'converters' | 'sizing' | 'report' | 'vizdto' | 'risklib' | 'scenarios'
+  [string]$Only = ''   # '' = всё; 'converters' | 'sizing' | 'report' | 'vizdto' | 'risklib' | 'observer' | 'scenarios'
 )
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
@@ -508,6 +508,10 @@ if (-not $Only -or $Only -eq 'sizing') { Test-Sizing }
 if (-not $Only -or $Only -eq 'report') { Test-Report }
 if (-not $Only -or $Only -eq 'vizdto') { Test-VizDtoMirror }
 if (-not $Only -or $Only -eq 'risklib') { Test-RiskLib }
+if (-not $Only -or $Only -eq 'observer') {
+  $obsRunner = Join-Path $PSScriptRoot 'test_rf_observer.ps1'
+  if (Test-Path $obsRunner) { . $obsRunner; Test-Observer } else { Write-Host '  (тесты наблюдателя не подключены)' }
+}
 if (-not $Only -or $Only -eq 'scenarios') { Test-Scenarios }
 
 Write-Host ""
