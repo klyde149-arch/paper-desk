@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1549910.2336538937,
       "month_start_eq": 1632488.16,
-      "day_start_eq": 1562329.0968941727,
+      "day_start_eq": 1549910.2336538937,
       "halt_day": null,
       "positions": [],
       "equity_mtm": 1549910.23
@@ -45,14 +45,14 @@
   "profile_eq": 731272.36,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1515561.73,
-  "day_start_date": "2026-09-18",
+  "day_start_eq": 1499604.43,
+  "day_start_date": "2026-09-21",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-20",
-    "last_hour_ts": 1790028000000,
-    "ops_since": "2026-09-21T20:15:33Z",
-    "last_eq_snap": 1790025273097,
+    "last_daily_day": "2026-09-21",
+    "last_hour_ts": 1790031600000,
+    "ops_since": "2026-09-21T20:30:33Z",
+    "last_eq_snap": 1790026173156,
     "last_report_day": "2026-09-21",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
@@ -194,7 +194,7 @@
   "go": {
     "used_rub": 0.0,
     "budget_rub": 1449604.43,
-    "peak_day_rub": 152728.03,
+    "peak_day_rub": 0.0,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1499604.43,
     "bot_capital_account_rub": 1499604.43,
@@ -208,8 +208,75 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 58,
+  "pending_intents": [
+    {
+      "id": "i00058",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "Eu",
+      "ticker": "",
+      "uid": "",
+      "side": "sell",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "563929fe-3c67-f996-1bda-570a6bf8cb02",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1790034600000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-09-21",
+      "state_ts": 1790025633090,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 2751.001044,
+        "atr": 1375.500522,
+        "risk_pct": 0.05,
+        "ref_px": 97469.0,
+        "level": 97693.326719,
+        "sig_key": "core|Eu|short|2026-09-21|97693.326719",
+        "sig_src": "donchian-close",
+        "note": "donchian close 97469 vs [97693.3267 / 102341.5388]"
+      }
+    },
+    {
+      "id": "i00059",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "COCOA",
+      "ticker": "",
+      "uid": "",
+      "side": "sell",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "6ea60361-186b-6f61-aa23-ddaf4809ea57",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1790034600000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-09-21",
+      "state_ts": 1790025633090,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 49.785714,
+        "atr": 24.892857,
+        "risk_pct": 0.05,
+        "ref_px": 455.2,
+        "level": 457.6,
+        "sig_key": "core|COCOA|short|2026-09-21|457.600000",
+        "sig_src": "donchian-close",
+        "note": "donchian close 455.2 vs [457.6 / 595.5]"
+      }
+    }
+  ],
+  "next_intent_id": 60,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 31,
@@ -245,15 +312,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "readiness": {
-    "day": "2026-09-20",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2184230.84,
-    "go_cap_rub": 1099171.3,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1789770572993,
@@ -429,12 +487,21 @@
       }
     ]
   },
+  "readiness": {
+    "day": "2026-09-21",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2161276.97,
+    "go_cap_rub": 1087203.32,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1790025333244,
+    "captured_ms": 1790026233171,
     "totals": {
       "portfolio": 1499604.43,
       "currencies": 1499604.43,
@@ -526,7 +593,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790025333244,
+    "updated_ms": 1790026233171,
     "budgets_enforced": true,
     "capital_rub": 1499604.43,
     "capital_ok": true,
