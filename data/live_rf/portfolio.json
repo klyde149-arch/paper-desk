@@ -51,9 +51,9 @@
   "watermarks": {
     "last_daily_day": "2026-09-21",
     "last_hour_ts": 1790114400000,
-    "ops_since": "2026-09-22T19:45:33Z",
-    "last_eq_snap": 1790109093442,
-    "last_report_day": "2026-09-21",
+    "ops_since": "2026-09-22T20:00:33Z",
+    "last_eq_snap": 1790109993475,
+    "last_report_day": "2026-09-22",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
     "sleeve_rebase_id": "2026-08-12-full-capital",
@@ -233,10 +233,10 @@
     "signal_mismatch": 0
   },
   "report_base": {
-    "day": "2026-09-21",
-    "ts": 1790024133410,
+    "day": "2026-09-22",
+    "ts": 1790110534265,
     "profile_eq": 731272.36,
-    "bot_capital_rub": 1504914.43,
+    "bot_capital_rub": 1501044.43,
     "positions": {}
   },
   "manual_adjustments": [
@@ -432,7 +432,7 @@
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1790109933368,
+    "captured_ms": 1790110833219,
     "totals": {
       "portfolio": 1501044.43,
       "currencies": 1501044.43,
@@ -506,7 +506,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790109933368,
+    "updated_ms": 1790110833219,
     "budgets_enforced": true,
     "capital_rub": 1501044.43,
     "capital_ok": true,
@@ -523,9 +523,9 @@
     "fx_cap_rub": 22515.67,
     "by_asset": {},
     "unknown": [],
-    "day_ok": true,
-    "day_pnl_rub": 0.0,
-    "day_limit_rub": 29992.09,
-    "day_reason": ""
+    "day_ok": false,
+    "day_pnl_rub": null,
+    "day_limit_rub": null,
+    "day_reason": "нет проверенной дневной базы"
   }
 }
