@@ -45,14 +45,14 @@
   "profile_eq": 731272.36,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1499604.43,
-  "day_start_date": "2026-09-21",
+  "day_start_eq": 1501044.43,
+  "day_start_date": "2026-09-22",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-21",
-    "last_hour_ts": 1790114400000,
-    "ops_since": "2026-09-22T20:15:33Z",
-    "last_eq_snap": 1790110963225,
+    "last_daily_day": "2026-09-22",
+    "last_hour_ts": 1790118000000,
+    "ops_since": "2026-09-22T20:30:33Z",
+    "last_eq_snap": 1790111913344,
     "last_report_day": "2026-09-22",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
@@ -218,8 +218,43 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 60,
+  "pending_intents": [
+    {
+      "id": "i00060",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "NG",
+      "ticker": "",
+      "uid": "",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "60753a09-4f8a-adf7-5092-5364d98e34a5",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1790110200000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-09-22",
+      "state_ts": 1790112033130,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 0.208571,
+        "atr": 0.104286,
+        "risk_pct": 0.05,
+        "ref_px": 3.022,
+        "level": 3.02,
+        "sig_key": "core|NG|long|2026-09-22|3.020000",
+        "sig_src": "donchian-close",
+        "sig_ticker": "NGU6",
+        "note": "donchian close 3.022 vs [2.766 / 3.02]"
+      }
+    }
+  ],
+  "next_intent_id": 61,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 31,
@@ -255,15 +290,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "readiness": {
-    "day": "2026-09-21",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2161276.97,
-    "go_cap_rub": 1087203.32,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1789856973106,
@@ -427,12 +453,21 @@
     "e_base": 1499604.43,
     "fees_est_rub": 0.0
   },
+  "readiness": {
+    "day": "2026-09-22",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2094552.41,
+    "go_cap_rub": 1088283.32,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1790111733137,
+    "captured_ms": 1790112633200,
     "totals": {
       "portfolio": 1501044.43,
       "currencies": 1501044.43,
@@ -506,7 +541,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790111733137,
+    "updated_ms": 1790112633200,
     "budgets_enforced": true,
     "capital_rub": 1501044.43,
     "capital_ok": true,
