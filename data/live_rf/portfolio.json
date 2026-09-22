@@ -51,8 +51,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-21",
     "last_hour_ts": 1790114400000,
-    "ops_since": "2026-09-22T19:30:33Z",
-    "last_eq_snap": 1790108193289,
+    "ops_since": "2026-09-22T19:45:33Z",
+    "last_eq_snap": 1790109093442,
     "last_report_day": "2026-09-21",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
@@ -60,7 +60,23 @@
     "auto_rebase_day": "2026-09-18",
     "evening_confirm_day": "2026-09-18",
     "manual_adj_supersede_id": "2026-09-20-gas-double-count",
-    "broker_ledger_day": "2026-09-22"
+    "broker_ledger_day": "2026-09-22",
+    "evening_confirm": {
+      "day": "2026-09-22",
+      "by_asset": {
+        "BR": "no-signal",
+        "NG": "no-signal",
+        "GOLD": "no-signal",
+        "Si": "no-signal",
+        "CNY": "no-signal",
+        "MIX": "no-signal",
+        "Eu": "no-signal",
+        "COCOA": "no-signal",
+        "VTBR": "no-signal",
+        "SBRF": "no-signal",
+        "SILV": "no-signal"
+      }
+    }
   },
   "fronts": {
     "BR": {
@@ -416,7 +432,7 @@
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1790109033207,
+    "captured_ms": 1790109933368,
     "totals": {
       "portfolio": 1501044.43,
       "currencies": 1501044.43,
@@ -490,7 +506,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790109033207,
+    "updated_ms": 1790109933368,
     "budgets_enforced": true,
     "capital_rub": 1501044.43,
     "capital_ok": true,
