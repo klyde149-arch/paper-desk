@@ -1317,3 +1317,7 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-09-22 11:00 MSK — РФ АВТО [C2/core]: закрыта R25 BR LONG — -28.32 (stop)
 
 ## 2026-09-22 11:00 MSK — РФ АВТО [C3b/core]: закрыта R26 BR LONG — -46.76 (stop)
+
+## 2026-09-22 22:00 MSK — РФ АВТО [C2/setA]: закрыта R31 NG SHORT — -102.72 (stop)
+
+## 2026-09-22 22:00 MSK — РФ АВТО [C3b/setA]: закрыта R33 NG SHORT — -206.45 (stop)
