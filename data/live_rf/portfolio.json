@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1548138.0971159816,
       "month_start_eq": 1632488.16,
-      "day_start_eq": 1549910.2336538937,
+      "day_start_eq": 1548138.0971159816,
       "halt_day": null,
       "positions": [],
       "equity_mtm": 1548138.1
@@ -45,14 +45,14 @@
   "profile_eq": 730398.75,
   "profile_month_start": 804767.54,
   "cur_month": "2026-09",
-  "day_start_eq": 1501044.43,
-  "day_start_date": "2026-09-22",
+  "day_start_eq": 1496845.78,
+  "day_start_date": "2026-09-23",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-09-22",
-    "last_hour_ts": 1790200800000,
-    "ops_since": "2026-09-23T20:15:33Z",
-    "last_eq_snap": 1790197773081,
+    "last_daily_day": "2026-09-23",
+    "last_hour_ts": 1790204400000,
+    "ops_since": "2026-09-23T20:30:33Z",
+    "last_eq_snap": 1790198673112,
     "last_report_day": "2026-09-23",
     "orders_day": "2026-09-23",
     "orders_day_n": 1,
@@ -204,7 +204,7 @@
   "go": {
     "used_rub": 0.0,
     "budget_rub": 1446845.78,
-    "peak_day_rub": 26700.56,
+    "peak_day_rub": 0.0,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1496845.78,
     "bot_capital_account_rub": 1496845.78,
@@ -291,15 +291,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "readiness": {
-    "day": "2026-09-22",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2094552.41,
-    "go_cap_rub": 1088283.32,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1789943372916,
@@ -475,12 +466,21 @@
       }
     ]
   },
+  "readiness": {
+    "day": "2026-09-23",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2069956.53,
+    "go_cap_rub": 1085134.34,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1790198133049,
+    "captured_ms": 1790199033128,
     "totals": {
       "portfolio": 1496845.78,
       "currencies": 1496845.78,
@@ -563,7 +563,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790198133049,
+    "updated_ms": 1790199033128,
     "budgets_enforced": true,
     "capital_rub": 1496845.78,
     "capital_ok": true,
