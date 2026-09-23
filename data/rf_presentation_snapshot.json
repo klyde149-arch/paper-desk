@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1790196344159,
-  "sourceAtMs": 1790195853160,
+  "generatedAtMs": 1790197239316,
+  "sourceAtMs": 1790196813192,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -13,9 +13,9 @@
     "accountTotal": 1498533.7,
     "userAssets": 0.0,
     "dayBase": 1500963.7,
-    "dayBaseSource": "broker_daily_yield+pending",
-    "todayAmt": -3976.8,
-    "todayPct": -0.26,
+    "dayBaseSource": "broker_daily_yield",
+    "todayAmt": -2430.0,
+    "todayPct": -0.16,
     "allTimePct": -1.8,
     "allTimeAmt": -27403.99,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
@@ -35,13 +35,13 @@
     "accountLiquid": 1498533.7,
     "lastDailyDay": "2026-09-22",
     "pendingSettleRub": -1546.8,
-    "pendingSettleTodayRub": -1546.8,
+    "pendingSettleTodayRub": 0.0,
     "ledgerUntilMs": 1790116232885,
     "manualAdjustmentRub": 0.0,
     "riskBudget": {
       "mode": "pilot",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1790196333076,
+      "updatedMs": 1790197233122,
       "capitalRub": 1498533.7,
       "capitalOk": true,
       "capitalReason": "",
@@ -57,16 +57,16 @@
       "fxShortRub": 0.0,
       "fxCapRub": 22478.01,
       "byAsset": {},
-      "dayOk": true,
-      "dayPnlRub": -1637.77,
-      "dayLimitRub": 30020.89,
-      "dayReason": "",
+      "dayOk": false,
+      "dayPnlRub": null,
+      "dayLimitRub": null,
+      "dayReason": "нет проверенной дневной базы",
       "unknown": [],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1790196333076,
+    "captured_ms": 1790197233122,
     "totals": {
       "portfolio": 1498533.7,
       "currencies": 1498533.7,
@@ -25226,6 +25226,10 @@
     [
       1790195853160,
       730398.75
+    ],
+    [
+      1790196813192,
+      730398.75
     ]
   ],
   "capitalCurve": [
@@ -49667,6 +49671,10 @@
     ],
     [
       1790195853160,
+      1498533.7
+    ],
+    [
+      1790196813192,
       1498533.7
     ]
   ]
