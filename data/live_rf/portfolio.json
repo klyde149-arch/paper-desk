@@ -51,8 +51,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-22",
     "last_hour_ts": 1790139600000,
-    "ops_since": "2026-09-23T02:45:32Z",
-    "last_eq_snap": 1790134293276,
+    "ops_since": "2026-09-23T03:00:33Z",
+    "last_eq_snap": 1790135252844,
     "last_report_day": "2026-09-22",
     "orders_day": "2026-09-18",
     "orders_day_n": 1,
@@ -240,7 +240,6 @@
       "t_fill": 0,
       "created_day": "2026-09-22",
       "state_ts": 1790112033130,
-      "last_error": "",
       "ctx": {
         "stop_dist": 0.208571,
         "atr": 0.104286,
@@ -251,7 +250,9 @@
         "sig_src": "donchian-close",
         "sig_ticker": "NGU6",
         "note": "donchian close 3.022 vs [2.766 / 3.02]"
-      }
+      },
+      "data_fails": 1,
+      "last_error": "время котировки в будущем (-2 с)"
     }
   ],
   "next_intent_id": 61,
@@ -467,7 +468,7 @@
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1790135132973,
+    "captured_ms": 1790136033095,
     "totals": {
       "portfolio": 1501044.43,
       "currencies": 1501044.43,
@@ -541,7 +542,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790135132973,
+    "updated_ms": 1790136033095,
     "budgets_enforced": true,
     "capital_rub": 1501044.43,
     "capital_ok": true,
