@@ -51,8 +51,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-22",
     "last_hour_ts": 1790200800000,
-    "ops_since": "2026-09-23T19:30:33Z",
-    "last_eq_snap": 1790194893225,
+    "ops_since": "2026-09-23T19:45:33Z",
+    "last_eq_snap": 1790195853160,
     "last_report_day": "2026-09-22",
     "orders_day": "2026-09-23",
     "orders_day_n": 1,
@@ -61,19 +61,19 @@
     "evening_confirm_day": "2026-09-18",
     "manual_adj_supersede_id": "2026-09-20-gas-double-count",
     "evening_confirm": {
-      "day": "2026-09-22",
+      "day": "2026-09-23",
       "by_asset": {
-        "BR": "no-signal",
-        "NG": "no-signal",
+        "NG": "ok",
         "GOLD": "no-signal",
-        "Si": "no-signal",
+        "SILV": "no-signal",
         "CNY": "no-signal",
-        "MIX": "no-signal",
         "Eu": "no-signal",
         "COCOA": "no-signal",
         "VTBR": "no-signal",
-        "SBRF": "no-signal",
-        "SILV": "no-signal"
+        "BR": "no-signal",
+        "Si": "no-signal",
+        "MIX": "no-signal",
+        "SBRF": "no-signal"
       }
     },
     "broker_ledger_day": "2026-09-23"
@@ -218,8 +218,44 @@
     "stocks_deficit": 0,
     "last": "D4 L00011"
   },
-  "pending_intents": [],
-  "next_intent_id": 61,
+  "pending_intents": [
+    {
+      "id": "i00061",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "NG",
+      "ticker": "NGU6",
+      "uid": "7326ae99-d9f1-4df1-8e3a-d85390686038",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "5b4bfdf7-1e09-2e9f-753f-6e6a9272dd55",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1790195733108,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-09-23",
+      "state_ts": 1790195733108,
+      "ctx": {
+        "stop_dist": 0.208571,
+        "atr": 0.104286,
+        "risk_pct": 0.05,
+        "ref_px": 3.041,
+        "level": 3.03,
+        "sig_key": "core|NG|long|2026-09-23|3.030000",
+        "sig_src": "donchian-evening",
+        "sig_ticker": "NGU6",
+        "note": "evening donchian 3.041 vs [2.766 / 3.03]"
+      },
+      "data_fails": 1,
+      "last_error": "время котировки в будущем (-3.1 с)"
+    }
+  ],
+  "next_intent_id": 62,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 32,
@@ -444,7 +480,7 @@
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1790195433199,
+    "captured_ms": 1790196333076,
     "totals": {
       "portfolio": 1498533.7,
       "currencies": 1498533.7,
@@ -527,7 +563,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790195433199,
+    "updated_ms": 1790196333076,
     "budgets_enforced": true,
     "capital_rub": 1498533.7,
     "capital_ok": true,
