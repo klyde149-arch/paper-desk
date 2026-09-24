@@ -51,8 +51,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-23",
     "last_hour_ts": 1790287200000,
-    "ops_since": "2026-09-24T19:30:33Z",
-    "last_eq_snap": 1790281713192,
+    "ops_since": "2026-09-24T19:45:33Z",
+    "last_eq_snap": 1790282673198,
     "last_report_day": "2026-09-23",
     "orders_day": "2026-09-23",
     "orders_day_n": 1,
@@ -61,19 +61,19 @@
     "evening_confirm_day": "2026-09-18",
     "manual_adj_supersede_id": "2026-09-20-gas-double-count",
     "evening_confirm": {
-      "day": "2026-09-23",
+      "day": "2026-09-24",
       "by_asset": {
         "NG": "ok",
-        "GOLD": "no-signal",
+        "GOLD": "ok",
         "SILV": "no-signal",
-        "CNY": "no-signal",
-        "Eu": "no-signal",
-        "COCOA": "no-signal",
-        "VTBR": "no-signal",
-        "BR": "no-signal",
-        "Si": "no-signal",
         "MIX": "no-signal",
-        "SBRF": "no-signal"
+        "Eu": "no-signal",
+        "VTBR": "no-signal",
+        "SBRF": "no-signal",
+        "CNY": "no-signal",
+        "COCOA": "no-signal",
+        "BR": "error-final",
+        "Si": "no-signal"
       }
     },
     "broker_ledger_day": "2026-09-24"
@@ -219,7 +219,7 @@
     "last": "D4 L00011"
   },
   "pending_intents": [],
-  "next_intent_id": 62,
+  "next_intent_id": 64,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 32,
@@ -435,7 +435,7 @@
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1790281833209,
+    "captured_ms": 1790282733164,
     "totals": {
       "portfolio": 1489105.78,
       "currencies": 1489105.78,
@@ -518,7 +518,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790281833209,
+    "updated_ms": 1790282733164,
     "budgets_enforced": true,
     "capital_rub": 1489105.78,
     "capital_ok": true,
