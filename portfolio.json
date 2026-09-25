@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  8798.83,
-    "equity_usd":  8874.85,
+    "balance_usd":  8864.09,
+    "equity_usd":  9002.13,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  8805.26,
     "day_start_date_utc":  "2026-09-25",
@@ -38,7 +38,7 @@
                                "legs":  [
 
                                         ],
-                               "mfe_px":  84888,
+                               "mfe_px":  85204.3,
                                "mae_px":  83708.1,
                                "thesis":  {
                                               "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
@@ -64,10 +64,10 @@
                                "id":  "T45",
                                "symbol":  "SOL-USDT",
                                "side":  "long",
-                               "qty":  23.5653,
+                               "qty":  11.78265,
                                "qty_initial":  23.5653,
                                "entry_price":  116.184845,
-                               "stop":  112.448,
+                               "stop":  116.184845,
                                "stop0":  112.448,
                                "tp1":  121.790112,
                                "entry_utc":  "2026-09-24 16:00",
@@ -75,13 +75,19 @@
                                "risk_usd":  88.06,
                                "notional_usd":  2737.93,
                                "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  false,
-                               "fees_usd":  1.505861900333175,
+                               "tp1_done":  true,
+                               "fees_usd":  2.2951175450694148,
                                "funding_usd":  0.18318714538410003,
                                "legs":  [
-
+                                            {
+                                                "part":  "TP1",
+                                                "qty":  11.78265,
+                                                "price":  121.790112,
+                                                "utc":  "2026-09-25 11:08",
+                                                "pnl":  66.04
+                                            }
                                         ],
-                               "mfe_px":  119.532,
+                               "mfe_px":  122.221,
                                "mae_px":  115.8,
                                "thesis":  {
                                               "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
@@ -155,17 +161,17 @@
                   "total_funding_usd":  21.18,
                   "realized_pnl_usd":  -1194.2
               },
-    "last_check_utc":  "2026-09-25 11:00",
+    "last_check_utc":  "2026-09-25 11:15",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1790333940000,
+                 "last_1m_ts":  1790334840000,
                  "last_4h_ts":  1790308800000,
                  "halt_day_utc":  null,
                  "soft_dd":  false,
                  "next_trade_id":  47,
-                 "ticks_since_viz":  1,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-09-24",
-                 "last_tick_utc":  "2026-09-25 11:00"
+                 "last_tick_utc":  "2026-09-25 11:15"
              }
 }
