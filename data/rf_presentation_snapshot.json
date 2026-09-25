@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1790307939370,
-  "sourceAtMs": 1790307033162,
+  "generatedAtMs": 1790308842188,
+  "sourceAtMs": 1790307993113,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -20,7 +20,7 @@
     "allTimeAmt": -27625.84,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
-    "openPositions": 0,
+    "openPositions": 1,
     "tradesPnl": -7522.7,
     "fees": 19435.37,
     "feesBrokerRub": 33461.27,
@@ -41,7 +41,7 @@
     "riskBudget": {
       "mode": "pilot",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1790307932972,
+      "updatedMs": 1790308832990,
       "capitalRub": 1489105.78,
       "capitalOk": true,
       "capitalReason": "",
@@ -66,7 +66,7 @@
     }
   },
   "broker": {
-    "captured_ms": 1790307932972,
+    "captured_ms": 1790308832990,
     "totals": {
       "portfolio": 1489105.78,
       "currencies": 1489105.78,
@@ -128,8 +128,8 @@
     },
     "stats": {
       "trades": 32,
-      "orders_posted": 41,
-      "fills": 64,
+      "orders_posted": 42,
+      "fills": 65,
       "wins": 17,
       "losses": 15,
       "fees_rub": 19435.36,
@@ -178,7 +178,40 @@
       "dayPct": null
     }
   },
-  "positions": [],
+  "positions": [
+    {
+      "id": "L00064",
+      "sleeve": "core",
+      "asset": "NG",
+      "secid": "NGV6",
+      "title": "природный газ (NGV6)",
+      "side": "long",
+      "lots": 3,
+      "entry": 3.285,
+      "stop": 3.22,
+      "tp1": null,
+      "cur": null,
+      "upnl": null,
+      "risk": 7445.53,
+      "entryDay": "2026-09-25",
+      "entryTs": 1790308832990,
+      "rolls": 0,
+      "rubPerPt": 8490.57,
+      "notional": 83675.0,
+      "pctChg": null,
+      "reconcileStatus": null,
+      "reconcileSinceTs": null,
+      "riskView": null,
+      "brokerPnl": null,
+      "goRub": 23749.0,
+      "pnlPctGo": null,
+      "brokerVarMargin": null,
+      "brokerVarMarginSettled": null,
+      "brokerAvgPx": null,
+      "brokerCurPx": null,
+      "brokerLots": null
+    }
+  ],
   "holdings": [],
   "closedTrades": [
     {
@@ -25702,6 +25735,10 @@
     [
       1790307033162,
       730398.75
+    ],
+    [
+      1790307993113,
+      730398.75
     ]
   ],
   "capitalCurve": [
@@ -50619,6 +50656,10 @@
     ],
     [
       1790307033162,
+      1489105.78
+    ],
+    [
+      1790307993113,
       1489105.78
     ]
   ]
