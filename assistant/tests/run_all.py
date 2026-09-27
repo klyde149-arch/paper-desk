@@ -452,6 +452,57 @@ class TestManualClose(unittest.TestCase):
         self.assertTrue(os.path.exists(sandbox))
 
 
+class TestAgentLessons(unittest.TestCase):
+    """Кнопки уроков ИИ-агента: решение пишется строкой в inbox агента и больше никуда."""
+
+    def setUp(self):
+        from assistant import actions, bot
+        self.actions, self.bot = actions, bot
+        self.tmp = tempfile.mkdtemp(prefix='ta-al-')
+        self._saved = {k: getattr(config, k) for k in ('AI_AGENT_INBOX', 'AUDIT_FILE', 'ALLOWED_CHATS')}
+        config.AI_AGENT_INBOX = os.path.join(self.tmp, 'inbox', 'lesson_decisions.jsonl')
+        config.AUDIT_FILE = os.path.join(self.tmp, 'audit.log')
+        config.ALLOWED_CHATS = {'42'}
+        self.sent = []
+        self._tg = (bot.tg.answer_callback, bot.tg.edit_text, bot.tg.send)
+        bot.tg.answer_callback = lambda *a, **k: None
+        bot.tg.edit_text = lambda chat, mid, text: self.sent.append(text)
+        bot.tg.send = lambda chat, text, **k: self.sent.append(text)
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            setattr(config, k, v)
+        self.bot.tg.answer_callback, self.bot.tg.edit_text, self.bot.tg.send = self._tg
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _rows(self):
+        if not os.path.exists(config.AI_AGENT_INBOX):
+            return []
+        with open(config.AI_AGENT_INBOX, encoding='utf-8') as f:
+            return [json.loads(x) for x in f if x.strip()]
+
+    def _click(self, data, chat='42', frm='42'):
+        self.bot.handle_callback({'callback_query': {'id': 'c1', 'data': data, 'from': {'id': frm},
+                                                     'message': {'message_id': 7, 'chat': {'id': chat}, 'text': 'Урок'}}})
+
+    def test_accept_and_reject(self):
+        self._click('al:acc:L2026411')
+        self._click('al:rej:L2026412')
+        self.assertEqual([(r['id'], r['decision']) for r in self._rows()],
+                         [('L2026411', 'accept'), ('L2026412', 'reject')])
+        self.assertIn('принят', self.sent[0])
+
+    def test_foreign_chat_ignored(self):
+        self._click('al:acc:L2026411', chat='999', frm='999')
+        self.assertEqual(self._rows(), [])
+
+    def test_bad_id_rejected(self):
+        self._click('al:acc:../../etc')
+        self._click('al:xxx:L2026411')
+        self.assertEqual(self._rows(), [])
+
+
 if __name__ == '__main__':
     config.ensure_state_dirs()
     unittest.main(verbosity=2)

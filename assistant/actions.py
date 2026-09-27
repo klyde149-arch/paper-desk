@@ -310,7 +310,7 @@ def confirm_pending(token, chat_id):
             'display': v.get('display')}
 
 
-def push_request_now():
+def push_request_now(rel='data/rf/manual_close_req.json', message='manual-close request (instant push)'):
     """Мгновенный коммит+пуш заявки, не дожидаясь минутного тика.
 
     Ускорение, а не гарантия: при ЛЮБОЙ неудаче (замок занят, сеть, rebase)
@@ -331,7 +331,6 @@ def push_request_now():
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                               timeout=timeout)
 
-    rel = 'data/rf/manual_close_req.json'
     lock = None
     try:
         lock = open(RF_TICK_LOCK, 'a')
@@ -349,7 +348,7 @@ def push_request_now():
             return True  # нечего пушить: файл уже уехал (например, тиком)
         if git('-c', 'user.name=live-desk-bot',
                '-c', 'user.email=live-desk-bot@users.noreply.github.com',
-               'commit', '-m', 'manual-close request (instant push)').returncode != 0:
+               'commit', '-m', message).returncode != 0:
             return False
         if git('push', 'origin', 'main', timeout=40).returncode == 0:
             return True
@@ -446,3 +445,28 @@ def build_positions_menu():
     lines.append('Кнопка запросит подтверждение; закрытие — по рынку, обычно за '
                  '1-3 минуты, в обоих профилях C2 и C3b.')
     return '\n'.join(lines), kb
+
+
+# ---- уроки ИИ-агента (docs/strategy/rf_ai_agent_design_2026-09.md §15) ----
+# Агент присылает урок с кнопками al:acc:<id> / al:rej:<id>. Нажатие ловит бот (единственный
+# getUpdates), здесь решение только дописывается строкой в inbox агента — это ЕДИНСТВЕННЫЙ файл
+# агента, куда пишет ассистент. Статус в файле урока меняет сам агент на ближайшем тике.
+_LESSON_ID = __import__('re').compile(r'^L\d{7,8}$')
+
+
+def record_lesson_decision(lesson_id, decision, chat_id):
+    if not _LESSON_ID.match(lesson_id or '') or decision not in ('accept', 'reject'):
+        return {'ok': False, 'msg': 'Не понял кнопку урока.'}
+    row = {'id': lesson_id, 'decision': decision, 'chat_id': str(chat_id),
+           'at': time.strftime('%Y-%m-%d %H:%M', time.gmtime(time.time() + 3 * 3600))}
+    try:
+        os.makedirs(os.path.dirname(config.AI_AGENT_INBOX), exist_ok=True)
+        with open(config.AI_AGENT_INBOX, 'a', encoding='utf-8', newline='\n') as f:
+            f.write(json.dumps(row, ensure_ascii=False) + '\n')
+    except OSError as e:
+        return {'ok': False, 'msg': 'Не смог записать решение: %s' % e}
+    audit('lesson', chat_id=chat_id, lesson=lesson_id, decision=decision)
+    pushed = push_request_now('data/ai_agent/inbox/lesson_decisions.jsonl', 'ai-agent: решение по уроку %s' % lesson_id)
+    word = 'принят' if decision == 'accept' else 'отклонён'
+    return {'ok': True, 'msg': 'Урок %s %s. Агент учтёт это на ближайшем тике (до 5 минут)%s.'
+                               % (lesson_id, word, '' if pushed else '; отправка в git — с ближайшим тиком')}

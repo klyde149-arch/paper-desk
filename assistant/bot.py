@@ -175,7 +175,8 @@ def handle_message(upd):
 
 
 def handle_callback(upd):
-    """Кнопки ручного закрытия: mc:sel:<asset>:<sleeve> | mc:ok:<token> | mc:no:<token>."""
+    """Кнопки ручного закрытия: mc:sel:<asset>:<sleeve> | mc:ok:<token> | mc:no:<token>;
+    уроки ИИ-агента: al:acc:<id> | al:rej:<id>."""
     cb = upd.get('callback_query') or {}
     msg = cb.get('message') or {}
     chat_id = str(((msg.get('chat') or {}).get('id')) or '')
@@ -213,6 +214,20 @@ def handle_callback(upd):
         else:
             tg.send(chat_id, r.get('msg') or '')
         log('manual-close confirm chat=%s ok=%s' % (chat_id, r.get('ok')))
+    elif data.startswith('al:'):
+        # уроки ИИ-агента: al:acc:<id> | al:rej:<id>; авторизация — та же проверка чата выше
+        parts = data.split(':')
+        if len(parts) != 3 or parts[1] not in ('acc', 'rej'):
+            tg.answer_callback(cb.get('id'))
+            return
+        r = actions.record_lesson_decision(parts[2], 'accept' if parts[1] == 'acc' else 'reject', chat_id)
+        tg.answer_callback(cb.get('id'), 'Записано' if r.get('ok') else 'Не вышло')
+        # edit_text убирает кнопки: повторное нажатие по старому сообщению невозможно
+        if mid and r.get('ok'):
+            tg.edit_text(chat_id, mid, (msg.get('text') or '') + '\n\n→ ' + r['msg'])
+        else:
+            tg.send(chat_id, r.get('msg') or '')
+        log('lesson %s chat=%s ok=%s' % (parts[2], chat_id, r.get('ok')))
     elif data.startswith('mc:no:'):
         actions.cancel_pending(data[len('mc:no:'):], chat_id)
         tg.answer_callback(cb.get('id'))

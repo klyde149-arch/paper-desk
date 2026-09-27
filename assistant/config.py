@@ -87,4 +87,8 @@ CONFIRM_TTL_SEC = 180
 MANUAL_CLOSE_REQ = os.path.join(REPO, 'data', 'rf', 'manual_close_req.json')
 MANUAL_CLOSE_RES = os.path.join(REPO, 'data', 'rf', 'manual_close_res.json')
 ANNOUNCED_FILE = os.path.join(STATE_DIR, 'announced_close.json')
+
+# Решения владельца по урокам ИИ-агента (кнопки al:acc / al:rej). Пишет ТОЛЬКО ассистент,
+# читает агент (ai_agent/weekly.py apply_inbox).
+AI_AGENT_INBOX = os.path.join(REPO, 'data', 'ai_agent', 'inbox', 'lesson_decisions.jsonl')
 ACTIONS_SANDBOX = os.path.join(STATE_DIR, 'sandbox')
