@@ -1,0 +1,487 @@
+{
+ "_about": "Календарь событий ИИ-агента (docs/strategy/rf_ai_agent_design_2026-09.md §5, §15). Время — по часовому поясу источника (MSK | NY | LON), в московское переводит ai_agent/timeutil.py. Собрано 2026-09-27 из официальных расписаний.",
+ "covered_through": "2026-12-31",
+ "gaps": "2027: даты ЦБ, CPI, занятости США и праздничные сдвиги EIA ещё не опубликованы — дополнить, когда появятся (агент предупредит за 14 дней до конца покрытия). ОПЕК+: подтверждённых дат нет, события приходят через новости.",
+ "sources": {
+  "cbr": "https://cbr.ru/dkp/cal_mp/ (через data/events/rf_events_2020_2026.json)",
+  "fomc": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+  "us_cpi": "https://www.bls.gov/schedule/news_release/cpi.htm",
+  "us_nfp": "https://www.bls.gov/schedule/news_release/empsit.htm",
+  "eia_crude": "https://www.eia.gov/petroleum/supply/weekly/schedule.php (ср 10:30 ET, праздничные сдвиги)",
+  "eia_gas": "https://ir.eia.gov/ngs/schedule.html (чт 10:30 ET, праздничные сдвиги)",
+  "moex": "https://www.moex.com/n96571"
+ },
+ "moex_closed": [
+  "2026-12-31"
+ ],
+ "moex_short": [
+  "2026-11-04"
+ ],
+ "events": [
+  {
+   "date": "2026-10-01",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-10-02",
+   "time": "08:30",
+   "tz": "NY",
+   "kind": "us_nfp",
+   "title": "Занятость в США (Nonfarm Payrolls)",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  },
+  {
+   "date": "2026-10-07",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-10-08",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-10-14",
+   "time": "08:30",
+   "tz": "NY",
+   "kind": "us_cpi",
+   "title": "Инфляция в США (CPI)",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  },
+  {
+   "date": "2026-10-15",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-10-15",
+   "time": "12:00",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-10-21",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-10-22",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-10-23",
+   "time": "13:30",
+   "tz": "MSK",
+   "kind": "cbr",
+   "title": "Решение Банка России по ключевой ставке",
+   "importance": "high",
+   "instruments": [
+    "Si",
+    "CNY",
+    "Eu",
+    "MIX"
+   ]
+  },
+  {
+   "date": "2026-10-28",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-10-28",
+   "time": "14:00",
+   "tz": "NY",
+   "kind": "fomc",
+   "title": "Решение ФРС по ставке",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  },
+  {
+   "date": "2026-10-29",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-11-04",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-11-05",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-11-06",
+   "time": "08:30",
+   "tz": "NY",
+   "kind": "us_nfp",
+   "title": "Занятость в США (Nonfarm Payrolls)",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  },
+  {
+   "date": "2026-11-10",
+   "time": "08:30",
+   "tz": "NY",
+   "kind": "us_cpi",
+   "title": "Инфляция в США (CPI)",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  },
+  {
+   "date": "2026-11-12",
+   "time": "12:00",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-11-13",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-11-18",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-11-19",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-11-25",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-11-25",
+   "time": "12:00",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-12-02",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-12-03",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-12-04",
+   "time": "08:30",
+   "tz": "NY",
+   "kind": "us_nfp",
+   "title": "Занятость в США (Nonfarm Payrolls)",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  },
+  {
+   "date": "2026-12-09",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-12-09",
+   "time": "14:00",
+   "tz": "NY",
+   "kind": "fomc",
+   "title": "Решение ФРС по ставке",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  },
+  {
+   "date": "2026-12-10",
+   "time": "08:30",
+   "tz": "NY",
+   "kind": "us_cpi",
+   "title": "Инфляция в США (CPI)",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  },
+  {
+   "date": "2026-12-10",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-12-16",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-12-17",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-12-18",
+   "time": "13:30",
+   "tz": "MSK",
+   "kind": "cbr",
+   "title": "Решение Банка России по ключевой ставке",
+   "importance": "high",
+   "instruments": [
+    "Si",
+    "CNY",
+    "Eu",
+    "MIX"
+   ]
+  },
+  {
+   "date": "2026-12-23",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-12-24",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2026-12-30",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_crude",
+   "title": "Запасы нефти в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "BR"
+   ]
+  },
+  {
+   "date": "2026-12-31",
+   "time": "10:30",
+   "tz": "NY",
+   "kind": "eia_gas",
+   "title": "Запасы газа в США (EIA)",
+   "importance": "medium",
+   "instruments": [
+    "NG"
+   ]
+  },
+  {
+   "date": "2027-01-27",
+   "time": "14:00",
+   "tz": "NY",
+   "kind": "fomc",
+   "title": "Решение ФРС по ставке",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  },
+  {
+   "date": "2027-03-17",
+   "time": "14:00",
+   "tz": "NY",
+   "kind": "fomc",
+   "title": "Решение ФРС по ставке",
+   "importance": "high",
+   "instruments": [
+    "GOLD",
+    "SILV",
+    "BR",
+    "Eu"
+   ]
+  }
+ ]
+}
