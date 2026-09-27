@@ -44,10 +44,28 @@ class TestNews(unittest.TestCase):
         self.assertEqual(len(got), news.PER_GROUP)
 
     def test_has_high(self):
-        items = [{'importance': 'high', 'instrument': 'ALL'}]
-        self.assertTrue(news.has_high(items, ['BR']))
-        self.assertFalse(news.has_high([{'importance': 'medium', 'instrument': 'BR'}], ['BR']))
-        self.assertFalse(news.has_high([{'importance': 'high', 'instrument': 'Si'}], ['BR']))
+        def it(imp, inst, date='2026-10-07', time='05:40'):
+            return {'importance': imp, 'instrument': inst, 'date': date, 'time': time}
+        self.assertTrue(news.has_high([it('high', 'ALL')], ['BR'], NOW))
+        self.assertFalse(news.has_high([it('medium', 'BR')], ['BR'], NOW))
+        self.assertFalse(news.has_high([it('high', 'Si')], ['BR'], NOW))
+        # без точного времени и старше 12 часов платную проверку не поднимают
+        self.assertFalse(news.has_high([it('high', 'BR', time='время неизвестно')], ['BR'], NOW))
+        self.assertFalse(news.has_high([it('high', 'BR', date='2026-10-06', time='15:00')], ['BR'], NOW))
+
+    def test_untimed_items(self):
+        text = ('2026-10-07|--:--|BR|up|high|ОПЕК+ продлила сокращения|reuters.com\n'
+                '2026-10-07|00:00|GOLD|down|medium|ФРС сигнализировала паузу|reuters.com\n'
+                '2026-10-05|--:--|SILV|up|high|Старое событие без времени|bfm.ru\n'
+                '2026-10-05|18:00|SILV|up|high|Позавчерашнее событие со временем|bfm.ru')
+        got, dropped = news.parse(text, NOW)
+        self.assertEqual([x['time'] for x in got], ['время неизвестно', 'время неизвестно', '18:00'])
+        self.assertEqual(dropped, 1)
+
+    def test_prompt_asks_for_causes_not_quotes(self):
+        self.assertIn('СОБЫТИЯ-ПРИЧИНЫ', news.SYSTEM)
+        self.assertIn('--:--', news.SYSTEM)
+        self.assertIn('больше чем на 1%', news.SYSTEM)
 
 
 class TestBudget(unittest.TestCase):

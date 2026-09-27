@@ -16,8 +16,10 @@ INSTRUMENTS = set(C.UNIVERSE) | {'ALL'}
 DIRECTIONS = {'up', 'down', 'mixed', 'none'}
 IMPORTANCE = {'high', 'medium', 'low'}
 EVENT_MAX = 120
-PER_GROUP = 8
-FRESH_DAYS = 2
+PER_GROUP = 6
+FRESH_DAYS = 2          # новость с точным временем
+FRESH_DAYS_UNTIMED = 1  # без точного времени — только вчера и сегодня
+HIGH_WINDOW_H = 12      # поднять дневную проверку может только новость с точным временем за 12 ч
 MAX_TOKENS = 700
 
 SUSPICIOUS = re.compile(r'(ignore|disregard|instruction|system|assistant|prompt|json|'
@@ -37,12 +39,18 @@ TOPICS = {
     'us': 'события открытия торгов в США: нефть, газ, золото, серебро, данные по экономике США (BR, NG, GOLD, SILV)',
 }
 
-SYSTEM = ('Ты собираешь свежие рыночные новости. Отвечай ТОЛЬКО строками формата\n'
+SYSTEM = ('Ты собираешь свежие рыночные новости для трейдера фьючерсов. Нужны только СОБЫТИЯ-ПРИЧИНЫ: '
+          'решения центробанков и правительств, опубликованные данные, заявления, санкции, перебои поставок, '
+          'решения ОПЕК+, геополитика. НЕ присылай сообщения о движении цен и котировках («нефть торгуется '
+          'около…», «индекс снизился») — цены трейдер видит сам. Отвечай ТОЛЬКО строками формата\n'
           'ГГГГ-ММ-ДД|ЧЧ:ММ|ИНСТРУМЕНТ|НАПРАВЛЕНИЕ|ВАЖНОСТЬ|СОБЫТИЕ|ДОМЕН\n'
           'ИНСТРУМЕНТ — один из BR NG GOLD SILV Si CNY Eu MIX ALL. НАПРАВЛЕНИЕ — up, down, mixed или none '
-          '(вероятное влияние на цену инструмента). ВАЖНОСТЬ — high, medium или low. СОБЫТИЕ — факт без '
-          'оценок, до 120 символов, без символа |. ДОМЕН — сайт источника, например reuters.com. Время '
-          'московское. Не больше 8 строк, самые важные первыми. Если свежих новостей нет — ответь NONE.')
+          '(вероятное влияние на цену инструмента). ВАЖНОСТЬ: high — только если событие способно сдвинуть '
+          'цену инструмента больше чем на 1% за день (решение по ставке, ОПЕК+, санкции, сильный сюрприз в '
+          'данных); medium — заметно влияет на фон; low — остальное. СОБЫТИЕ — факт без оценок, до 120 '
+          'символов, без символа |. ДОМЕН — сайт источника, например reuters.com. Время московское; если '
+          'точное время неизвестно — пиши --:--. Не больше 6 строк, самые важные первыми, без повторов '
+          'одного события. Если свежих событий нет — ответь NONE.')
 
 
 def query_for(group, now, event=None):
@@ -65,24 +73,27 @@ def parse(text, now):
             continue
         d, tm, inst, dirn, imp, ev, dom = parts
         dirn, imp, dom = dirn.lower(), imp.lower(), dom.lower().removeprefix('www.')
+        untimed = tm in ('--:--', '00:00', '')      # 00:00 sonar ставит вместо «неизвестно»
         try:
             day = dt.date.fromisoformat(d)
-            dt.time.fromisoformat(tm)
+            if not untimed:
+                dt.time.fromisoformat(tm)
         except ValueError:
             dropped += 1
             continue
+        fresh = FRESH_DAYS_UNTIMED if untimed else FRESH_DAYS
         ev = ' '.join(ev.split())
         if (inst not in INSTRUMENTS or dirn not in DIRECTIONS or imp not in IMPORTANCE
                 or not ev or len(ev) > EVENT_MAX or SUSPICIOUS.search(ev) or not DOMAIN.match(dom)
                 or any(c in ev for c in '<>{}`')
-                or not (now.date() - dt.timedelta(days=FRESH_DAYS) <= day <= now.date())):
+                or not (now.date() - dt.timedelta(days=fresh) <= day <= now.date())):
             dropped += 1
             continue
         k = (inst, ev[:40].lower())
         if k in seen:
             continue
         seen.add(k)
-        out.append({'date': d, 'time': tm, 'instrument': inst, 'direction': dirn, 'importance': imp,
+        out.append({'date': d, 'time': 'время неизвестно' if untimed else tm, 'instrument': inst, 'direction': dirn, 'importance': imp,
                     'event': ev, 'source': dom})
         if len(out) >= PER_GROUP:
             break
@@ -112,6 +123,20 @@ def fetch(groups, now, usage_path, event=None, log=None):
     return items
 
 
-def has_high(items, instruments):
+def has_high(items, instruments, now=None):
+    """Есть ли повод поднять дневную проверку: важная новость по инструментам точки, с точным
+    временем и не старше HIGH_WINDOW_H часов. Новости без времени сводке не мешают, но и платный
+    вызов модели не запускают."""
     s = set(instruments) | {'ALL'}
-    return any(x['importance'] == 'high' and x['instrument'] in s for x in items)
+    for x in items:
+        if x['importance'] != 'high' or x['instrument'] not in s or x['time'] == 'время неизвестно':
+            continue
+        if now is None:
+            return True
+        try:
+            t = dt.datetime.fromisoformat('%s %s' % (x['date'], x['time']))
+        except ValueError:
+            continue
+        if now - dt.timedelta(hours=HIGH_WINDOW_H) <= t <= now + dt.timedelta(minutes=10):
+            return True
+    return False
