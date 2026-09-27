@@ -5,6 +5,7 @@
 пишем причину в last_error (без токена в тексте).
 """
 import json
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -35,6 +36,8 @@ def send(text, keyboard=None):
     s = C.secrets()
     if not s['tg_token'] or not s['tg_chat']:
         last_error = 'нет TG_BOT_TOKEN / TG_CHAT_ID'
+        if not C.llm_mock():
+            print('TG НЕ ДОСТАВЛЕНО (%s)' % last_error, file=sys.stderr)
         return False
     ok = True
     chunks = _split(text)
@@ -53,4 +56,8 @@ def send(text, keyboard=None):
         except Exception as e:
             last_error = type(e).__name__
             ok = False
+    if not ok:
+        # доставку проверяем, а не только отправку (урок 2026-08-11): отказ виден в journalctl -u ai-agent
+        print('TG НЕ ДОСТАВЛЕНО (%s): %s' % (last_error, text[:120].replace('
+', ' ')), file=sys.stderr)
     return ok
