@@ -58,6 +58,5 @@ def send(text, keyboard=None):
             ok = False
     if not ok:
         # доставку проверяем, а не только отправку (урок 2026-08-11): отказ виден в journalctl -u ai-agent
-        print('TG НЕ ДОСТАВЛЕНО (%s): %s' % (last_error, text[:120].replace('
-', ' ')), file=sys.stderr)
+        print('TG НЕ ДОСТАВЛЕНО (%s): %s' % (last_error, ' '.join(text[:120].split())), file=sys.stderr)
     return ok
