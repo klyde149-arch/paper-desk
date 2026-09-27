@@ -245,7 +245,11 @@ def run_trade_point(state, item, mkt, cx):
     ev = decide.apply(state, accepted, now, key, decision['memory_version'], point)
     label = POINTS[point]['label'] + (': ' + item['event']['title'] if item.get('event') else '')
     memory.journal_append(cx.P['memory'], now.strftime('%Y-%m-%d'), report.journal_entry(T.fmt(now), label, decision, ev))
-    tg.send(report.point_message(label, decision, ev))
+    msg = report.point_message(label, decision, ev)
+    if point == 'main':
+        total, today = budget.spent(cx.P['usage'], now.strftime('%Y-%m-%d'))
+        msg += '\nРасход: сегодня $%.2f, всего $%.2f из $%.2f' % (today, total, C.budget()['total_usd'])
+    tg.send(msg)
     return 'ok', decision, ev
 
 
@@ -254,6 +258,8 @@ def run_item(state, item, mkt, cx):
     if point == 'weekly':
         from . import weekly
         status, info = weekly.run(state, cx)
+        if status != 'error':
+            send_compare(state, cx, key.split(':', 1)[1])
     else:
         status, info, _ = run_trade_point(state, item, mkt, cx)
     if status == 'error':
@@ -277,6 +283,20 @@ def run_item(state, item, mkt, cx):
     if point == 'main':
         state['last_main_day'] = item['bar_day']
     return status
+
+
+def send_compare(state, cx, week):
+    """Недельное сравнение с двойником C3b — только владельцу, вне памяти агента (§9)."""
+    try:
+        twin = market.read_json(cx.P['twin_trades'], []) or []
+        c = report.compare(state['trades'], twin, cx.P['series'], state.get('started_at', '')[:10])
+        costs = (budget.spent(cx.P['usage'])[0], C.budget()['total_usd'])
+        os.makedirs(cx.P['reports'], exist_ok=True)
+        with open(os.path.join(cx.P['reports'], 'week_%s.md' % week), 'w', encoding='utf-8', newline='\n') as f:
+            f.write(report.compare_md(c, week, costs))
+        tg.send(report.compare_tg(c, week, costs))
+    except Exception as e:
+        cx.log('сравнение с двойником не собрано: %s' % e)
 
 
 def _prune_done(state, now):
@@ -309,6 +329,7 @@ def tick(now=None, only=None):
         cx.log('HALT_AGENT: тик пропущен целиком')
         return {'halt': True}
     state = load_state(cx.P['state'])
+    state.setdefault('started_at', T.fmt(now))
     mkt = load_market(cx.P, now)
     ev = advance(state, mkt, now, cx.halt_files())
     if ev:

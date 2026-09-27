@@ -84,3 +84,86 @@ def journal_entry(at, point_label, decision, events_list):
 def events_message(events_list):
     lines = [s for s in (event_line(e) for e in events_list) if s]
     return ('🤖 Агент\n' + '\n'.join(lines)) if lines else ''
+
+
+# ---------------------------------------------------------------- сравнение с двойником C3b (§9)
+# Только для владельца: файл в data/ai_agent/reports/, в agent_memory/ и в промпт не попадает.
+
+ER_LATE = 0.5          # «вход после прямолинейного движения» — ER20 >= 0,5 на день перед входом
+ER_LATE_MAX = 0.20     # порог: таких входов не больше 20%
+AVG_WIN_MIN = 1.5      # средняя прибыльная не меньше +1,5R
+
+
+def entry_er(series_dir, inst, entry_day, cache):
+    from . import market
+    if inst not in cache:
+        cache[inst] = market.load_daily(series_dir, inst)
+    bars = cache[inst]
+    i = next((k for k in range(len(bars) - 1, -1, -1) if bars[k]['day'] < entry_day), -1)
+    return market.er(bars, i) if i >= 0 else None
+
+
+def _stats(rows, r_key, inst_key, day_key, series_dir, cache):
+    rs = [x[r_key] for x in rows if isinstance(x.get(r_key), (int, float))]
+    wins = [r for r in rs if r > 0]
+    ers = [entry_er(series_dir, x[inst_key], x[day_key], cache) for x in rows]
+    ers = [e for e in ers if e is not None]
+    return {'n': len(rs), 'sum_r': sum(rs), 'win_rate': len(wins) / len(rs) if rs else None,
+            'avg_win': sum(wins) / len(wins) if wins else None,
+            'late_share': sum(1 for e in ers if e >= ER_LATE) / len(ers) if ers else None}
+
+
+def compare(agent_trades, twin_rows, series_dir, since):
+    cache = {}
+    twin = [t for t in twin_rows if t.get('profile') == 'C3b' and t.get('sym') in C.UNIVERSE
+            and str(t.get('entryDay', '')) >= since]
+    out = {'since': since,
+           'agent': _stats(agent_trades, 'r', 'instrument', 'entry_day', series_dir, cache),
+           'twin_all': _stats(twin, 'rMultiple', 'sym', 'entryDay', series_dir, cache),
+           'twin_core': _stats([t for t in twin if t.get('sleeve') == 'core'], 'rMultiple', 'sym', 'entryDay',
+                               series_dir, cache),
+           'by_setup': {}}
+    for s in ('pullback', 'early_breakout', 'catalyst'):
+        ts = [t for t in agent_trades if t['setup'] == s]
+        out['by_setup'][s] = {'n': len(ts), 'sum_r': sum(t['r'] for t in ts)}
+    return out
+
+
+def _f(x, fmt):
+    return '—' if x is None else fmt % x
+
+
+def _pct(x):
+    return '—' if x is None else '%d%%' % round(x * 100)
+
+
+def compare_md(c, week, costs):
+    a, ta, tc = c['agent'], c['twin_all'], c['twin_core']
+    rows = [('Закрытых сделок', '%d' % a['n'], '%d' % ta['n'], '%d' % tc['n'], ''),
+            ('Сумма R', '%+.2f' % a['sum_r'], '%+.2f' % ta['sum_r'], '%+.2f' % tc['sum_r'], 'агент выше двойника'),
+            ('Доля прибыльных', _pct(a['win_rate']), _pct(ta['win_rate']), _pct(tc['win_rate']), ''),
+            ('Средняя прибыльная, R', _f(a['avg_win'], '%+.2f'), _f(ta['avg_win'], '%+.2f'), _f(tc['avg_win'], '%+.2f'),
+             'не меньше +%.1f' % AVG_WIN_MIN),
+            ('Входы после прямого движения (ER20 ≥ 0,5)', _pct(a['late_share']),
+             _pct(ta['late_share']), _pct(tc['late_share']), 'не больше %d%%' % round(ER_LATE_MAX * 100))]
+    lines = ['# Агент против двойника C3b — неделя %s' % week, '',
+             'С %s, 8 инструментов агента. Двойник — бумажный C3b (data/rf/rf_trades.json): «всё» — ядро и '
+             'сетап A, «ядро» — только ядро. Агент эти цифры не видит.' % c['since'], '',
+             '| Показатель | Агент | Двойник, всё | Двойник, ядро | Порог |', '|---|---|---|---|---|']
+    lines += ['| %s | %s | %s | %s | %s |' % r for r in rows]
+    lines += ['', '## Агент по типам входа', '', '| Тип | Сделок | Сумма R |', '|---|---|---|']
+    lines += ['| %s | %d | %+.2f |' % (s, v['n'], v['sum_r']) for s, v in c['by_setup'].items()]
+    lines += ['', 'Расход на модели: всего $%.2f из $%.2f.' % costs, '',
+              'Для вывода нужно около 30 закрытых сделок (протокол rf_research_protocol_2026-09-21.md); до '
+              'этого цифры — проверка адекватности, не вердикт.']
+    return '\n'.join(lines) + '\n'
+
+
+def compare_tg(c, week, costs):
+    a, t = c['agent'], c['twin_all']
+    return ('📊 Агент против двойника C3b, неделя %s (с %s)\n'
+            'Агент: %d сделок, %+.2fR, средняя прибыльная %s, поздних входов %s\n'
+            'Двойник: %d сделок, %+.2fR, средняя прибыльная %s, поздних входов %s\n'
+            'Расход $%.2f из $%.2f. Для вердикта нужно ~30 сделок.'
+            % (week, c['since'], a['n'], a['sum_r'], _f(a['avg_win'], '%+.2fR'), _pct(a['late_share']),
+               t['n'], t['sum_r'], _f(t['avg_win'], '%+.2fR'), _pct(t['late_share']), costs[0], costs[1]))

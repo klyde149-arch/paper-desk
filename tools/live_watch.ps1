@@ -67,6 +67,15 @@ $CONTOURS = @(
     equity = 'data\live_rf\equity.json'
     guard = 'Стоп-заявки у брокера продолжают действовать'
     fanout = $true
+  },
+  # ИИ-агент (бумага, docs/strategy/rf_ai_agent_design_2026-09.md): снапшот не реже раза в 6 ч,
+  # поэтому свой порог 8 ч. Денег под ним нет - только владельцу (fanout=$false), текст свой.
+  # optional: пока агент не развёрнут, файла нет - это не сбой.
+  [ordered]@{
+    key = 'ai_agent'; prefix = 'ИИ-агент (бумага)'; unit = 'ai-agent'
+    equity = 'data\ai_agent\equity.json'
+    guard = ''
+    fanout = $false; stale = 480; paper = $true; optional = $true
   }
 )
 
@@ -122,6 +131,11 @@ try {
 
 foreach ($c in $CONTOURS) {
   try {
+    if ($c.optional -and -not (Test-Path (Join-Path $Root $c.equity))) {
+      Write-Host ("live_watch [{0}]: контур ещё не развёрнут - пропуск" -f $c.key)
+      continue
+    }
+    $stale = if ($c.stale) { [int]$c.stale } else { $StaleMin }
     $lastMs = Get-LastEquityMs (Join-Path $Root $c.equity)
     # bad_ts - «на каком снапшоте контур замер». Ключ эпизода: новый сбой имеет другой
     # bad_ts и потому пробивает дедупликацию. Потеря файла состояния приводит максимум
@@ -131,7 +145,7 @@ foreach ($c in $CONTOURS) {
     $silentMin = if ($hasData) { [int][math]::Floor(($NowMs - $lastMs) / 60000.0) } else { 0 }
     $prev = $state[$c.key]
 
-    if ($hasData -and $silentMin -lt $StaleMin) {
+    if ($hasData -and $silentMin -lt $stale) {
       if ($prev) {
         $downMin = [int][math]::Floor(($NowMs - [long]$prev.bad_ts) / 60000.0)
         Notify $c ('контур снова на связи, данные актуальны. Простой был около {0}.' -f (Fmt-Dur $downMin))
@@ -156,7 +170,9 @@ foreach ($c in $CONTOURS) {
     }
 
     # новый эпизод - первый алерт
-    if ($hasData) {
+    if ($c.paper) {
+      Notify $c ('бумажный контур не выходит на связь уже {0} (последние данные от {1} UTC). Денег под ним нет, но решения агента и бумажные стопы сейчас не ведутся. Проверьте VPS: systemctl status {2}.timer и data/ai_agent/agent_log.txt' -f $howLong, $(if ($hasData) { MsToUtcStr $lastMs } else { 'неизвестно' }), $c.unit)
+    } elseif ($hasData) {
       Notify $c ('боевой контур не выходит на связь уже {0} - последние данные от {1} UTC. {2}, но сопровождения сделок (первая цель, безубыток, трейл) сейчас нет. Проверьте VPS: оплату хостинга и systemctl status {3}.timer' -f $howLong, (MsToUtcStr $lastMs), $c.guard, $c.unit)
     } else {
       Notify $c ('состояние контура недоступно - файл {0} отсутствует или пуст. {1}, но сопровождения сделок сейчас нет. Проверьте репозиторий и VPS: journalctl -u {2}.' -f $c.equity, $c.guard, $c.unit)
