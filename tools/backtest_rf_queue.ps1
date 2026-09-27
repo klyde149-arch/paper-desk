@@ -82,10 +82,26 @@ param(
   # TELEMETRY ONLY. When set, dumps one row per open-position bar to this path (JSON).
   # Purely observational: it reads state that the management block already computed and
   # appends to a list. It must never influence an entry, an exit, a stop or a fill.
-  [string]$TelemetryPath = ''
+  [string]$TelemetryPath = '',
+  # Календарный запрет входа (2026-09, docs\backtests\rf_calendar_filter_2026-09.md). JSON вида
+  # { "Si": ["2021-02-11", ...], ... }: дни, в которые вход по символу запрещён. Сигнал теряется и
+  # слот не занимает, как -LongOnly. Файл строит tools\build_rf_event_blackout.py.
+  # Пусто (по умолчанию) = выключено, поведение бит-в-бит как раньше. Только с -QueueMode none.
+  [string]$BlackoutFile = ''
 )
 $ErrorActionPreference = 'Stop'
 $dir = $DataDir
+
+$blackout = @{}
+$blackoutLog = New-Object System.Collections.Generic.List[object]
+if ($BlackoutFile) {
+  if ($QueueMode -ne 'none') { throw '-BlackoutFile поддержан только с -QueueMode none' }
+  $bj = Get-Content $BlackoutFile -Raw | ConvertFrom-Json
+  foreach ($pr in $bj.PSObject.Properties) {
+    if ($pr.Name -like '_*') { continue }
+    foreach ($d in @($pr.Value)) { $blackout["$($pr.Name)|$d"] = $true }
+  }
+}
 
 # Ставка комиссии для символа: из -FeePctBySymbol, иначе общий -FeePct.
 function Get-SymFee([string]$Sym) {
@@ -541,6 +557,10 @@ foreach ($ts in $timeline) {
     $i = $S[$sym].idx[$ts]
     $side = Get-Signal $sym $i
     if ($side -eq '') { continue }
+    if ($blackout.Count -gt 0 -and $blackout.ContainsKey("$sym|$day")) {
+      $blackoutLog.Add([pscustomobject]@{ sym = $sym; side = $side; day = $day })
+      continue
+    }
     if ($open.Count -lt $MaxConcurrent) {
       $sd = Get-StopDist $sym $i $side
       Open-Position $sym $side $sd $i $day $ts $false
@@ -582,6 +602,10 @@ $outSuffix = if ($OutTag) { "_$OutTag" } else { '' }
 $trades | ConvertTo-Json -Depth 3 | Out-File (Join-Path $dir "btq_trades$outSuffix.json") -Encoding utf8
 $equityCurve | ConvertTo-Json -Depth 2 | Out-File (Join-Path $dir "btq_equity$outSuffix.json") -Encoding utf8
 if ($null -ne $telemetry) { $telemetry | ConvertTo-Json -Depth 3 | Out-File $TelemetryPath -Encoding utf8 }
+if ($BlackoutFile) {
+  ConvertTo-Json -InputObject ([object[]]$blackoutLog.ToArray()) -Depth 2 | Out-File (Join-Path $dir "btq_blackout$outSuffix.json") -Encoding utf8
+  "Blackout          : погашено входов $($blackoutLog.Count) (файл $BlackoutFile)"
+}
 
 "===================== RF QUEUE BACKTEST ($QueueMode) ====================="
 "Mode              : $(if($Breakout){'core (Donchian breakout)'}else{'setA (pullback)'})  | QueueMode=$QueueMode QueueExpiryBars=$QueueExpiryBars"
