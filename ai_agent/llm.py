@@ -36,13 +36,13 @@ MOCK = _default_mock
 
 def check_key(key):
     if not key:
-        raise LLMError('OPENROUTER_API_KEY не задан (/etc/ai-agent.env)')
+        raise LLMError('AI_AGENT_OPENROUTER_KEY не задан (/etc/ai-agent.env)')
     try:
         key.encode('ascii')
     except UnicodeEncodeError:
-        raise LLMError('OPENROUTER_API_KEY содержит не-ASCII символы — в env осталась заглушка')
+        raise LLMError('AI_AGENT_OPENROUTER_KEY содержит не-ASCII символы — в env осталась заглушка')
     if not key.startswith('sk-or-') or len(key) < 30:
-        raise LLMError('OPENROUTER_API_KEY не похож на ключ OpenRouter (sk-or-v1-...)')
+        raise LLMError('AI_AGENT_OPENROUTER_KEY не похож на ключ OpenRouter (sk-or-v1-...)')
 
 
 def post(payload, timeout=C.LLM_TIMEOUT, retries=1):

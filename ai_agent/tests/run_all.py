@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))
 
 os.environ['AI_AGENT_LLM_MOCK'] = '1'
 os.environ['AI_AGENT_DATA_DIR'] = os.path.join(tempfile.gettempdir(), 'ai-agent-tests', 'data')
-os.environ['OPENROUTER_API_KEY'] = 'sk-or-v1-' + 'f' * 64
+os.environ['AI_AGENT_OPENROUTER_KEY'] = 'sk-or-v1-' + 'f' * 64
 os.environ.pop('TG_BOT_TOKEN', None)   # тесты никогда не шлют в Telegram
 
 if __name__ == '__main__':

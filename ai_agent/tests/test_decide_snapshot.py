@@ -63,6 +63,16 @@ class TestValidate(unittest.TestCase):
         ok, bad = one([enter('Si', stop=84000, target=88000)], state=s)
         self.assertEqual(len(ok), 1, bad)
 
+    def test_limits_count_entries_within_one_response(self):
+        ok, bad = one([enter('Si', stop=84000, target=88000), enter('CNY', stop=11.8, target=12.5),
+                       enter('Eu', stop=96000, target=101000)])
+        self.assertEqual([a['instrument'] for a in ok], ['Si', 'CNY'])
+        self.assertIn('рубль', bad[0]['why'])
+        ok, bad = one([enter('BR', stop=97, target=106), enter('GOLD', stop=3900, target=4200),
+                       enter('Si', stop=84000, target=88000), enter('MIX', stop=245000, target=260000)])
+        self.assertEqual(len(ok), 3)
+        self.assertIn('3', bad[0]['why'])
+
     def test_take_profit_only_on_main(self):
         s = book.new_state()
         book.place_order(s, {'instrument': 'BR', 'side': 'long', 'order': 'market', 'limit_px': None, 'stop_px': 97.0,

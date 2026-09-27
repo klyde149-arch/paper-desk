@@ -76,6 +76,9 @@ def validate(resp, ctx):
         raise ValueError('ответ не по схеме: нет actions')
     state, point = ctx['state'], ctx['point']
     ok, bad, seen = [], [], set()
+    # теневой рукав: лимиты 3/2 считают и входы, уже принятые из ЭТОГО ЖЕ ответа
+    # (найдено сухим прогоном: пять входов в одном ответе проходили проверку по отдельности)
+    shadow = {'positions': state['positions'], 'orders': list(state['orders']), 'halt': state.get('halt')}
 
     def reject(a, why):
         bad.append({'instrument': a.get('instrument'), 'action': a.get('action'), 'why': why})
@@ -106,7 +109,9 @@ def validate(resp, ctx):
         px = ctx['last_px'].get(inst)
         why = None
         if act == 'enter':
-            why = _check_enter(a, state, px, ctx)
+            why = _check_enter(a, shadow, px, ctx)
+            if not why:
+                shadow['orders'] = [o for o in shadow['orders'] if o['instrument'] != inst] + [{'instrument': inst}]
         elif act == 'cancel':
             if not any(o['instrument'] == inst for o in state['orders']):
                 why = 'нет заявки для отмены'

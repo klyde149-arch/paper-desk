@@ -1,0 +1,26 @@
+[Unit]
+Description=paper-desk AI agent - paper sleeve on Opus via OpenRouter (5-minute dispatcher)
+Documentation=file:///home/trader/paper-desk/deploy/README_AI_AGENT.md
+Wants=network-online.target
+After=network-online.target
+# в [Unit], не в [Service]: иначе systemd молча игнорирует (README_RF.md)
+OnFailure=tick-alert@%n.service
+
+[Service]
+Type=oneshot
+User=trader
+# Telegram владельца (TG_BOT_TOKEN, TG_CHAT_ID) - из общего env; ключ агента - только из своего.
+# Имя юнита без «rf»: tick_alert.sh шлёт сбои *rf* ещё и клиенту.
+EnvironmentFile=/etc/trading-live.env
+EnvironmentFile=/etc/ai-agent.env
+Environment=LC_ALL=C.UTF-8
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/home/trader/paper-desk
+ExecStart=/usr/bin/flock -n /run/lock/ai-agent.lock /home/trader/paper-desk/deploy/ai_agent_tick.sh
+# главный разбор с рассуждением medium идёт минутами; таймер - механизм повтора
+TimeoutStartSec=900
+Restart=no
+MemoryMax=300M
+CPUQuota=40%
+NoNewPrivileges=yes
+PrivateTmp=yes

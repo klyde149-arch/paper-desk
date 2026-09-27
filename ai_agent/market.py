@@ -29,13 +29,31 @@ def read_json(path, default=None):
 
 def _bar(t_ms, o, h, l, c, v):
     t = T.ms_to_msk(t_ms)
-    return {'ts': int(t_ms), 't': t, 'day': t.strftime('%Y-%m-%d'),
+    return {'ts': int(t_ms), 't': t, 'day': t.date().isoformat(),
             'o': float(o), 'h': float(h), 'l': float(l), 'c': float(c), 'v': float(v or 0)}
 
 
-def load_daily(series_dir, asset):
-    raw = read_json(os.path.join(series_dir, asset + '.json'), []) or []
-    return [_bar(b['t'], b['o'], b['h'], b['l'], b['c'], b.get('v')) for b in raw if b]
+_CACHE = {}
+DAILY_TAIL = 250      # агенту хватает: 60 баров в снимке, ATR14, ER20, трейл и ролл по последнему бару
+
+
+def load_daily(series_dir, asset, tail=None):
+    """tail — сколько последних баров разбирать (None — весь ряд). Кэш по mtime/размеру файла:
+    в боевом тике процесс живёт один проход, в прогоне и тестах кэш экономит разбор."""
+    path = os.path.join(series_dir, asset + '.json')
+    try:
+        st = os.stat(path)
+        key = (path, tail, st.st_mtime_ns, st.st_size)
+    except OSError:
+        return []
+    if key not in _CACHE:
+        raw = read_json(path, []) or []
+        if tail:
+            raw = raw[-tail:]
+        _CACHE[key] = [_bar(b['t'], b['o'], b['h'], b['l'], b['c'], b.get('v')) for b in raw if b]
+        if len(_CACHE) > 64:
+            _CACHE.pop(next(iter(_CACHE)))
+    return [dict(b) for b in _CACHE[key]] if tail is None else list(_CACHE[key])
 
 
 def load_hourly(candles_dir, asset):

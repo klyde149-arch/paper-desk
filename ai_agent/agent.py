@@ -94,7 +94,7 @@ def load_market(P, now):
     cons = market.contracts(P['rf_portfolio'])
     out = {}
     for a in C.UNIVERSE:
-        daily = market.load_daily(P['series'], a)
+        daily = market.load_daily(P['series'], a, tail=market.DAILY_TAIL)
         hb, asof = market.load_hourly(P['candles'], a)
         hc = market.complete_hourly(hb, now, asof)
         ok = market.hourly_usable(cons.get(a)) and bool(hc) and now - hc[-1]['t'] < STALE_HOURLY

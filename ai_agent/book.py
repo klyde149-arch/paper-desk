@@ -195,7 +195,7 @@ def close_position(state, p, px, at, reason):
         'id': p['id'], 'instrument': p['instrument'], 'side': p['side'], 'setup': p['setup'],
         'entry_at': p['entry_at'], 'entry_day': p['entry_day'], 'entry': p['entry'],
         'initial_stop': p['initial_stop'], 'exit_at': T.fmt(at), 'exit_px': round(px, R6),
-        'exit_reason': reason, 'r': round(r, 3), 'net': round(net, 6), 'risk_amt': p['risk_amt'],
+        'exit_reason': reason, 'r': round(r, 3), 'net': net, 'risk_amt': p['risk_amt'],   # net без округления: на нём сходится учёт
         'fees': round(p['fees'] + p['entry_fee'], 6), 'rolls': p['rolls'],
         'days_held': (at.date() - entry_day).days, 'horizon_days': p.get('horizon_days'),
         'reason': p.get('reason'), 'invalidation': p.get('invalidation'),

@@ -81,7 +81,7 @@ def paths():
 
 def secrets():
     return {
-        'openrouter': _env('OPENROUTER_API_KEY'),
+        'openrouter': _env('AI_AGENT_OPENROUTER_KEY'),   # своя переменная: OPENROUTER_API_KEY в trading-live.env — ключ боевого движка
         'tg_token': _env('TG_BOT_TOKEN'),
         'tg_chat': _env('TG_CHAT_ID'),       # только владелец; клиенту агент не пишет
     }

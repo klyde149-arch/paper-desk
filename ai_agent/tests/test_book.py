@@ -105,6 +105,8 @@ class TestExits(unittest.TestCase):
         ev = book.process_bar(self.s, 'BR', bar(8, 93, 93.5, 92, 93))
         t = ev[-1]['trade']
         self.assertAlmostEqual(t['exit_px'], round(93 * (1 - C.STOP_SLIP), 6))
+        for f in ('risk_amt', 'net', 'fees', 'setup', 'decision_id', 'memory_version'):
+            self.assertIn(f, t)
         self.assertLess(t['r'], -1.0)
 
     def test_stop_r_about_minus_one(self):

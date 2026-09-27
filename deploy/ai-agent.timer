@@ -1,0 +1,11 @@
+[Unit]
+Description=paper-desk AI agent dispatcher - every 5 minutes
+
+[Timer]
+# :45 секунды - в стороне от live-tick (:00) и live-rf-tick (:30)
+OnCalendar=*-*-* *:0/5:45
+AccuracySec=1s
+Persistent=false
+
+[Install]
+WantedBy=timers.target
