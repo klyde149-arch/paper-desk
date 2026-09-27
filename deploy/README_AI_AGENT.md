@@ -22,16 +22,19 @@
 Код должен быть в `main` — VPS тянет только его.
 
 ```bash
-# 1. ключ агента: отдельный ключ OpenRouter с лимитом $12.5 на самом ключе
+# 1. ключ агента = ключ ассистента (решение владельца 28.09), значение на экран не выводится
 sudo install -m 0640 -o root -g trader /dev/null /etc/ai-agent.env
-sudoedit /etc/ai-agent.env            # по образцу deploy/ai-agent.env.example
+sudo sh -c 'grep "^OPENROUTER_API_KEY=" /etc/trading-assistant.env | sed "s/^OPENROUTER_API_KEY=/AI_AGENT_OPENROUTER_KEY=/" > /etc/ai-agent.env'
+sudo sh -c 'printf "AI_AGENT_BUDGET_USD=12.5
+AI_AGENT_DAILY_CAP_USD=1.0
+" >> /etc/ai-agent.env'
 
 # 2. проверка без денег и без сети
 cd /home/trader/paper-desk
 sudo -u trader python3 ai_agent/tests/run_all.py
 
 # 3. проверка живого вызова: один главный разбор БЕЗ применения (~$0.3)
-sudo -u trader bash -c 'set -a; . /etc/trading-live.env; . /etc/ai-agent.env; python3 -m ai_agent run --point main --dry'
+sudo bash -c 'set -a; . /etc/ai-agent.env; unset TG_BOT_TOKEN; python3 -m ai_agent run --point main --dry'
 
 # 4. юниты
 sudo cp deploy/ai-agent.service deploy/ai-agent.timer /etc/systemd/system/

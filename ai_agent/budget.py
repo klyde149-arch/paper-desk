@@ -9,7 +9,7 @@ import os
 
 from . import config as C
 
-CHARS_PER_TOKEN = 3.0     # грубо и с запасом: цифры баров ~2,7, русский текст ~3-4
+CHARS_PER_TOKEN = 1.4     # замер 28.09 на живом вызове: 26 тыс. символов = 17,2 тыс. токенов (~1,5), берём с запасом
 
 
 def est_tokens(text):
