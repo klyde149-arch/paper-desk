@@ -212,7 +212,8 @@ def close_position(state, p, px, at, reason):
 def check_halt(state, at):
     if state.get('halt'):
         return []
-    total = sum(t['r'] for t in state['trades'])
+    # после снятия стоп-крана владельцем (reset-halt) считаются только сделки после сброса
+    total = sum(t['r'] for t in state['trades'][state.get('halt_reset_trades', 0):])
     if total < C.HALT_SUM_R:
         state['halt'] = {'reason': 'сумма сделок %.2fR ниже %.0fR' % (total, C.HALT_SUM_R), 'since': T.fmt(at)}
         ev = [{'kind': 'halt', 'reason': state['halt']['reason']}]
