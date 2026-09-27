@@ -198,7 +198,7 @@ def run_trade_point(state, item, mkt, cx):
                 if _entries_blocked(state, cx):
                     return 'skip', 'нечего вести, входы запрещены', []
                 news_items = news.fetch(pdef['news_groups'], now, cx.P['usage'], log=cx.log)
-                if not news.has_high(news_items, allowed, now):
+                if not news.wakes(news_items, allowed, now):
                     return 'skip', 'нечего решать: нет позиций, заявок и важных новостей', []
         if news_items is None:
             news_items = news.fetch(pdef['news_groups'], now, cx.P['usage'], event=item.get('event'), log=cx.log)

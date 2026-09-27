@@ -149,7 +149,7 @@ class TestSessionPoints(Base):
         self.assertIn('news', m.calls)
 
     def test_eu_open_runs_on_high_news(self):
-        m = self.mock(news_text='2026-10-07|09:50|BR|up|high|Атака на НПЗ в Персидском заливе|reuters.com')
+        m = self.mock(news_text='2026-10-07|09:50|BR|Атака дронов на НПЗ в Персидском заливе|reuters.com')
         self._done_main()
         agent.tick(at(10, 6))
         self.assertIn('trade', m.calls)

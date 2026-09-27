@@ -150,8 +150,8 @@ class TestSnapshot(unittest.TestCase):
         rules, _ = memory.load_rules(C.paths()['memory'])
         return {'now': NOW, 'point': 'main', 'allowed': list(C.UNIVERSE), 'event': None, 'instruments': inst,
                 'state': state, 'rules_text': rules, 'lessons_text': '### Урок\nне входить в пятницу',
-                'calendar': [], 'news': [{'date': '2026-10-06', 'time': '12:00', 'instrument': 'BR', 'direction': 'up',
-                                          'importance': 'high', 'event': 'ОПЕК+ продлила сокращения', 'source': 'reuters.com'}],
+                'calendar': [], 'news': [{'date': '2026-10-06', 'time': '12:00', 'instruments': ['BR'], 'wake': True,
+                                          'event': 'ОПЕК+ продлила сокращения', 'source': 'reuters.com'}],
                 'journal_digest': '', 'entries_blocked': None}
 
     def test_no_foreign_data_in_prompt(self):
