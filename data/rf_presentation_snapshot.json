@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1790628340106,
-  "sourceAtMs": 1790628153876,
+  "generatedAtMs": 1790629239489,
+  "sourceAtMs": 1790629113043,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -12,26 +12,26 @@
     "capitalModel": "legacy",
     "accountTotal": 1476917.1,
     "userAssets": 0.0,
-    "dayBase": 1490073.98,
+    "dayBase": 1490040.22,
     "dayBaseSource": "broker_daily_yield",
-    "todayAmt": -13156.88,
+    "todayAmt": -13123.12,
     "todayPct": -0.88,
     "allTimePct": -1.93,
-    "allTimeAmt": -29100.54,
+    "allTimeAmt": -29066.78,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
     "openPositions": 1,
     "tradesPnl": -8960.55,
     "fees": 19509.82,
     "feesBrokerRub": 33527.45,
-    "openPnlBroker": -16.88,
+    "openPnlBroker": 16.88,
     "winRate": 51.5,
     "wins": 17,
     "losses": 16,
     "entriesHalt": false,
     "haltReason": "",
     "goUsed": 12429.77,
-    "goBudget": 1426883.34,
+    "goBudget": 1426933.98,
     "accountLiquid": 1476917.1,
     "lastDailyDay": "2026-09-27",
     "pendingSettleRub": 0.0,
@@ -41,7 +41,7 @@
     "riskBudget": {
       "mode": "pilot",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1790628333197,
+      "updatedMs": 1790629233259,
       "capitalRub": 1476917.1,
       "capitalOk": true,
       "capitalReason": "",
@@ -59,16 +59,18 @@
       "byAsset": {
         "SILV": 1112.23
       },
-      "dayOk": true,
-      "dayPnlRub": -40.35,
-      "dayLimitRub": 29801.56,
-      "dayReason": "",
-      "unknown": [],
+      "dayOk": false,
+      "dayPnlRub": null,
+      "dayLimitRub": null,
+      "dayReason": "нет проверенной дневной базы",
+      "unknown": [
+        "card L00067: котировка старше 639 с"
+      ],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1790628333197,
+    "captured_ms": 1790629233259,
     "totals": {
       "portfolio": 1476917.1,
       "currencies": 1476917.1,
@@ -78,7 +80,7 @@
       "futures_nominal": -52131.42
     },
     "expected_yield_pct": -6.11,
-    "daily_yield_rub": -13156.88,
+    "daily_yield_rub": -13123.12,
     "daily_yield_rel_pct": -0.88,
     "positions": [
       {
@@ -116,8 +118,8 @@
         "qty": -1.0,
         "avg_px": 61.84,
         "cur_px": 61.81,
-        "expected_yield": -16.88,
-        "var_margin": -16.88,
+        "expected_yield": 16.88,
+        "var_margin": 16.88,
         "var_margin_settled": -430.48
       }
     ]
@@ -126,12 +128,12 @@
   "operational": {
     "go": {
       "used_rub": 12429.77,
-      "budget_rub": 1426883.34,
+      "budget_rub": 1426933.98,
       "peak_day_rub": 12429.77,
       "capital_peak_rub": 1771706.14,
       "account_liquid_rub": 1476917.1,
       "bot_capital_account_rub": 1476917.1,
-      "bot_capital_rub": 1476900.22
+      "bot_capital_rub": 1476933.98
     },
     "drift": {
       "D2": 0,
@@ -154,12 +156,12 @@
     },
     "capitalBreakdown": {
       "currencies": 1476917.1,
-      "futures": -16.88,
+      "futures": 16.88,
       "mom_shares": 0.0,
       "user_assets": 0.0,
       "portfolio_total": 1476917.1,
       "capital_account": 1476917.1,
-      "capital_legacy": 1476900.22,
+      "capital_legacy": 1476933.98,
       "model": "legacy"
     },
     "active": {
@@ -228,10 +230,10 @@
         "entryPxStatus": "verified",
         "budgetLeftRub": 43195.28
       },
-      "brokerPnl": -16.88,
+      "brokerPnl": 16.88,
       "goRub": 12430.0,
       "pnlPctGo": 0.2,
-      "brokerVarMargin": -16.88,
+      "brokerVarMargin": 16.88,
       "brokerVarMarginSettled": -430.48,
       "brokerAvgPx": 61.84,
       "brokerCurPx": 61.81,
@@ -27150,6 +27152,10 @@
     [
       1790628153876,
       729639.06
+    ],
+    [
+      1790629113043,
+      729672.32
     ]
   ],
   "capitalCurve": [
@@ -53439,6 +53445,10 @@
     ],
     [
       1790628153876,
+      1476917.1
+    ],
+    [
+      1790629113043,
       1476917.1
     ]
   ]
