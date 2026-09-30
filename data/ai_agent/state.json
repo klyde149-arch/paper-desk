@@ -1,7 +1,7 @@
 {
  "version": 1,
- "equity": 100.0,
- "next_id": 6,
+ "equity": 99.99460555555555,
+ "next_id": 7,
  "orders": [
   {
    "instrument": "GOLD",
@@ -20,38 +20,49 @@
    "point": "main",
    "id": "O4",
    "valid_until": "2026-09-30 23:50"
-  },
-  {
-   "instrument": "Eu",
-   "side": "short",
-   "order": "limit",
-   "limit_px": 97100,
-   "stop_px": 98000.0,
-   "target_px": 94800.0,
-   "horizon_days": 5,
-   "setup": "early_breakout",
-   "reason": "Выход вниз из диапазона 97.0–99.3k, державшегося с 10.09, по ходу снижения с 102.4k. ЦБ установил курс евро на 96.25. Шорт на ретесте нижней границы.",
-   "invalidation": "Возврат в диапазон с закрытием выше 98000.",
-   "decided_at": "2026-09-30 00:21",
-   "decision_id": "main:2026-09-29",
-   "memory_version": "0fd9df7f99f5",
-   "point": "main",
-   "id": "O5",
-   "valid_until": "2026-09-30 23:50"
   }
  ],
- "positions": [],
+ "positions": [
+  {
+   "id": "A6",
+   "instrument": "Eu",
+   "side": "short",
+   "setup": "early_breakout",
+   "entry": 97100,
+   "entry_at": "2026-09-30 10:00",
+   "entry_day": "2026-09-30",
+   "qty": 0.000555556,
+   "qty_initial": 0.000555556,
+   "stop": 98000.0,
+   "initial_stop": 98000.0,
+   "stop_src": "initial",
+   "target": 94800.0,
+   "best": 96760.0,
+   "risk_amt": 0.5,
+   "entry_fee": 0.005394444444444445,
+   "fees": 0.0,
+   "realized": 0.0,
+   "rolls": 0,
+   "horizon_days": 5,
+   "reason": "Выход вниз из диапазона 97.0–99.3k, державшегося с 10.09, по ходу снижения с 102.4k. ЦБ установил курс евро на 96.25. Шорт на ретесте нижней границы.",
+   "invalidation": "Возврат в диапазон с закрытием выше 98000.",
+   "order": "limit",
+   "decision_id": "main:2026-09-29",
+   "memory_version": "0fd9df7f99f5",
+   "pending_close": null
+  }
+ ],
  "trades": [],
  "halt": null,
  "last_bar": {
   "BR": 1790632800000,
-  "GOLD": 1790758800000,
-  "SILV": 1790758800000,
-  "Si": 1790758800000,
-  "CNY": 1790758800000,
-  "MIX": 1790758800000,
-  "Eu": 1790758800000,
-  "NG": 1790758800000
+  "GOLD": 1790762400000,
+  "SILV": 1790762400000,
+  "Si": 1790762400000,
+  "CNY": 1790762400000,
+  "MIX": 1790762400000,
+  "Eu": 1790762400000,
+  "NG": 1790762400000
  },
  "series_ref": {
   "BR": [
@@ -88,7 +99,9 @@
   ]
  },
  "fallback_day": {},
- "trail_day": {},
+ "trail_day": {
+  "Eu": "2026-09-29"
+ },
  "done": {
   "main:2026-09-25": "2026-09-28 00:50",
   "asia:2026-09-28": "2026-09-28 06:05",
