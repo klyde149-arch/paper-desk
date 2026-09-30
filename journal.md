@@ -1398,3 +1398,5 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-09-30 14:00 MSK — РФ АВТО [C2/setA]: закрыта R39 Si LONG — -102.84 (stop)
 
 ## 2026-09-30 14:00 MSK — РФ АВТО [C3b/setA]: закрыта R40 Si LONG — -204.54 (stop)
+
+## 2026-09-30 23:50 MSK — РФ АВТО: ролл BR: BRV6 → BRX6 (ratio 0.9467)
