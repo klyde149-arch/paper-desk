@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1790803842258,
-  "sourceAtMs": 1790803833073,
+  "generatedAtMs": 1790804741873,
+  "sourceAtMs": 1790804733187,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -16,14 +16,14 @@
     "dayBaseSource": "broker_daily_yield",
     "todayAmt": -6491.47,
     "todayPct": -0.43,
-    "allTimePct": -1.95,
-    "allTimeAmt": -29250.25,
+    "allTimePct": -1.78,
+    "allTimeAmt": -26680.08,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
     "openPositions": 3,
     "tradesPnl": -8960.55,
     "fees": 19509.82,
-    "feesBrokerRub": 33625.71,
+    "feesBrokerRub": 33726.45,
     "openPnlBroker": 2602.58,
     "winRate": 51.5,
     "wins": 17,
@@ -36,12 +36,12 @@
     "lastDailyDay": "2026-09-30",
     "pendingSettleRub": 0.0,
     "pendingSettleTodayRub": 0.0,
-    "ledgerUntilMs": 1790717733313,
+    "ledgerUntilMs": 1790804133214,
     "manualAdjustmentRub": 0.0,
     "riskBudget": {
       "mode": "pilot",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1790803833073,
+      "updatedMs": 1790804733187,
       "capitalRub": 1469273.01,
       "capitalOk": true,
       "capitalReason": "",
@@ -61,20 +61,20 @@
         "Eu": 5747.64,
         "CNY": 4499.25
       },
-      "dayOk": false,
-      "dayPnlRub": null,
-      "dayLimitRub": null,
-      "dayReason": "нет проверенной дневной базы",
+      "dayOk": true,
+      "dayPnlRub": -0.0,
+      "dayLimitRub": 29385.46,
+      "dayReason": "",
       "unknown": [
-        "card L00067: котировка старше 2435 с",
-        "card L00069: котировка старше 2526 с",
-        "card L00070: котировка старше 2434 с"
+        "card L00067: котировка старше 3335 с",
+        "card L00069: котировка старше 3427 с",
+        "card L00070: котировка старше 3334 с"
       ],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1790803833073,
+    "captured_ms": 1790804733187,
     "totals": {
       "portfolio": 1469273.01,
       "currencies": 1469273.01,
@@ -28020,6 +28020,10 @@
     [
       1790803833073,
       730835.98
+    ],
+    [
+      1790804733187,
+      730835.98
     ]
   ],
   "capitalCurve": [
@@ -55061,6 +55065,10 @@
     ],
     [
       1790803833073,
+      1469273.01
+    ],
+    [
+      1790804733187,
       1469273.01
     ]
   ]

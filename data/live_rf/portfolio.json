@@ -334,8 +334,8 @@
   "watermarks": {
     "last_daily_day": "2026-09-30",
     "last_hour_ts": 1790809200000,
-    "ops_since": "2026-09-30T20:30:33Z",
-    "last_eq_snap": 1790803833073,
+    "ops_since": "2026-09-30T20:45:33Z",
+    "last_eq_snap": 1790804733187,
     "last_report_day": "2026-09-30",
     "orders_day": "2026-09-30",
     "orders_day_n": 1,
@@ -359,7 +359,7 @@
         "Si": "skip:busy"
       }
     },
-    "broker_ledger_day": "2026-09-30"
+    "broker_ledger_day": "2026-10-01"
   },
   "fronts": {
     "BR": {
@@ -542,16 +542,25 @@
       "superseded_ms": 1789896273495
     }
   ],
+  "readiness": {
+    "day": "2026-09-30",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2257695.78,
+    "go_cap_rub": 1064311.16,
+    "fits": false
+  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
-    "first_ms": 1790458533339,
-    "until_ms": 1790717733313,
-    "varmargin_rub": 4566.93,
-    "fees_rub": -33625.71,
+    "first_ms": 1790544933313,
+    "until_ms": 1790804133214,
+    "varmargin_rub": 7237.84,
+    "fees_rub": -33726.45,
     "fees_other_rub": -4854.23,
     "fees_by_type": {
       "OPERATION_TYPE_SERVICE_FEE": -780.0,
-      "OPERATION_TYPE_BROKER_FEE": -37699.94
+      "OPERATION_TYPE_BROKER_FEE": -37800.68
     },
     "op_ids": [
       "16293230",
@@ -697,35 +706,29 @@
       "4665988",
       "17059543392",
       "7655041",
-      "17073983298"
+      "17073983298",
+      "10645342",
+      "17086314889"
     ],
-    "updated_ms": 1790717733313,
-    "last_varmargin_op_ms": 1790715776432
+    "updated_ms": 1790804133214,
+    "last_varmargin_op_ms": 1790802117665
   },
   "pending_settle": {
     "rub": 0.0,
-    "updated_ms": 1790717733313,
+    "updated_ms": 1790804133214,
     "items": []
   },
   "risk_day": {
-    "day": "2026-09-30",
-    "base_ms": 1790717733313,
+    "day": "2026-10-01",
+    "base_ms": 1790804133214,
     "vm_by_uid": {
-      "8ab9de01-b09a-408e-b4c9-9bc625e39e21": -322.0,
-      "e889c757-ce26-46b1-a908-2565fd5e134a": -489.68
+      "3580f0a5-5a52-4242-9479-bb67f65477b8": -220.0,
+      "8ab9de01-b09a-408e-b4c9-9bc625e39e21": 204.0,
+      "e889c757-ce26-46b1-a908-2565fd5e134a": -175.47
     },
     "mom_eq": 350000.0,
-    "e_base": 1473002.84,
-    "fees_est_rub": 112.99
-  },
-  "readiness": {
-    "day": "2026-09-30",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2257695.78,
-    "go_cap_rub": 1064311.16,
-    "fits": false
+    "e_base": 1469273.01,
+    "fees_est_rub": 0.0
   },
   "consec_fail": 0,
   "fail_since_ms": 0,
@@ -736,7 +739,7 @@
     "e889c757-ce26-46b1-a908-2565fd5e134a": 257.58
   },
   "broker": {
-    "captured_ms": 1790803833073,
+    "captured_ms": 1790804733187,
     "totals": {
       "portfolio": 1469273.01,
       "currencies": 1469273.01,
@@ -824,7 +827,7 @@
       "avg_px": 61.84,
       "lots": -1.0,
       "secid": "SVZ6",
-      "ts": 1790803833073
+      "ts": 1790804733187
     },
     "8ab9de01-b09a-408e-b4c9-9bc625e39e21": {
       "vm": 204.0,
@@ -833,7 +836,7 @@
       "avg_px": 96745.0,
       "lots": -2.0,
       "secid": "EuZ6",
-      "ts": 1790803833073
+      "ts": 1790804733187
     },
     "3580f0a5-5a52-4242-9479-bb67f65477b8": {
       "vm": -220.0,
@@ -842,7 +845,7 @@
       "avg_px": 12.592,
       "lots": -20.0,
       "secid": "CRZ6",
-      "ts": 1790803833073
+      "ts": 1790804733187
     }
   },
   "capital_breakdown": {
@@ -864,14 +867,14 @@
     "rejected_reason": ""
   },
   "broker_pnl_by_card": {
-    "L00070": 40.0,
     "L00069": 2305.0,
+    "L00070": 40.0,
     "L00067": 257.58
   },
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790803833073,
+    "updated_ms": 1790804733187,
     "budgets_enforced": true,
     "capital_rub": 1469273.01,
     "capital_ok": true,
@@ -892,13 +895,13 @@
       "CNY": 4499.25
     },
     "unknown": [
-      "card L00067: котировка старше 2435 с",
-      "card L00069: котировка старше 2526 с",
-      "card L00070: котировка старше 2434 с"
+      "card L00067: котировка старше 3335 с",
+      "card L00069: котировка старше 3427 с",
+      "card L00070: котировка старше 3334 с"
     ],
-    "day_ok": false,
-    "day_pnl_rub": null,
-    "day_limit_rub": null,
-    "day_reason": "нет проверенной дневной базы"
+    "day_ok": true,
+    "day_pnl_rub": -0.0,
+    "day_limit_rub": 29385.46,
+    "day_reason": ""
   }
 }
