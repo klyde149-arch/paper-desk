@@ -334,8 +334,8 @@
   "watermarks": {
     "last_daily_day": "2026-10-01",
     "last_hour_ts": 1790895600000,
-    "ops_since": "2026-10-01T20:30:33Z",
-    "last_eq_snap": 1790889813500,
+    "ops_since": "2026-10-01T20:45:33Z",
+    "last_eq_snap": 1790890773020,
     "last_report_day": "2026-10-01",
     "orders_day": "2026-09-30",
     "orders_day_n": 1,
@@ -359,7 +359,7 @@
         "SBRF": "skip:busy"
       }
     },
-    "broker_ledger_day": "2026-10-01"
+    "broker_ledger_day": "2026-10-02"
   },
   "fronts": {
     "BR": {
@@ -542,11 +542,20 @@
       "superseded_ms": 1789896273495
     }
   ],
+  "readiness": {
+    "day": "2026-10-01",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2235472.9,
+    "go_cap_rub": 1067489.05,
+    "fits": false
+  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
-    "first_ms": 1790544933313,
-    "until_ms": 1790804133214,
-    "varmargin_rub": 7237.84,
+    "first_ms": 1790631333214,
+    "until_ms": 1790890533240,
+    "varmargin_rub": 6793.89,
     "fees_rub": -33726.45,
     "fees_other_rub": -4854.23,
     "fees_by_type": {
@@ -699,36 +708,28 @@
       "7655041",
       "17073983298",
       "10645342",
-      "17086314889"
+      "17086314889",
+      "13636866"
     ],
-    "updated_ms": 1790804133214,
-    "last_varmargin_op_ms": 1790802117665
+    "updated_ms": 1790890533240,
+    "last_varmargin_op_ms": 1790888601530
   },
   "pending_settle": {
     "rub": 0.0,
-    "updated_ms": 1790804133214,
+    "updated_ms": 1790890533240,
     "items": []
   },
   "risk_day": {
-    "day": "2026-10-01",
-    "base_ms": 1790804133214,
+    "day": "2026-10-02",
+    "base_ms": 1790890533240,
     "vm_by_uid": {
-      "3580f0a5-5a52-4242-9479-bb67f65477b8": -220.0,
-      "8ab9de01-b09a-408e-b4c9-9bc625e39e21": 204.0,
-      "e889c757-ce26-46b1-a908-2565fd5e134a": -175.47
+      "3580f0a5-5a52-4242-9479-bb67f65477b8": 260.0,
+      "8ab9de01-b09a-408e-b4c9-9bc625e39e21": 136.0,
+      "e889c757-ce26-46b1-a908-2565fd5e134a": -316.33
     },
     "mom_eq": 350000.0,
-    "e_base": 1469273.01,
+    "e_base": 1473239.06,
     "fees_est_rub": 0.0
-  },
-  "readiness": {
-    "day": "2026-10-01",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2235472.9,
-    "go_cap_rub": 1067489.05,
-    "fits": false
   },
   "consec_fail": 0,
   "fail_since_ms": 0,
@@ -739,7 +740,7 @@
     "e889c757-ce26-46b1-a908-2565fd5e134a": -241.23
   },
   "broker": {
-    "captured_ms": 1790890233224,
+    "captured_ms": 1790891133302,
     "totals": {
       "portfolio": 1473239.06,
       "currencies": 1473239.06,
@@ -827,7 +828,7 @@
       "avg_px": 61.84,
       "lots": -1.0,
       "secid": "SVZ6",
-      "ts": 1790890233224
+      "ts": 1790891133302
     },
     "8ab9de01-b09a-408e-b4c9-9bc625e39e21": {
       "vm": 136.0,
@@ -836,7 +837,7 @@
       "avg_px": 96745.0,
       "lots": -2.0,
       "secid": "EuZ6",
-      "ts": 1790890233224
+      "ts": 1790891133302
     },
     "3580f0a5-5a52-4242-9479-bb67f65477b8": {
       "vm": 260.0,
@@ -845,7 +846,7 @@
       "avg_px": 12.592,
       "lots": -20.0,
       "secid": "CRZ6",
-      "ts": 1790890233224
+      "ts": 1790891133302
     }
   },
   "capital_breakdown": {
@@ -867,14 +868,14 @@
     "rejected_reason": ""
   },
   "broker_pnl_by_card": {
-    "L00070": -560.0,
     "L00069": 3231.0,
-    "L00067": -241.23
+    "L00067": -241.23,
+    "L00070": -560.0
   },
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790890233224,
+    "updated_ms": 1790891133302,
     "budgets_enforced": true,
     "capital_rub": 1473239.06,
     "capital_ok": true,
@@ -895,13 +896,13 @@
       "CNY": 4499.76
     },
     "unknown": [
-      "card L00067: котировка старше 2438 с",
-      "card L00069: котировка старше 2549 с",
-      "card L00070: котировка старше 2434 с"
+      "card L00067: котировка старше 3338 с",
+      "card L00069: котировка старше 3449 с",
+      "card L00070: котировка старше 3334 с"
     ],
-    "day_ok": false,
-    "day_pnl_rub": null,
-    "day_limit_rub": null,
-    "day_reason": "нет проверенной дневной базы"
+    "day_ok": true,
+    "day_pnl_rub": -0.0,
+    "day_limit_rub": 29464.78,
+    "day_reason": ""
   }
 }

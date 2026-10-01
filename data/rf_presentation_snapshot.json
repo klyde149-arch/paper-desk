@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1790890239780,
-  "sourceAtMs": 1790889813500,
+  "generatedAtMs": 1790891140422,
+  "sourceAtMs": 1790890773020,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -16,8 +16,8 @@
     "dayBaseSource": "broker_daily_yield",
     "todayAmt": 4489.67,
     "todayPct": 0.3,
-    "allTimePct": -1.76,
-    "allTimeAmt": -26408.94,
+    "allTimePct": -1.79,
+    "allTimeAmt": -26852.89,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
     "allTimeSource": "broker_ops",
     "openPositions": 3,
@@ -36,12 +36,12 @@
     "lastDailyDay": "2026-10-01",
     "pendingSettleRub": 0.0,
     "pendingSettleTodayRub": 0.0,
-    "ledgerUntilMs": 1790804133214,
+    "ledgerUntilMs": 1790890533240,
     "manualAdjustmentRub": 0.0,
     "riskBudget": {
       "mode": "pilot",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1790890233224,
+      "updatedMs": 1790891133302,
       "capitalRub": 1473239.06,
       "capitalOk": true,
       "capitalReason": "",
@@ -61,20 +61,20 @@
         "Eu": 6636.79,
         "CNY": 4499.76
       },
-      "dayOk": false,
-      "dayPnlRub": null,
-      "dayLimitRub": null,
-      "dayReason": "нет проверенной дневной базы",
+      "dayOk": true,
+      "dayPnlRub": -0.0,
+      "dayLimitRub": 29464.78,
+      "dayReason": "",
       "unknown": [
-        "card L00067: котировка старше 2438 с",
-        "card L00069: котировка старше 2549 с",
-        "card L00070: котировка старше 2434 с"
+        "card L00067: котировка старше 3338 с",
+        "card L00069: котировка старше 3449 с",
+        "card L00070: котировка старше 3334 с"
       ],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1790890233224,
+    "captured_ms": 1790891133302,
     "totals": {
       "portfolio": 1473239.06,
       "currencies": 1473239.06,
@@ -28388,6 +28388,10 @@
     [
       1790889813500,
       730729.95
+    ],
+    [
+      1790890773020,
+      730729.95
     ]
   ],
   "capitalCurve": [
@@ -55797,6 +55801,10 @@
     ],
     [
       1790889813500,
+      1473239.06
+    ],
+    [
+      1790890773020,
       1473239.06
     ]
   ]
