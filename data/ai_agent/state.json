@@ -1,26 +1,8 @@
 {
  "version": 1,
- "equity": 99.99460555555555,
- "next_id": 9,
+ "equity": 99.98895919349518,
+ "next_id": 10,
  "orders": [
-  {
-   "instrument": "Si",
-   "side": "short",
-   "order": "limit",
-   "limit_px": 84700,
-   "stop_px": 85450.0,
-   "target_px": 82600.0,
-   "horizon_days": 5,
-   "setup": "early_breakout",
-   "reason": "Выход вниз из диапазона 84.5–86.7k, державшегося с 10.09, закрытие 84277 у минимума. Синхронно с Eu и CNY. Шорт на ретесте пробитой границы.",
-   "invalidation": "Возврат в диапазон с закрытием выше 85300.",
-   "decided_at": "2026-10-01 00:20",
-   "decision_id": "main:2026-09-30",
-   "memory_version": "0fd9df7f99f5",
-   "point": "main",
-   "id": "O7",
-   "valid_until": "2026-10-01 23:50"
-  },
   {
    "instrument": "GOLD",
    "side": "short",
@@ -55,7 +37,7 @@
    "initial_stop": 98000.0,
    "stop_src": "agent",
    "target": 94800.0,
-   "best": 95355.0,
+   "best": 95326.0,
    "risk_amt": 0.5,
    "entry_fee": 0.005394444444444445,
    "fees": 0.0,
@@ -68,19 +50,47 @@
    "decision_id": "main:2026-09-29",
    "memory_version": "0fd9df7f99f5",
    "pending_close": null
+  },
+  {
+   "id": "A9",
+   "instrument": "Si",
+   "side": "short",
+   "setup": "early_breakout",
+   "entry": 84700,
+   "entry_at": "2026-10-01 10:00",
+   "entry_day": "2026-10-01",
+   "qty": 0.000666631,
+   "qty_initial": 0.000666631,
+   "stop": 85450.0,
+   "initial_stop": 85450.0,
+   "stop_src": "initial",
+   "target": 82600.0,
+   "best": 84083.0,
+   "risk_amt": 0.499973028,
+   "entry_fee": 0.00564636206037037,
+   "fees": 0.0,
+   "realized": 0.0,
+   "rolls": 0,
+   "horizon_days": 5,
+   "reason": "Выход вниз из диапазона 84.5–86.7k, державшегося с 10.09, закрытие 84277 у минимума. Синхронно с Eu и CNY. Шорт на ретесте пробитой границы.",
+   "invalidation": "Возврат в диапазон с закрытием выше 85300.",
+   "order": "limit",
+   "decision_id": "main:2026-09-30",
+   "memory_version": "0fd9df7f99f5",
+   "pending_close": null
   }
  ],
  "trades": [],
  "halt": null,
  "last_bar": {
   "BR": 1790632800000,
-  "GOLD": 1790845200000,
-  "SILV": 1790845200000,
-  "Si": 1790845200000,
-  "CNY": 1790845200000,
-  "MIX": 1790845200000,
-  "Eu": 1790845200000,
-  "NG": 1790845200000
+  "GOLD": 1790848800000,
+  "SILV": 1790848800000,
+  "Si": 1790848800000,
+  "CNY": 1790848800000,
+  "MIX": 1790848800000,
+  "Eu": 1790848800000,
+  "NG": 1790848800000
  },
  "series_ref": {
   "BR": [
@@ -118,7 +128,8 @@
  },
  "fallback_day": {},
  "trail_day": {
-  "Eu": "2026-09-30"
+  "Eu": "2026-09-30",
+  "Si": "2026-09-30"
  },
  "done": {
   "main:2026-09-25": "2026-09-28 00:50",
