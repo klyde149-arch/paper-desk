@@ -11,7 +11,7 @@
     "sleeves":  {
                     "core":  {
                                  "equity":  10054.885859126594,
-                                 "month_start_eq":  12994.35,
+                                 "month_start_eq":  9850.6,
                                  "day_start_eq":  10054.885859126594,
                                  "halt_day":  null,
                                  "positions":  [
@@ -25,7 +25,7 @@
                                                        "entry":  458.06254,
                                                        "entry_day":  "2026-09-19",
                                                        "entry_ts":  1789808400000,
-                                                       "stop":  507.95,
+                                                       "stop":  505.992857,
                                                        "tp1":  null,
                                                        "tp1_done":  false,
                                                        "mfe":  431.4,
@@ -34,8 +34,8 @@
                                                        "fees":  0,
                                                        "realized":  0,
                                                        "rolls":  0,
-                                                       "cur":  462.6,
-                                                       "upnl":  -44.93
+                                                       "cur":  462,
+                                                       "upnl":  -38.99
                                                    },
                                                    {
                                                        "id":  "R42",
@@ -56,8 +56,8 @@
                                                        "fees":  4.7274719055134007,
                                                        "realized":  267.064913875898,
                                                        "rolls":  3,
-                                                       "cur":  2.972,
-                                                       "upnl":  -449.05
+                                                       "cur":  2.965,
+                                                       "upnl":  -466.42
                                                    },
                                                    {
                                                        "id":  "R44",
@@ -69,7 +69,7 @@
                                                        "entry":  96661.9927,
                                                        "entry_day":  "2026-09-30",
                                                        "entry_ts":  1790751600000,
-                                                       "stop":  99272.564761,
+                                                       "stop":  98980.589774,
                                                        "tp1":  null,
                                                        "tp1_done":  false,
                                                        "mfe":  94970,
@@ -85,11 +85,11 @@
                                  "pending":  [
 
                                              ],
-                                 "equity_mtm":  9850.6
+                                 "equity_mtm":  9839.17
                              },
                     "setA":  {
                                  "equity":  9689.2077964778728,
-                                 "month_start_eq":  10722.38,
+                                 "month_start_eq":  9763.73,
                                  "day_start_eq":  9689.2077964778728,
                                  "halt_day":  null,
                                  "positions":  [
@@ -112,8 +112,8 @@
                                                        "fees":  0,
                                                        "realized":  0,
                                                        "rolls":  0,
-                                                       "cur":  28487,
-                                                       "upnl":  103.08
+                                                       "cur":  28489,
+                                                       "upnl":  102.7
                                                    },
                                                    {
                                                        "id":  "R36",
@@ -139,9 +139,19 @@
                                                    }
                                                ],
                                  "pending":  [
-
+                                                 {
+                                                     "kind":  "entry",
+                                                     "sleeve":  "setA",
+                                                     "asset":  "VTBR",
+                                                     "side":  "short",
+                                                     "created_day":  "2026-10-01",
+                                                     "swing":  5494,
+                                                     "atr":  137.454252,
+                                                     "risk_pct":  0.02,
+                                                     "note":  "setup A pullback"
+                                                 }
                                              ],
-                                 "equity_mtm":  9763.73
+                                 "equity_mtm":  9763.35
                              },
                     "mom":  {
                                 "equity":  10000,
@@ -151,17 +161,24 @@
 
                                              ],
                                 "pending":  [
+                                                {
+                                                    "kind":  "rebalance",
+                                                    "created_day":  "2026-10-01",
+                                                    "gate":  false,
+                                                    "target":  [
 
+                                                               ]
+                                                }
                                             ],
-                                "last_rebalance_month":  "2026-09",
+                                "last_rebalance_month":  "2026-10",
                                 "equity_mtm":  10000
                             }
                 },
-    "profile_eq":  9236.09,
-    "profile_month_start":  13812.81,
-    "cur_month":  "2026-09",
-    "day_start_eq":  9503.94,
-    "day_start_date":  "2026-09-30",
+    "profile_eq":  9225.01,
+    "profile_month_start":  9236.09,
+    "cur_month":  "2026-10",
+    "day_start_eq":  9236.09,
+    "day_start_date":  "2026-10-01",
     "peak_eq":  14621.65,
     "stats":  {
                   "trades":  17,
