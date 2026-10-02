@@ -399,6 +399,204 @@ elseif (Test-Path $lrPf) {
   }
 }
 
+# ---- ИИ-агент: отдельный бумажный рукав, индекс 100 -> условные 100 000 ₽ ----
+$aiAgent = $null
+$aiDir = Join-Path $dir 'data\ai_agent'
+$aiStatePath = Join-Path $aiDir 'state.json'
+if (Test-Path $aiStatePath) {
+  try {
+    $aiState = Get-Content $aiStatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $aiHeartbeat = $null
+    $aiHeartbeatPath = Join-Path $aiDir 'heartbeat.json'
+    if (Test-Path $aiHeartbeatPath) {
+      try { $aiHeartbeat = Get-Content $aiHeartbeatPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch {}
+    }
+    $aiStartIndex = 100.0
+    $aiStartRub = 100000.0
+    $aiScale = $aiStartRub / $aiStartIndex
+    $aiNowMs = [long]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
+    $aiQuoteMaxAgeMin = 4 * 24 * 60       # ровно тот же предел, что STALE_HOURLY у агента
+    $aiDataMaxAgeMin = 8 * 60             # совпадает со сторожем tools/live_watch.ps1
+    # До появления heartbeat берём последний реально выполненный пункт из state.done.
+    # Это не даёт свежим свечам другого контура маскировать остановленного агента.
+    $aiLegacyTickTs = 0L
+    $legacyTimes = @()
+    if ($aiState.done) { $legacyTimes += @($aiState.done.PSObject.Properties | ForEach-Object { [string]$_.Value }) }
+    if ($aiState.started_at) { $legacyTimes += [string]$aiState.started_at }
+    foreach ($legacyTime in $legacyTimes) {
+      try {
+        $dto = [DateTimeOffset]::ParseExact(($legacyTime + ' +03:00'), 'yyyy-MM-dd HH:mm zzz',
+                                            [Globalization.CultureInfo]::InvariantCulture)
+        $legacyTs = [long]$dto.ToUnixTimeMilliseconds()
+        if ($legacyTs -gt $aiLegacyTickTs) { $aiLegacyTickTs = $legacyTs }
+      } catch {}
+    }
+    $aiMissing = New-Object System.Collections.Generic.List[string]
+    $aiGrossOpen = 0.0
+    $aiOpenNet = 0.0
+    $aiLatestQuoteTs = 0L
+
+    $aiPositions = [object[]]@(@($aiState.positions) | Where-Object { $null -ne $_ } | ForEach-Object {
+      $p = $_
+      $asset = [string]$p.instrument
+      $allCandles = @()
+      $candlePath = Join-Path $dir ("data\live_rf\candles\{0}_1h.json" -f $asset)
+      if (Test-Path $candlePath) {
+        try { $allCandles = @((Get-Content $candlePath -Raw -Encoding UTF8 | ConvertFrom-Json) | Where-Object { $null -ne $_ }) } catch {}
+      }
+      # Ограничиваем статический payload: на карточке нужен контекст, а не вся история контракта.
+      $candles = [object[]]@($allCandles | Select-Object -Last 360 | ForEach-Object { ,[object[]]@($_) })
+      $cur = $null; $quoteTs = $null; $quoteAgeMin = $null; $markOk = $false
+      $hbMark = $null
+      if ($aiHeartbeat -and $aiHeartbeat.marks -and $aiHeartbeat.marks.PSObject.Properties[$asset]) {
+        $hbMark = $aiHeartbeat.marks.PSObject.Properties[$asset].Value
+      }
+      if ($hbMark -and [bool]$hbMark.ok -and $null -ne $hbMark.price -and $null -ne $hbMark.price_ts) {
+        $cur = [double]$hbMark.price
+        $quoteTs = [long]$hbMark.price_ts
+        $quoteAgeMin = [math]::Max(0, [math]::Floor(($aiNowMs - $quoteTs) / 60000.0))
+        $markOk = ($quoteAgeMin -le $aiQuoteMaxAgeMin)
+      } elseif ($allCandles.Count) {
+        $lastCandle = $allCandles[-1]
+        if (@($lastCandle).Count -ge 5) {
+          # Часовые свечи live_rf хранят «МСК как UTC» для оси графика. Для возраста
+          # переводим метку в настоящий UTC, иначе дневная свеча выглядит будущей на 3 часа.
+          $quoteTs = [long]$lastCandle[0] - (3 * 60 * 60 * 1000)
+          $cur = [double]$lastCandle[4]
+          $quoteAgeMin = [math]::Max(0, [math]::Floor(($aiNowMs - $quoteTs) / 60000.0))
+          $markOk = ($quoteAgeMin -le $aiQuoteMaxAgeMin)
+        }
+      }
+      if ($quoteTs -and $quoteTs -gt $aiLatestQuoteTs) { $aiLatestQuoteTs = $quoteTs }
+      $gross = $null; $pnl = $null; $r = $null
+      if ($markOk) {
+        $side = if ([string]$p.side -eq 'long') { 1.0 } else { -1.0 }
+        $gross = $side * [double]$p.qty * ($cur - [double]$p.entry)
+        $pnl = [double]$p.realized + $gross - [double]$p.entry_fee
+        if ([double]$p.risk_amt -gt 0) { $r = $pnl / [double]$p.risk_amt }
+        $aiGrossOpen += $gross
+        $aiOpenNet += $pnl
+      } else {
+        [void]$aiMissing.Add($asset)
+        $cur = $null                         # не подменяем протухшую цену ценой входа
+      }
+      [ordered]@{
+        id = [string]$p.id; instrument = $asset; side = [string]$p.side; setup = [string]$p.setup
+        entry = [double]$p.entry; entryAt = [string]$p.entry_at; entryDay = [string]$p.entry_day
+        qty = [double]$p.qty; stop = [double]$p.stop; initialStop = [double]$p.initial_stop
+        stopSource = [string]$p.stop_src; target = [double]$p.target; horizonDays = $p.horizon_days
+        riskRub = [math]::Round([double]$p.risk_amt * $aiScale, 2)
+        current = $cur; quoteTs = $quoteTs; quoteAgeMin = $quoteAgeMin; markAvailable = $markOk
+        pnlRub = $(if ($null -ne $pnl) { [math]::Round($pnl * $aiScale, 2) } else { $null })
+        r = $(if ($null -ne $r) { [math]::Round($r, 3) } else { $null })
+        reason = [string]$p.reason; invalidation = [string]$p.invalidation
+        pendingClose = $p.pending_close; rolls = [int]$p.rolls; candles1h = $candles
+      }
+    })
+
+    $aiOrders = [object[]]@(@($aiState.orders) | Where-Object { $null -ne $_ } | ForEach-Object {
+      [ordered]@{
+        id = [string]$_.id; instrument = [string]$_.instrument; side = [string]$_.side
+        order = [string]$_.order; limitPx = $_.limit_px; stopPx = $_.stop_px; targetPx = $_.target_px
+        setup = [string]$_.setup; horizonDays = $_.horizon_days; decidedAt = [string]$_.decided_at
+        validUntil = [string]$_.valid_until; reason = [string]$_.reason; invalidation = [string]$_.invalidation
+      }
+    })
+    $aiClosedAll = @($aiState.trades) | Where-Object { $null -ne $_ }
+    $aiClosed = [object[]]@($aiClosedAll | Select-Object -Last 200 | ForEach-Object {
+      [ordered]@{
+        id = [string]$_.id; instrument = [string]$_.instrument; side = [string]$_.side; setup = [string]$_.setup
+        entryAt = [string]$_.entry_at; entry = [double]$_.entry; exitAt = [string]$_.exit_at; exitPx = [double]$_.exit_px
+        exitReason = [string]$_.exit_reason; closeReason = [string]$_.close_reason
+        netRub = [math]::Round([double]$_.net * $aiScale, 2); riskRub = [math]::Round([double]$_.risk_amt * $aiScale, 2)
+        r = [double]$_.r; feesRub = [math]::Round([double]$_.fees * $aiScale, 2); rolls = [int]$_.rolls
+        daysHeld = $_.days_held; reason = [string]$_.reason; invalidation = [string]$_.invalidation
+      }
+    })
+
+    $decisionById = [ordered]@{}
+    $decisionPath = Join-Path $aiDir 'decisions.jsonl'
+    if (Test-Path $decisionPath) {
+      foreach ($line in Get-Content $decisionPath -Encoding UTF8) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        try { $d = $line | ConvertFrom-Json; if ($d.id) { $decisionById[[string]$d.id] = $d } } catch {}
+      }
+    }
+    $aiDecisions = [object[]]@(@($decisionById.Values) | Sort-Object at | Select-Object -Last 20 | ForEach-Object {
+      [ordered]@{
+        id = [string]$_.id; at = [string]$_.at; point = [string]$_.point; summary = [string]$_.summary
+        regime = $_.regime; accepted = [object[]]@($_.accepted); rejected = [object[]]@($_.rejected)
+      }
+    })
+
+    $aiCurve = New-Object System.Collections.Generic.List[object]
+    $aiEquityPath = Join-Path $aiDir 'equity.json'
+    $aiLastCurveTs = 0L
+    if (Test-Path $aiEquityPath) {
+      try {
+        foreach ($e in @((Get-Content $aiEquityPath -Raw -Encoding UTF8 | ConvertFrom-Json))) {
+          if ($null -eq $e) { continue }
+          $hasMtm = $e.PSObject.Properties['equity_mtm'] -and $null -ne $e.equity_mtm
+          $displayEq = if ($hasMtm) { [double]$e.equity_mtm } else { [double]$e.equity }
+          $aiLastCurveTs = [long]$e.ts
+          [void]$aiCurve.Add([object[]]@([long]$e.ts, [math]::Round($displayEq * $aiScale, 2),
+                                         [math]::Round([double]$e.equity * $aiScale, 2), [bool]$hasMtm))
+        }
+      } catch {}
+    }
+
+    $aiCompleteMark = ($aiMissing.Count -eq 0)
+    $aiRealizedIndex = [double]$aiState.equity
+    $aiMtmIndex = if ($aiCompleteMark) { $aiRealizedIndex + $aiGrossOpen } else { $null }
+    $aiOpenPnlRub = if ($aiCompleteMark) { [math]::Round($aiOpenNet * $aiScale, 2) } else { $null }
+    $aiDataTs = if ($aiHeartbeat -and $aiHeartbeat.ts) { [long]$aiHeartbeat.ts } elseif ($aiLegacyTickTs) { $aiLegacyTickTs } else { 0L }
+    $aiMarkTs = if ($aiLatestQuoteTs) { $aiLatestQuoteTs } elseif ($aiDataTs) { $aiDataTs } else { 0L }
+    if ($aiCompleteMark -and $null -ne $aiMtmIndex -and $aiMarkTs -gt $aiLastCurveTs) {
+      [void]$aiCurve.Add([object[]]@($aiMarkTs, [math]::Round($aiMtmIndex * $aiScale, 2),
+                                     [math]::Round($aiRealizedIndex * $aiScale, 2), $true))
+    }
+    $aiDataAgeMin = if ($aiDataTs) { [math]::Max(0, [math]::Floor(($aiNowMs - $aiDataTs) / 60000.0)) } else { $null }
+    $aiHalt = Test-Path (Join-Path $aiDir 'HALT_AGENT')
+    $aiEntriesHalt = Test-Path (Join-Path $aiDir 'HALT_AGENT_ENTRIES')
+    $aiStateHalt = $null -ne $aiState.halt
+    $aiStatus = if ($aiHalt -or $aiStateHalt -or ($aiHeartbeat -and $aiHeartbeat.status -eq 'halt')) { 'halt' }
+                elseif ($aiEntriesHalt -or ($aiHeartbeat -and $aiHeartbeat.status -eq 'entries_halt')) { 'entries_halt' }
+                elseif ($null -eq $aiDataAgeMin -or $aiDataAgeMin -gt $aiDataMaxAgeMin) { 'stale' }
+                elseif (-not $aiCompleteMark) { 'stale_quotes' }
+                else { 'live' }
+    $aiHaltReason = if ($aiStateHalt) { [string]$aiState.halt.reason }
+                    elseif ($aiHeartbeat -and $aiHeartbeat.reason) { [string]$aiHeartbeat.reason }
+                    elseif ($aiHalt) { 'выключатель HALT_AGENT' }
+                    elseif ($aiEntriesHalt) { 'выключатель HALT_AGENT_ENTRIES' }
+                    else { '' }
+    $sumR = 0.0
+    foreach ($t in $aiClosedAll) { $sumR += [double]$t.r }
+    $capitalRub = if ($null -ne $aiMtmIndex) { [math]::Round($aiMtmIndex * $aiScale, 2) } else { $null }
+    $totalPnlRub = if ($null -ne $capitalRub) { [math]::Round($capitalRub - $aiStartRub, 2) } else { $null }
+    $realizedRub = [math]::Round($aiRealizedIndex * $aiScale, 2)
+    $realizedPnlRub = [math]::Round($realizedRub - $aiStartRub, 2)
+    $aiAgent = [ordered]@{
+      schema = 1; startRub = $aiStartRub; indexScaleRub = $aiScale; asOfTs = $aiDataTs
+      quoteMaxAgeMin = $aiQuoteMaxAgeMin; dataMaxAgeMin = $aiDataMaxAgeMin
+      summary = [ordered]@{
+        status = $aiStatus; haltReason = $aiHaltReason; dataAgeMin = $aiDataAgeMin
+        realizedRub = $realizedRub; realizedPnlRub = $realizedPnlRub
+        realizedPct = [math]::Round(100.0 * ($aiRealizedIndex / $aiStartIndex - 1.0), 3)
+        capitalRub = $capitalRub
+        totalPnlRub = $totalPnlRub
+        totalPct = $(if ($null -ne $aiMtmIndex) { [math]::Round(100.0 * ($aiMtmIndex / $aiStartIndex - 1.0), 3) } else { $null })
+        openPnlRub = $aiOpenPnlRub; closedR = [math]::Round($sumR, 3)
+        positions = $aiPositions.Count; orders = $aiOrders.Count; trades = $aiClosedAll.Count
+        missingQuotes = [object[]]$aiMissing.ToArray()
+      }
+      positions = $aiPositions; orders = $aiOrders; closedTrades = $aiClosed
+      decisions = $aiDecisions; equity = [object[]]$aiCurve.ToArray()
+    }
+  } catch {
+    Write-Warning "ai-agent dashboard failed: $($_.Exception.Message) at $($_.InvocationInfo.ScriptLineNumber):$($_.InvocationInfo.OffsetInLine)"
+  }
+}
+
 # ---- live v2 signal scan (data\signals.json, optional) ----
 $signals = $null
 $sigPath = Join-Path $dir 'data\signals.json'
@@ -619,6 +817,7 @@ $viz = [ordered]@{
   liveDaily = $liveDaily
   rfLive = $rfLive
   rfReal = $rfReal
+  aiAgent = $aiAgent
   failedTrades = $failed
   strategies = $strategies
   deepPrices = $deepPrices

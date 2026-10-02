@@ -197,7 +197,8 @@ def run_trade_point(state, item, mkt, cx):
             if not _busy(state, allowed) and not high_event:
                 if _entries_blocked(state, cx):
                     return 'skip', 'нечего вести, входы запрещены', []
-                news_items = news.fetch(pdef['news_groups'], now, cx.P['usage'], log=cx.log)
+                news_items = news.fetch(pdef['news_groups'], now, cx.P['usage'],
+                                        event=item.get('event'), log=cx.log)
                 if not news.wakes(news_items, allowed, now):
                     return 'skip', 'нечего решать: нет позиций, заявок и важных новостей', []
         if news_items is None:
@@ -306,7 +307,77 @@ def _prune_done(state, now):
             del state['done'][k]
 
 
-def write_equity(P, state, now, force):
+def mark_to_market(state, mkt, now):
+    """Read-only presentation mark for the paper sleeve.
+
+    ``state['equity']`` is deliberately realized accounting.  For the dashboard we add the
+    gross move of every currently open leg; entry and roll fees are already present in realized
+    equity, so adding them again would double-count costs.  A missing/stale hourly quote makes
+    the aggregate MTM unknown rather than silently marking the position at its entry price.
+    """
+    marks, missing = {}, []
+    gross_open = 0.0
+    open_net = 0.0
+    for p in state['positions']:
+        asset = p['instrument']
+        md = mkt.get(asset) or {}
+        price = md.get('last_px') if md.get('hourly_ok') else None
+        price_at = md.get('last_px_at')
+        if price is None or price_at is None:
+            missing.append(asset)
+            marks[asset] = {'ok': False, 'price': None, 'price_ts': None,
+                            'quote_age_min': None, 'pnl': None, 'gross': None, 'r': None}
+            continue
+        side = 1.0 if p['side'] == 'long' else -1.0
+        gross = side * float(p['qty']) * (float(price) - float(p['entry']))
+        # p.realized contains roll P&L/costs; entry_fee was charged directly to state equity.
+        pnl = float(p.get('realized') or 0.0) + gross - float(p.get('entry_fee') or 0.0)
+        risk = float(p.get('risk_amt') or 0.0)
+        age = max(0.0, (now - price_at).total_seconds() / 60.0)
+        marks[asset] = {
+            'ok': True,
+            'price': round(float(price), 6),
+            'price_ts': T.msk_to_ms(price_at - dt.timedelta(hours=T.MSK_UTC_HOURS)),
+            'quote_age_min': round(age, 1),
+            'pnl': round(pnl, 9),
+            'gross': round(gross, 9),
+            'r': round(pnl / risk, 4) if risk > 0 else None,
+        }
+        gross_open += gross
+        open_net += pnl
+    complete = not missing
+    return {
+        'equity_realized': round(float(state['equity']), 9),
+        'equity_mtm': round(float(state['equity']) + gross_open, 9) if complete else None,
+        'open_pnl': round(open_net, 9) if complete else None,
+        'marks': marks,
+        'missing': missing,
+    }
+
+
+def write_heartbeat(P, state, now, mark, status='live', reason=None):
+    utc_now = now - dt.timedelta(hours=T.MSK_UTC_HOURS)
+    row = {
+        'schema': 1,
+        'ts': T.msk_to_ms(utc_now),
+        'at': T.fmt(now),
+        'status': status,
+        'reason': reason,
+        'equity_realized': mark.get('equity_realized'),
+        'equity_mtm': mark.get('equity_mtm'),
+        'open_pnl': mark.get('open_pnl'),
+        'positions': len(state['positions']),
+        'orders': len(state['orders']),
+        'trades': len(state['trades']),
+        'sum_r': round(book.closed_sum_r(state), 3),
+        'marks': mark.get('marks') or {},
+        'missing_quotes': mark.get('missing') or [],
+    }
+    write_json(P['heartbeat'], row, indent=None)
+    return row
+
+
+def write_equity(P, state, now, force, mark=None):
     path = os.path.join(P['data'], 'equity.json')
     eq = market.read_json(path, []) or []
     last = T.ms_to_msk(eq[-1]['ts']) if eq else None     # ts здесь настоящее UTC -> наивное UTC
@@ -314,7 +385,10 @@ def write_equity(P, state, now, force):
     if not force and last and utc_now - last < EQUITY_EVERY:
         return False
     # ts — настоящее UTC в мс, как в data/live_rf/equity.json (его читает tools/live_watch.ps1)
+    mark = mark or {'equity_mtm': float(state['equity']), 'open_pnl': 0.0}
     eq.append({'ts': T.msk_to_ms(utc_now), 'equity': round(state['equity'], 4),
+               'equity_mtm': round(mark['equity_mtm'], 4) if mark.get('equity_mtm') is not None else None,
+               'open_pnl': round(mark['open_pnl'], 4) if mark.get('open_pnl') is not None else None,
                'positions': len(state['positions']), 'orders': len(state['orders']),
                'sum_r': round(book.closed_sum_r(state), 3)})
     write_json(path, eq[-3000:], indent=None)
@@ -326,6 +400,10 @@ def tick(now=None, only=None):
     now = now or T.msk_now()
     cx = Ctx(now)
     if os.path.exists(cx.P['halt']):
+        state = load_state(cx.P['state'])
+        mark = {'equity_realized': round(float(state['equity']), 9), 'equity_mtm': None,
+                'open_pnl': None, 'marks': {}, 'missing': [p['instrument'] for p in state['positions']]}
+        write_heartbeat(cx.P, state, now, mark, status='halt', reason='выключатель HALT_AGENT')
         cx.log('HALT_AGENT: тик пропущен целиком')
         return {'halt': True}
     state = load_state(cx.P['state'])
@@ -360,7 +438,17 @@ def tick(now=None, only=None):
     write_json(cx.P['state'], state)
     if state['trades']:
         write_json(cx.P['trades'], state['trades'])
-    write_equity(cx.P, state, now, force=bool(ev or ran))
+    mark = mark_to_market(state, mkt, now)
+    if state.get('halt'):
+        hb_status, hb_reason = 'halt', state['halt'].get('reason')
+    elif os.path.exists(cx.P['halt_entries']):
+        hb_status, hb_reason = 'entries_halt', 'выключатель HALT_AGENT_ENTRIES'
+    elif mark['missing']:
+        hb_status, hb_reason = 'stale_quotes', 'нет свежих часовых котировок: ' + ', '.join(mark['missing'])
+    else:
+        hb_status, hb_reason = 'live', None
+    write_heartbeat(cx.P, state, now, mark, status=hb_status, reason=hb_reason)
+    write_equity(cx.P, state, now, force=bool(ev or ran), mark=mark)
     return {'events': ev, 'ran': ran, 'logs': cx.logs}
 
 

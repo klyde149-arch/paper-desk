@@ -121,6 +121,8 @@ class TestMainFlow(Base):
         open(self.P['halt'], 'w').close()
         self.assertTrue(agent.tick(at(0, 25)).get('halt'))
         self.assertEqual(m.calls, [])
+        hb = json.load(open(self.P['heartbeat'], encoding='utf-8'))
+        self.assertEqual(hb['status'], 'halt')
 
     def test_halt_entries_file_rejects_enter(self):
         self.mock(trade=trade_resp([enter('GOLD', stop=3800.0, target=4400.0)]))
@@ -132,6 +134,21 @@ class TestMainFlow(Base):
         self.assertEqual(self.state()['orders'], [])
         dec = [json.loads(x) for x in open(self.P['decisions'], encoding='utf-8')]
         self.assertIn('HALT', dec[0]['rejected'][0]['why'])
+        hb = json.load(open(self.P['heartbeat'], encoding='utf-8'))
+        self.assertEqual(hb['status'], 'entries_halt')
+
+    def test_tick_writes_mtm_heartbeat_and_equity_contract(self):
+        self.mock(trade=trade_resp())
+        for a in C.UNIVERSE:
+            self.hours(a, at(7, 0, dt.date(2026, 10, 6)), 10, bake=at(0, 10))
+        agent.tick(at(0, 25))
+        hb = json.load(open(self.P['heartbeat'], encoding='utf-8'))
+        self.assertEqual(hb['schema'], 1)
+        self.assertEqual(hb['status'], 'live')
+        self.assertEqual(hb['equity_mtm'], 100.0)
+        curve = json.load(open(os.path.join(self.P['data'], 'equity.json'), encoding='utf-8'))
+        self.assertIn('equity_mtm', curve[-1])
+        self.assertIn('open_pnl', curve[-1])
 
 
 class TestSessionPoints(Base):

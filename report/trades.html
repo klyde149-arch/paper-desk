@@ -9,7 +9,7 @@
 <style>
   :root {
     --ground:#f1f5f2; --surface:#ffffff; --raised:#ffffff;
-    --ink:#101915; --muted:#54655c; --faint:#8b9992;
+    --ink:#101915; --muted:#54655c; --faint:#65746c;
     --hair:rgba(16,25,21,.11); --hair2:rgba(16,25,21,.06);
     --accent:#17845a; --accent-soft:rgba(23,132,90,.11);
     --gain:#17845a; --loss:#c2382e;
@@ -26,7 +26,7 @@
   }
   :root[data-theme="dark"] {
     --ground:#070b0a; --surface:#0d1511; --raised:#121c16;
-    --ink:#e6efe9; --muted:#93a49a; --faint:#5c6b62;
+    --ink:#e6efe9; --muted:#93a49a; --faint:#829489;
     --hair:rgba(255,255,255,.09); --hair2:rgba(255,255,255,.05);
     --accent:#5ed29c; --accent-soft:rgba(94,210,156,.13);
     --gain:#5ed29c; --loss:#ee6a5f;
@@ -40,7 +40,7 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --ground:#070b0a; --surface:#0d1511; --raised:#121c16;
-      --ink:#e6efe9; --muted:#93a49a; --faint:#5c6b62;
+      --ink:#e6efe9; --muted:#93a49a; --faint:#829489;
       --hair:rgba(255,255,255,.09); --hair2:rgba(255,255,255,.05);
       --accent:#5ed29c; --accent-soft:rgba(94,210,156,.13);
       --gain:#5ed29c; --loss:#ee6a5f;
@@ -64,7 +64,7 @@
   h2{font-family:var(--serif);font-weight:600;font-size:19px;margin:34px 0 4px}
   .sec-note{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:80ch}
   .card{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
-  canvas{display:block;width:100%;cursor:crosshair;border-radius:8px;touch-action:pan-y} /* pan-y: свайп по графику скроллит страницу, горизонтальный жест уходит графику */
+  canvas{display:block;width:100%;min-width:0;max-width:100%;cursor:crosshair;border-radius:8px;touch-action:pan-y} /* pan-y: свайп по графику скроллит страницу, горизонтальный жест уходит графику */
   .tabs{display:flex;gap:6px;border-bottom:1px solid var(--hair);margin:8px 0 22px}
   .tab{background:none;border:none;border-bottom:2.5px solid transparent;color:var(--muted);padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer;font-family:var(--sans)}
   .tab.on{color:var(--accent);border-bottom-color:var(--accent)}
@@ -82,6 +82,7 @@
   .legend span{display:inline-flex;align-items:center;gap:6px}
   .hint{font-size:11.5px;color:var(--faint);margin-top:8px}
   .live-grid{display:grid;grid-template-columns:2.2fr 1fr;gap:14px;margin-bottom:16px}
+  .live-grid>*{min-width:0}
   @media (max-width:820px){.live-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}}
   .pcard h3{font-family:var(--serif);margin:0 0 10px;font-size:16px}
   .pcard .pr{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--hair2);font-size:13px;gap:10px}
@@ -108,6 +109,39 @@
   .callout{border-left:3px solid var(--loss);background:var(--surface);border-radius:12px;border-top:1px solid var(--hair);border-right:1px solid var(--hair);border-bottom:1px solid var(--hair);padding:16px 20px;box-shadow:var(--shadow);font-size:14px}
   .callout b{color:var(--loss)}
   .foot{margin-top:44px;padding-top:18px;border-top:1px solid var(--hair);font-size:12px;color:var(--faint);line-height:1.7}
+  ::selection{background:var(--accent);color:var(--ground)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  *{scrollbar-color:var(--accent) var(--ground);scrollbar-width:thin}
+  .agent-kpis{grid-template-columns:repeat(3,1fr)}
+  .agent-statusline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .agent-statusline b{color:var(--ink)}
+  .agent-statusline>span:not(.agent-state){font-size:12px;color:var(--faint)}
+  .agent-state{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:4px 10px;font-family:var(--jak);font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent)}
+  .agent-state::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .agent-state.warn{background:rgba(217,164,65,.13);color:#b07b1e}
+  .agent-state.bad{background:var(--loss-soft);color:var(--loss)}
+  .agent-thesis{margin-top:12px;padding-top:10px;border-top:1px solid var(--hair);font-size:12.5px;line-height:1.55;color:var(--muted)}
+  .agent-thesis>span{display:block;margin-bottom:3px;color:var(--accent);font-family:var(--jak);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .agent-thesis p{margin:0 0 8px}.agent-thesis p:last-child{margin-bottom:0}
+  .agent-thesis b{color:var(--ink)}
+  .agent-decisions{padding:0;overflow:hidden}
+  .agent-decision{padding:16px 18px;border-bottom:1px solid var(--hair2)}
+  .agent-decision:last-child{border-bottom:0}
+  .agent-decision-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .agent-decision-head b{font-family:var(--jak);font-size:12.5px}.agent-decision-head span{font:11px var(--mono);color:var(--faint)}
+  .agent-decision p{margin:0;color:var(--muted);font-size:13px;max-width:78ch}
+  .agent-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .agent-action{display:inline-flex;gap:6px;align-items:center;padding:4px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700}
+  .agent-action.rejected{background:var(--loss-soft);color:var(--loss)}
+  .decision-feed{display:grid;gap:10px}
+  .decision{padding:15px 18px}
+  .decision-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .decision-head b{font-family:var(--mono);font-size:12px}.decision-head span,.decision-regime{color:var(--faint);font-size:11.5px}
+  .decision>p{margin:0;color:var(--muted);font-size:13px}
+  .decision-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .decision-actions .ok{padding:4px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700}
+  .decision details{margin-top:10px;color:var(--faint);font-size:12px}.decision details summary{cursor:pointer}
+  .decision-rejected p{margin:7px 0 0;color:var(--muted)}
 
   /* ===== redesign layer (CodeNest-inspired: #070b0a + mint, glass, glow, grid) ===== */
   .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;display:none}
@@ -171,6 +205,15 @@
   thead th{font-family:var(--jak);font-weight:700;letter-spacing:.1em}
   .foot{position:relative;z-index:1}
 
+  /* В операционном режиме агент выходит на первый экран без маркетинговой высоты hero. */
+  body.agent-mode .hero{padding:12px 0 2px}
+  body.agent-mode .hero-h{font-size:clamp(30px,4vw,44px);margin:5px 0 7px}
+  body.agent-mode .hero .sub{font-size:13px;max-width:82ch}
+  body.agent-mode .hero-cta{display:none}
+  body.agent-mode #marketRow{margin:10px 0 12px}
+  body.agent-mode #modeRow{margin-top:-4px!important;margin-bottom:18px}
+  body.agent-mode #pane-fut-agent>h2:first-child{margin-top:18px}
+
   /* ===== mobile layer ===== */
   @media (max-width:900px){
     .tabs{display:flex;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -179,6 +222,19 @@
   }
   @media (max-width:640px){
     .wrap{padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+    .site-nav{flex-wrap:wrap;gap:8px 12px}
+    .site-nav .nav-links{order:3;width:100%;margin-left:0;justify-content:flex-start}
+    .site-nav .theme-btn{margin-left:auto}
+    .stamp{flex-wrap:wrap}
+    body.agent-mode .hero{padding-top:8px}
+    body.agent-mode .hero-h{font-size:30px}
+    body.agent-mode .hero .sub{display:none}
+    body.agent-mode #modeRow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-radius:20px;overflow:visible}
+    body.agent-mode #modeRow .tab{min-width:0;white-space:normal;padding:8px 10px}
+    body.agent-mode #modeRow .mini{line-height:1.25}
+    body.agent-mode #pane-fut-agent>h2:first-child{margin-top:12px}
+    body.agent-mode #pane-fut-agent>h2:first-child + .sec-note{display:none}
+    #agentPositions .live-grid>.pcard{order:-1}
     .hkpi .v{font-size:19px} .kpi .v{font-size:17px}
     .sub,.sec-note{font-size:13px} .hint{font-size:12px}
     .kpi .l,thead th{font-size:11px}
@@ -186,6 +242,7 @@
     table{font-size:13px} tbody td{padding:8px 9px}
     .tbl-scroll{-webkit-overflow-scrolling:touch}
     #rfKpis{grid-template-columns:1fr!important}
+    .agent-kpis{grid-template-columns:1fr!important}
     .pcard .pr{font-size:13.5px}
     .nav-links{gap:10px}
     .callout{padding:13px 14px;font-size:13.5px}
@@ -236,7 +293,8 @@
     <button class="tab" data-market="fut">Фьючерсы<span class="mini">MOEX · брейкаут + сателлиты</span></button>
   </nav>
   <nav class="tabs" id="modeRow" style="margin-top:-14px">
-    <button class="tab on" data-mode="live">Бумага<span class="mini" id="modeLiveMini">виртуальные $10 000</span></button>
+    <button class="tab on" data-mode="live"><span id="modeLiveLabel">Бумага</span><span class="mini" id="modeLiveMini">виртуальные $10 000</span></button>
+    <button class="tab" data-mode="agent" id="modeAgentBtn" style="display:none">ИИ-агент<span class="mini">решения · позиции · результат</span></button>
     <button class="tab" data-mode="real" id="modeRealBtn">Реал<span class="mini" id="modeRealMini">Bybit · живой счёт</span></button>
     <button class="tab" data-mode="bt">Бэктест<span class="mini" id="modeBtMini">исследование · история</span></button>
   </nav>
@@ -372,6 +430,34 @@
     <div id="rfTradesWrap"></div>
   </section>
 
+  <!-- ============ FUTURES · AI AGENT (paper, isolated from C3b) ============ -->
+  <section id="pane-fut-agent" style="display:none">
+    <h2>ИИ-агент — <span class="em">отдельный бумажный рукав</span></h2>
+    <p class="sec-note">Самостоятельный трейдер по восьми фьючерсам MOEX. Он не видит позиции и сигналы C3b, не обращается к брокеру и ведёт виртуальный индекс капитала. Для удобства индекс 100 показан как условные 100 000 ₽.</p>
+    <div id="agentStatus" class="callout"></div>
+    <div id="agentKpis" class="kpis agent-kpis" style="margin-top:14px"></div>
+
+    <h2>Открытые позиции — <span class="em">цена, риск и тезис</span></h2>
+    <p class="sec-note">Плавающий результат считается по последней пригодной часовой котировке. Если цена устарела, терминал не подменяет её ценой входа и явно помечает переоценку недоступной.</p>
+    <div id="agentPositions"></div>
+
+    <h2>Заявки — <span class="em">что ждёт исполнения</span></h2>
+    <div id="agentOrders"></div>
+
+    <h2>Капитал — <span class="em">реализованный + открытый P&amp;L</span></h2>
+    <div class="card" style="padding:20px 22px">
+      <div class="legend" id="agentEqLegend" style="position:static;margin:0 0 8px"></div>
+      <canvas id="agentEqChart" height="260"></canvas>
+      <p class="hint" id="agentEqHint"></p>
+    </div>
+
+    <h2>Закрытые сделки — <span class="em">результат в ₽ и R</span></h2>
+    <div id="agentClosed"></div>
+
+    <h2>Последние решения — <span class="em">что агент увидел и сделал</span></h2>
+    <div id="agentDecisions"></div>
+  </section>
+
   <!-- ============ FUTURES · REAL (живой счёт Т-Инвестиции, C3b) ============ -->
   <section id="pane-fut-real" style="display:none">
     <h2>Реальный счёт — <span class="em">Т-Инвестиции · C3b</span></h2>
@@ -505,8 +591,24 @@
   const FONT = w => (w||"") + "11px Consolas, ui-monospace, monospace";
   const arr = x => Array.isArray(x) ? x : (x && x.value) || [];
   const rr = (ctx,x,y,w,h,r) => { if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();} else ctx.fillRect(x,y,w,h); };
+  const esc = v => String(v??"").replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[ch]);
   const TRADES = arr(VIZ.trades), EQUITY = arr(VIZ.equity), LIVE = arr(VIZ.livePositions), LC = arr(VIZ.liveClosed);
   const FUT = VIZ.moexFut || null;
+  const AI = VIZ.aiAgent || null;
+  const aiMinutesSince=ts=>{ const d=(Date.now()-(+ts||0))/60000; return !ts||d < -5 ? Infinity : Math.max(0,Math.floor(d)); };
+  const aiDataAge=()=>AI?aiMinutesSince(AI.asOfTs):Infinity;
+  const aiQuoteAge=p=>aiMinutesSince(p&&p.quoteTs);
+  const aiQuoteFresh=p=>!!(p&&p.markAvailable&&aiQuoteAge(p)<=+(AI.quoteMaxAgeMin||5760));
+  const aiDataFresh=()=>!!(AI&&aiDataAge()<=+(AI.dataMaxAgeMin||480));
+  const aiMtmFresh=()=>!!(AI&&aiDataFresh()&&arr(AI.positions).every(aiQuoteFresh));
+  const aiEffectiveStatus=()=>{
+    if(!AI)return "stale";
+    const base=AI.summary&&AI.summary.status;
+    if(base==="halt"||base==="entries_halt")return base;
+    if(!aiDataFresh())return "stale";
+    if(!arr(AI.positions).every(aiQuoteFresh))return "stale_quotes";
+    return "live";
+  };
 
   $("genTime").textContent = VIZ.generatedUtc;
   $("eqNow").textContent = "$" + (VIZ.equityNow||0).toLocaleString("en-US",{minimumFractionDigits:2});
@@ -609,22 +711,26 @@
   let MARKET = qs.get("market") || localStorage.getItem("term_market") || "crypto";
   let MODE   = qs.get("mode")   || localStorage.getItem("term_mode")   || "live";
   if(!["crypto","fut"].includes(MARKET)) MARKET="crypto";
-  if(!["live","real","bt"].includes(MODE)) MODE="live";
-  const PANES=["crypto-live","crypto-real","crypto-bt","fut-live","fut-real","fut-bt"];
+  if(!["live","agent","real","bt"].includes(MODE)) MODE="live";
+  const PANES=["crypto-live","crypto-real","crypto-bt","fut-live","fut-agent","fut-real","fut-bt"];
   const MODE_MINIS={
     crypto:{live:"позиции · дни · сигналы",         real:"Bybit · живой счёт", bt:"v1/v2 · сравнение · по годам"},
-    fut:   {live:"C3b форвард-тест · открытые",     real:"Т-Инвест · живой счёт", bt:"брейкаут · walk-forward · портфели"}
+    fut:   {live:"C3b форвард-тест · открытые", agent:"решения · позиции · результат", real:"Т-Инвест · живой счёт", bt:"брейкаут · walk-forward · портфели"}
   };
   function applyNav(){
+    if(MODE==="agent"&&MARKET!=="fut") MODE="live";
     if(MODE==="real"&&MARKET!=="crypto"&&MARKET!=="fut") MODE="live";   // «Реал» есть у крипты и фьючерсов
     localStorage.setItem("term_market",MARKET);
     localStorage.setItem("term_mode",MODE);
     document.querySelectorAll("#marketRow .tab[data-market]").forEach(b=>b.classList.toggle("on",b.dataset.market===MARKET));
     document.querySelectorAll("#modeRow .tab[data-mode]").forEach(b=>b.classList.toggle("on",b.dataset.mode===MODE));
     const key=MARKET+"-"+MODE;
+    document.body.classList.toggle("agent-mode",key==="fut-agent");
     PANES.forEach(k=>{ const el=$("pane-"+k); if(el) el.style.display=(k===key)?"":"none"; });
     const hk=document.querySelector(".hero-kpis"); if(hk) hk.style.display=(MARKET==="crypto"&&MODE==="live")?"":"none";
+    if($("modeAgentBtn")) $("modeAgentBtn").style.display=MARKET==="fut"?"":"none";
     if($("modeRealBtn")) $("modeRealBtn").style.display=(MARKET==="crypto"||MARKET==="fut")?"":"none";
+    if($("modeLiveLabel")) $("modeLiveLabel").textContent=MARKET==="fut"?"C3b":"Бумага";
     if($("modeLiveMini")) $("modeLiveMini").textContent=MODE_MINIS[MARKET].live;
     if($("modeRealMini")&&MODE_MINIS[MARKET].real) $("modeRealMini").textContent=MODE_MINIS[MARKET].real;
     if($("modeBtMini"))   $("modeBtMini").textContent  =MODE_MINIS[MARKET].bt;
@@ -645,7 +751,11 @@
     "fut-real":{
       eb:"MOEX \u00b7 ФЬЮЧЕРСЫ \u00b7 РЕАЛЬНЫЙ СЧЁТ Т-ИНВЕСТИЦИЙ (КОНТУР C3b)",
       sub:"Живой счёт Т-Инвестиций: бот торгует фьючерсами MOEX по расписанию МСК, стопы лежат на бирже брокерскими заявками. Ниже — капитал бота, открытые позиции, закрытые сделки и кривая счёта. Все суммы в рублях.",
-      lbl:"капитал бота"}
+      lbl:"капитал бота"},
+    "fut-agent":{
+      eb:"MOEX \u00b7 ФЬЮЧЕРСЫ \u00b7 ИИ-АГЕНТ \u00b7 БУМАЖНЫЙ РУКАВ",
+      sub:"Отдельный виртуальный трейдер принимает решения по восьми фьючерсам MOEX. Здесь видны его заявки, открытые позиции, плавающий результат, закрытые сделки и краткое обоснование каждого решения. C3b и реальный счёт не смешиваются с этим результатом.",
+      lbl:"условный капитал"}
   };
   function applyHero(){
     const h=HERO[MARKET+"-"+MODE]||HERO[MARKET]||HERO.crypto;
@@ -654,9 +764,12 @@
     if(sb) sb.textContent=h.sub;
     if(al) al.textContent=h.lbl;
     if(eq){
-      const rub=(MARKET==="fut"&&MODE==="real"&&RFR&&RFR.capitalNow!=null);
-      eq.textContent=rub?fmtRub(RFR.capitalNow)
-                        :"$"+(+VIZ.equityNow||0).toLocaleString("en-US",{minimumFractionDigits:2});
+      const realRub=(MARKET==="fut"&&MODE==="real"&&RFR&&RFR.capitalNow!=null);
+      const agentRub=(MARKET==="fut"&&MODE==="agent"&&AI&&AI.summary);
+      const agentCap=agentRub&&(aiMtmFresh()&&AI.summary.capitalRub!=null?AI.summary.capitalRub:AI.summary.realizedRub);
+      eq.textContent=realRub?fmtRub(RFR.capitalNow)
+                    :agentRub?Math.round(agentCap||0).toLocaleString("ru-RU")+" ₽"
+                    :"$"+(+VIZ.equityNow||0).toLocaleString("en-US",{minimumFractionDigits:2});
     }
   }
   function setMarket(m){ MARKET=m; applyNav(); }
@@ -800,6 +913,7 @@
   function drawLiveChart(cv,p,k,st,mL,mR){
     const {ctx,w,h}=setupCanvas(cv);
     if(!k.length){ ctx.fillStyle=C("--muted"); ctx.font=FONT(); ctx.fillText("нет данных свечей",20,40); return; }
+    const pricePrefix=p.pricePrefix===undefined?"$":p.pricePrefix;
     const m={t:16,r:mR,b:26,l:mL}, iw=w-m.l-m.r, ih=h-m.t-m.b;
     const full=[k[0][0], k[k.length-1][0]];
     const t0=st.t0??full[0], t1=st.t1??full[1];
@@ -810,11 +924,11 @@
     const X=ts=>m.l+(ts-t0)/(t1-t0)*iw, Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
     ctx.clearRect(0,0,w,h);
     ctx.strokeStyle=C("--hair2"); ctx.lineWidth=1; ctx.fillStyle=C("--faint"); ctx.font=FONT(); ctx.textAlign="left";
-    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4, y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText("$"+fmtP(v), m.l+iw+6, y+4); }
+    for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4, y=Y(v); ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(m.l+iw,y); ctx.stroke(); ctx.fillText(pricePrefix+fmtP(v), m.l+iw+6, y+4); }
     drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
     // profit/risk zones
-    if(p.tp1!=null&&p.tp1!==p.entry){ ctx.fillStyle=C("--gain-soft"); ctx.fillRect(m.l,Y(p.tp1),iw,Math.max(0,Y(p.entry)-Y(p.tp1))); }
-    ctx.fillStyle=C("--loss-soft"); ctx.fillRect(m.l,Y(p.entry),iw,Math.max(0,Y(p.stop)-Y(p.entry)));
+    if(p.tp1!=null&&p.tp1!==p.entry){ const ya=Y(p.tp1),yb=Y(p.entry); ctx.fillStyle=C("--gain-soft"); ctx.fillRect(m.l,Math.min(ya,yb),iw,Math.abs(yb-ya)); }
+    { const ya=Y(p.entry),yb=Y(p.stop); ctx.fillStyle=C("--loss-soft"); ctx.fillRect(m.l,Math.min(ya,yb),iw,Math.abs(yb-ya)); }
     // candles
     const bw=Math.max(1.5, iw/vis.length*0.62);
     vis.forEach(c=>{
@@ -834,7 +948,7 @@
     // last price tick
     const lc=vis[vis.length-1];
     ctx.fillStyle=C("--ink"); ctx.font=FONT("600 "); ctx.textAlign="left";
-    ctx.fillText("→ $"+fmtP(lc[4]), m.l+iw+6, Y(lc[4])+4);
+    ctx.fillText("→ "+pricePrefix+fmtP(lc[4]), m.l+iw+6, Y(lc[4])+4);
     // hover
     cv.onmousemove2 = null;
     bindTip(cv, function hov(e){
@@ -1642,6 +1756,101 @@
   }
   buildRfLive();
 
+  // ---------- ФЬЮЧЕРСЫ · ИИ-АГЕНТ: отдельный виртуальный счёт ----------
+  const agentCharts=[];
+  const fmtAiRub=v=>v==null?"—":Math.round(+v).toLocaleString("ru-RU")+" ₽";
+  const sgnAiRub=v=>v==null?"—":((+v)>=0?"+":"−")+Math.round(Math.abs(+v)).toLocaleString("ru-RU")+" ₽";
+  const fmtAiR=v=>v==null?"—":((+v)>=0?"+":"−")+Math.abs(+v).toFixed(2)+"R";
+  const aiSetup=s=>({momentum:"импульс",breakout:"пробой",early_breakout:"ранний пробой",pullback:"откат",mean_reversion:"возврат к среднему"}[s]||s||"—");
+  const aiPoint=s=>({daily:"дневное решение",intraday:"внутридневное решение",event:"событие"}[s]||s||"решение");
+  const aiExit=s=>({stop:"стоп",target:"цель",timeout:"срок идеи",manual:"решение агента",roll:"ролл"}[s]||s||"—");
+  const aiUtc=s=>{ if(!s)return "—"; const d=new Date(s); return isNaN(+d)?esc(s):fmtDT(+d); };
+  const aiAge=m=>!isFinite(m)?"время некорректно":m==null?"возраст неизвестен":m<60?`${m} мин назад`:m<1440?`${Math.floor(m/60)} ч назад`:`${Math.floor(m/1440)} дн назад`;
+  function buildAgentPane(){
+    const status=$("agentStatus"), kpis=$("agentKpis"), pos=$("agentPositions"), orders=$("agentOrders"), closed=$("agentClosed"), decisions=$("agentDecisions");
+    if(!AI){
+      status.innerHTML='<b>Данные агента пока не опубликованы.</b> Вкладка заполнится после следующей сборки.';
+      kpis.innerHTML=""; pos.innerHTML=orders.innerHTML=closed.innerHTML=decisions.innerHTML='<div class="card empty">Пока нет данных</div>';
+      $("agentEqHint").textContent="История появится после первого тика агента.";
+      return;
+    }
+    agentCharts.length=0;
+    const S=AI.summary||{}, effectiveStatus=aiEffectiveStatus(), dataAge=aiDataAge(), mtmFresh=aiMtmFresh();
+    const statusMap={live:["LIVE","var(--gain)","Агент работает, все открытые позиции имеют свежую котировку."],stale:["STALE","var(--loss)","Heartbeat агента устарел или отсутствует."],stale_quotes:["STALE QUOTES","#d9a441","Не все открытые позиции можно безопасно переоценить."],entries_halt:["ENTRIES HALT","#d9a441","Новые входы остановлены, сопровождение позиций продолжается."],halt:["HALT","var(--loss)","Агент остановлен защитным выключателем."]};
+    const sm=statusMap[effectiveStatus]||[String(effectiveStatus||"UNKNOWN").toUpperCase(),"var(--muted)","Состояние агента неизвестно."];
+    status.style.borderLeftColor=sm[1];
+    const missing=[...new Set([...arr(S.missingQuotes),...arr(AI.positions).filter(p=>!aiQuoteFresh(p)).map(p=>p.instrument)])];
+    const stateCls=effectiveStatus==="live"?"":(["halt","stale"].includes(effectiveStatus)?"bad":"warn");
+    status.innerHTML=`<div class="agent-statusline"><span class="agent-state ${stateCls}">${sm[0]}</span><b>${sm[2]}</b><span>${aiAge(dataAge)}</span></div>`+
+      (S.haltReason?`<div style="margin-top:8px;color:var(--muted)">Причина: ${esc(S.haltReason)}</div>`:"")+
+      (missing.length?`<div style="margin-top:8px;color:var(--loss)"><b>Нет пригодной котировки:</b> ${missing.map(esc).join(", ")}. Капитал ниже показан только реализованный — ложный MTM не построен.</div>`:"");
+    const cap=mtmFresh&&S.capitalRub!=null?S.capitalRub:S.realizedRub;
+    const total=mtmFresh&&S.totalPnlRub!=null?S.totalPnlRub:S.realizedPnlRub;
+    const totalPct=mtmFresh&&S.totalPct!=null?S.totalPct:S.realizedPct;
+    const kpi=(l,v,s,cls="")=>`<div class="kpi"><p class="l">${l}</p><div class="v num ${cls}">${v}</div><p class="s">${s}</p></div>`;
+    kpis.innerHTML=
+      kpi("Капитал",fmtAiRub(cap),mtmFresh&&S.capitalRub!=null?"с учётом открытых позиций":"только реализованный")+
+      kpi("Общий результат",total==null?"—":sgnAiRub(total),totalPct==null?"нет расчёта":`${mtmFresh?'':'реализованный · '}${totalPct>=0?"+":""}${(+totalPct).toFixed(2)}%`,total==null?"":(total>=0?"pos":"neg"))+
+      kpi("Открытые позиции",sgnAiRub(mtmFresh?S.openPnlRub:null),mtmFresh&&S.openPnlRub!=null?"после входных комиссий":"нет надёжной переоценки",mtmFresh&&S.openPnlRub!=null?(S.openPnlRub>=0?"pos":"neg"):"")+
+      kpi("Сумма R",fmtAiR(S.closedR),"по закрытым сделкам",S.closedR>=0?"pos":"neg")+
+      kpi("Позиции · заявки",`${S.positions||0} · ${S.orders||0}`,"сейчас в работе")+
+      kpi("Закрыто сделок",String(S.trades||0),"за всю историю агента");
+
+    const P=arr(AI.positions); pos.innerHTML="";
+    if(!P.length) pos.innerHTML='<div class="card empty">Открытых позиций нет — агент наблюдает рынок.</div>';
+    P.forEach((p,i)=>{
+      const quoteAge=aiQuoteAge(p), marked=aiDataFresh()&&aiQuoteFresh(p), cls=p.pnlRub==null?"":(p.pnlRub>=0?"pos":"neg"), side=p.side==="long"?"ЛОНГ":"ШОРТ";
+      const card=document.createElement("div"); card.className="card pcard";
+      card.innerHTML=`<div class="badge"><span class="dot" style="background:${marked?'var(--gain)':'var(--loss)'}"></span>${marked?'ОТКРЫТА':'КОТИРОВКА УСТАРЕЛА'}</div>`+
+        `<h3>${side} ${esc(p.instrument)} · ${esc(aiSetup(p.setup))}</h3>`+
+        `<div class="pr"><span>Вход · ${aiUtc(p.entryAt)}</span><b>${fmtP(p.entry)}</b></div>`+
+        `<div class="pr"><span>Текущая цена · ${aiAge(quoteAge)}</span><b>${marked?fmtP(p.current):'—'}</b></div>`+
+        `<div class="pr"><span>Стоп</span><b class="neg">${fmtP(p.stop)}</b></div>`+
+        `<div class="pr"><span>Цель</span><b class="pos">${fmtP(p.target)}</b></div>`+
+        `<div class="pr"><span>Плавающий P&amp;L</span><b class="${cls}">${marked?`${sgnAiRub(p.pnlRub)} · ${fmtAiR(p.r)}`:'нет надёжной оценки'}</b></div>`+
+        `<div class="pr"><span>Риск на входе</span><b>${fmtAiRub(p.riskRub)}</b></div>`+
+        `<div class="agent-thesis"><span>Тезис</span>${esc(p.reason||"Не указан")}</div>`+
+        `<div class="agent-thesis"><span>Отмена идеи</span>${esc(p.invalidation||"Не указана")}</div>`;
+      const candles=arr(p.candles1h);
+      if(candles.length){
+        const grid=document.createElement("div"); grid.className="live-grid";
+        const chartCard=document.createElement("div"); chartCard.className="card";
+        const cv=document.createElement("canvas"); cv.height=300; cv.id="agent-pos-"+i; chartCard.appendChild(cv);
+        const hint=document.createElement("p"); hint.className="hint"; hint.textContent="Часовые свечи · вход, стоп, цель и последняя доступная цена"; chartCard.appendChild(hint);
+        grid.appendChild(chartCard); grid.appendChild(card); pos.appendChild(grid);
+        const adapt={entry:+p.entry,stop:+p.stop,tp1:+p.target,qty:+p.qty,side:p.side,entryUtc:(p.entryAt||"").slice(0,16).replace("T"," "),symbol:p.instrument,pricePrefix:""};
+        const st={t0:null,t1:null},mL=8,mR=66,redraw=()=>drawLiveChart(cv,adapt,candles,st,mL,mR);
+        attachPanZoom(cv,st,()=>[candles[0][0],candles[candles.length-1][0]],redraw,mL,()=>(cv.clientWidth||800)-mL-mR); redraw(); agentCharts.push(redraw);
+      } else pos.appendChild(card);
+    });
+
+    const O=arr(AI.orders);
+    orders.innerHTML=O.length?`<div class="card tbl-scroll"><table style="min-width:900px"><thead><tr><th>Инструмент</th><th>Сторона</th><th>Тип</th><th class="num">Цена</th><th>Действует до</th><th>Сетап</th><th>Обоснование</th></tr></thead><tbody>${O.map(o=>`<tr><td><b>${esc(o.instrument)}</b></td><td class="${o.side==='long'?'pos':'neg'}">${o.side==='long'?'ЛОНГ':'ШОРТ'}</td><td>${esc(o.order||'—')}</td><td class="num">${fmtP(o.limitPx!=null?o.limitPx:o.stopPx)}</td><td>${aiUtc(o.validUntil)}</td><td>${esc(aiSetup(o.setup))}</td><td style="min-width:260px;color:var(--muted)">${esc(o.reason||'—')}<br><span style="color:var(--faint)">Отмена: ${esc(o.invalidation||'—')}</span></td></tr>`).join("")}</tbody></table></div>`:'<div class="card empty">Активных заявок нет.</div>';
+
+    const T=arr(AI.closedTrades);
+    closed.innerHTML=T.length?`<div class="card tbl-scroll"><table style="min-width:980px"><thead><tr><th>Выход</th><th>Инструмент</th><th>Сторона</th><th>Вход</th><th>Цена выхода</th><th>Причина</th><th class="num">R</th><th class="num">Комиссии</th><th class="num">P&amp;L</th></tr></thead><tbody>${T.slice().reverse().map(t=>`<tr><td>${aiUtc(t.exitAt)}</td><td><b>${esc(t.instrument)}</b><br><span style="color:var(--faint)">${esc(aiSetup(t.setup))}</span></td><td class="${t.side==='long'?'pos':'neg'}">${t.side==='long'?'ЛОНГ':'ШОРТ'}</td><td>${aiUtc(t.entryAt)} · ${fmtP(t.entry)}</td><td>${fmtP(t.exitPx)}</td><td style="color:var(--muted)">${esc(aiExit(t.exitReason||t.closeReason))}</td><td class="num ${t.r>=0?'pos':'neg'}">${fmtAiR(t.r)}</td><td class="num">${fmtAiRub(t.feesRub)}</td><td class="num ${t.netRub>=0?'pos':'neg'}"><b>${sgnAiRub(t.netRub)}</b></td></tr>`).join("")}</tbody></table></div>`:'<div class="card empty">Закрытых сделок пока нет. Здесь появится первый зафиксированный результат агента.</div>';
+
+    const D=arr(AI.decisions).slice().reverse();
+    decisions.innerHTML=D.length?`<div class="decision-feed">${D.map(d=>{const acts=arr(d.accepted), rej=arr(d.rejected); return `<article class="card decision"><div class="decision-head"><b>${aiUtc(d.at)}</b><span>${esc(aiPoint(d.point))}</span></div><p>${esc(d.summary||'Без резюме')}</p>${d.regime?`<div class="decision-regime">Режим: ${esc(typeof d.regime==='string'?d.regime:JSON.stringify(d.regime))}</div>`:''}${acts.length?`<div class="decision-actions">${acts.map(a=>`<span class="ok">${esc(a.instrument||a.asset||'')} · ${esc(a.action||a.side||'действие')}</span>`).join('')}</div>`:''}${rej.length?`<details><summary>Отклонено: ${rej.length}</summary><div class="decision-rejected">${rej.map(a=>`<p><b>${esc(a.instrument||a.asset||'')}</b> ${esc(a.action||'')} — ${esc(a.why||a.reason||'без пояснения')}</p>`).join('')}</div></details>`:''}</article>`}).join("")}</div>`:'<div class="card empty">Журнал решений пока пуст.</div>';
+    drawAgentEq();
+  }
+  function drawAgentEq(){
+    if(!AI)return; const E=arr(AI.equity); const cv=$("agentEqChart"), hint=$("agentEqHint"), lg=$("agentEqLegend");
+    if(E.length<2){ lg.innerHTML=""; hint.textContent="Для кривой нужно не меньше двух тиков агента."; const z=setupCanvas(cv); z.ctx.clearRect(0,0,z.w,z.h); return; }
+    const {ctx,w,h}=setupCanvas(cv),m={t:18,r:82,b:28,l:8},iw=w-m.l-m.r,ih=h-m.t-m.b;
+    const t0=+E[0][0],t1=+E[E.length-1][0]; let lo=Math.min(...E.map(p=>Math.min(+p[1],+p[2]))),hi=Math.max(...E.map(p=>Math.max(+p[1],+p[2]))); if(lo===hi){lo-=100;hi+=100} const pad=(hi-lo)*.08;lo-=pad;hi+=pad;
+    const X=t=>m.l+(t-t0)/Math.max(1,t1-t0)*iw,Y=v=>m.t+ih-(v-lo)/(hi-lo)*ih;
+    ctx.clearRect(0,0,w,h);ctx.font=FONT();ctx.strokeStyle=C("--hair2");ctx.fillStyle=C("--faint");ctx.textAlign="left";
+    for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,y=Y(v);ctx.beginPath();ctx.moveTo(m.l,y);ctx.lineTo(m.l+iw,y);ctx.stroke();ctx.fillText(Math.round(v/1000)+"k ₽",m.l+iw+8,y+4)} drawTimeAxis(ctx,X,t0,t1,m.l,iw,h);
+    ctx.strokeStyle=C("--muted");ctx.setLineDash([4,5]);ctx.beginPath();E.forEach((p,i)=>{const x=X(+p[0]),y=Y(+p[2]);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();ctx.setLineDash([]);
+    ctx.strokeStyle=C("--accent");ctx.lineWidth=2.5;ctx.beginPath();let started=false;E.forEach(p=>{if(!p[3]){started=false;return}const x=X(+p[0]),y=Y(+p[1]);if(started)ctx.lineTo(x,y);else{ctx.moveTo(x,y);started=true}});ctx.stroke();
+    lg.innerHTML='<span><i style="width:16px;height:3px;background:var(--accent);display:inline-block"></i> MTM</span><span><i style="width:16px;border-top:2px dashed var(--muted);display:inline-block"></i> реализованный</span>';
+    hint.textContent="Сплошная линия начинается только там, где сохранена достоверная MTM-переоценка. Старые точки остаются реализованным капиталом.";
+    bindTip(cv,e=>{const r=cv.getBoundingClientRect(),ts=t0+(e.clientX-r.left-m.l)/iw*(t1-t0);let i=E.findIndex(p=>+p[0]>=ts);if(i<0)i=E.length-1;const p=E[Math.max(0,i)];showTT(`<span class="k">${fmtDT(+p[0])}</span><br>Капитал: <b>${p[3]?fmtAiRub(p[1]):'MTM недоступен'}</b><br>Реализованный: <b>${fmtAiRub(p[2])}</b>`,e.clientX,e.clientY)});
+  }
+  buildAgentPane();
+  setInterval(()=>{ if(MARKET==="fut"&&MODE==="agent"){ buildAgentPane(); applyHero(); } },60000);
+
   // ---------- ФЬЮЧЕРСЫ · РЕАЛ: живой счёт Т-Инвестиций (VIZ.rfReal, пишет VPS-бот) ----------
   const RFR = VIZ.rfReal || null;
   const futRealCharts=[];
@@ -1922,6 +2131,7 @@
     else if(k==="crypto-real"){ realCharts.forEach(f=>f()); if(RL&&arr(RL.curve).length>1) drawEqOn("realEqCurve",RL.curve); }
     else if(k==="crypto-bt"){ if(exC)exC.draw(); drawEq(); drawCompare(); drawYearly(); }
     else if(k==="fut-live"){ drawRfEq(); drawFutLivePos(); }
+    else if(k==="fut-agent"){ agentCharts.forEach(f=>f()); drawAgentEq(); }
     else if(k==="fut-real"){ futRealCharts.forEach(f=>f()); drawFutRealEq(); }
     else if(k==="fut-bt"){ if(exF){ exF.draw(); drawCombos(); drawEqOn("eqFut",FUT.equity); } }
   }
