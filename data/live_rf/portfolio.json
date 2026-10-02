@@ -240,8 +240,8 @@
   "watermarks": {
     "last_daily_day": "2026-10-01",
     "last_hour_ts": 1790978400000,
-    "ops_since": "2026-10-02T20:30:33Z",
-    "last_eq_snap": 1790975973121,
+    "ops_since": "2026-10-02T20:45:33Z",
+    "last_eq_snap": 1790976873159,
     "last_report_day": "2026-10-02",
     "orders_day": "2026-09-30",
     "orders_day_n": 1,
@@ -265,7 +265,7 @@
         "SILV": "no-signal"
       }
     },
-    "broker_ledger_day": "2026-10-02"
+    "broker_ledger_day": "2026-10-03"
   },
   "fronts": {
     "BR": {
@@ -458,14 +458,14 @@
   },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
-    "first_ms": 1790631333214,
-    "until_ms": 1790890533240,
-    "varmargin_rub": 6793.89,
-    "fees_rub": -33726.45,
+    "first_ms": 1790717733240,
+    "until_ms": 1790976933236,
+    "varmargin_rub": 2350.25,
+    "fees_rub": -33747.45,
     "fees_other_rub": -4854.23,
     "fees_by_type": {
       "OPERATION_TYPE_SERVICE_FEE": -780.0,
-      "OPERATION_TYPE_BROKER_FEE": -37800.68
+      "OPERATION_TYPE_BROKER_FEE": -37821.68
     },
     "op_ids": [
       "16293230",
@@ -614,39 +614,28 @@
       "17073983298",
       "10645342",
       "17086314889",
-      "13636866"
+      "13636866",
+      "16629523",
+      "17106642179"
     ],
-    "updated_ms": 1790890533240,
-    "last_varmargin_op_ms": 1790888601530
-  },
-  "risk_day": {
-    "day": "2026-10-02",
-    "base_ms": 1790890533240,
-    "vm_by_uid": {
-      "3580f0a5-5a52-4242-9479-bb67f65477b8": 260.0,
-      "8ab9de01-b09a-408e-b4c9-9bc625e39e21": 136.0,
-      "e889c757-ce26-46b1-a908-2565fd5e134a": -316.33
-    },
-    "mom_eq": 350000.0,
-    "e_base": 1473239.06,
-    "fees_est_rub": 23.93
+    "updated_ms": 1790976933236,
+    "last_varmargin_op_ms": 1790974994143
   },
   "pending_settle": {
-    "rub": -1024.14,
-    "updated_ms": 1790944233182,
-    "items": [
-      {
-        "ts": 1790944233182,
-        "day": "2026-10-02",
-        "card": "L00067",
-        "uid": "e889c757-ce26-46b1-a908-2565fd5e134a",
-        "secid": "SVZ6",
-        "lots": 1,
-        "rub": -1024.14,
-        "why": "stop",
-        "src": "broker_vm"
-      }
-    ]
+    "rub": 0.0,
+    "updated_ms": 1790976933236,
+    "items": []
+  },
+  "risk_day": {
+    "day": "2026-10-03",
+    "base_ms": 1790976933236,
+    "vm_by_uid": {
+      "3580f0a5-5a52-4242-9479-bb67f65477b8": -120.0,
+      "8ab9de01-b09a-408e-b4c9-9bc625e39e21": 142.0
+    },
+    "mom_eq": 350000.0,
+    "e_base": 1466254.42,
+    "fees_est_rub": 0.0
   },
   "consec_fail": 0,
   "fail_since_ms": 0,
@@ -656,7 +645,7 @@
     "8ab9de01-b09a-408e-b4c9-9bc625e39e21": 1707.0
   },
   "broker": {
-    "captured_ms": 1790976633345,
+    "captured_ms": 1790977533130,
     "totals": {
       "portfolio": 1466254.42,
       "currencies": 1466254.42,
@@ -740,7 +729,7 @@
       "avg_px": 96745.0,
       "lots": -2.0,
       "secid": "EuZ6",
-      "ts": 1790976633345
+      "ts": 1790977533130
     },
     "3580f0a5-5a52-4242-9479-bb67f65477b8": {
       "vm": -120.0,
@@ -749,7 +738,7 @@
       "avg_px": 12.592,
       "lots": -20.0,
       "secid": "CRZ6",
-      "ts": 1790976633345
+      "ts": 1790977533130
     }
   },
   "capital_breakdown": {
@@ -771,13 +760,13 @@
     "rejected_reason": ""
   },
   "broker_pnl_by_card": {
-    "L00069": 1707.0,
-    "L00070": -2760.0
+    "L00070": -2760.0,
+    "L00069": 1707.0
   },
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1790976633345,
+    "updated_ms": 1790977533130,
     "budgets_enforced": true,
     "capital_rub": 1466254.42,
     "capital_ok": true,
@@ -797,12 +786,12 @@
       "CNY": 4501.87
     },
     "unknown": [
-      "card L00069: котировка старше 2501 с",
-      "card L00070: котировка старше 2436 с"
+      "card L00069: котировка старше 3401 с",
+      "card L00070: котировка старше 3336 с"
     ],
-    "day_ok": false,
-    "day_pnl_rub": null,
-    "day_limit_rub": null,
-    "day_reason": "нет проверенной дневной базы"
+    "day_ok": true,
+    "day_pnl_rub": 0.0,
+    "day_limit_rub": 29325.09,
+    "day_reason": ""
   }
 }
