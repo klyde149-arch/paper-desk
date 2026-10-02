@@ -1,38 +1,9 @@
 {
  "version": 1,
- "equity": 99.68826577812028,
+ "equity": 100.18399128164481,
  "next_id": 10,
  "orders": [],
- "positions": [
-  {
-   "id": "A6",
-   "instrument": "Eu",
-   "side": "short",
-   "setup": "early_breakout",
-   "entry": 97100,
-   "entry_at": "2026-09-30 10:00",
-   "entry_day": "2026-09-30",
-   "qty": 0.000555556,
-   "qty_initial": 0.000555556,
-   "stop": 96150.0,
-   "initial_stop": 98000.0,
-   "stop_src": "agent",
-   "target": 94800.0,
-   "best": 94846.0,
-   "risk_amt": 0.5,
-   "entry_fee": 0.005394444444444445,
-   "fees": 0.0,
-   "realized": 0.0,
-   "rolls": 0,
-   "horizon_days": 5,
-   "reason": "Выход вниз из диапазона 97.0–99.3k, державшегося с 10.09, по ходу снижения с 102.4k. ЦБ установил курс евро на 96.25. Шорт на ретесте нижней границы.",
-   "invalidation": "Возврат в диапазон с закрытием выше 98000.",
-   "order": "limit",
-   "decision_id": "main:2026-09-29",
-   "memory_version": "0fd9df7f99f5",
-   "pending_close": null
-  }
- ],
+ "positions": [],
  "trades": [
   {
    "id": "A9",
@@ -58,18 +29,43 @@
    "decision_id": "main:2026-09-30",
    "memory_version": "0fd9df7f99f5",
    "close_reason": null
+  },
+  {
+   "id": "A6",
+   "instrument": "Eu",
+   "side": "short",
+   "setup": "early_breakout",
+   "entry_at": "2026-09-30 10:00",
+   "entry_day": "2026-09-30",
+   "entry": 97100,
+   "initial_stop": 98000.0,
+   "exit_at": "2026-10-02 17:00",
+   "exit_px": 96198.075,
+   "exit_reason": "stop_moved",
+   "r": 0.981,
+   "net": 0.49033105908008723,
+   "risk_amt": 0.5,
+   "fees": 0.010739,
+   "rolls": 0,
+   "days_held": 2,
+   "horizon_days": 5,
+   "reason": "Выход вниз из диапазона 97.0–99.3k, державшегося с 10.09, по ходу снижения с 102.4k. ЦБ установил курс евро на 96.25. Шорт на ретесте нижней границы.",
+   "invalidation": "Возврат в диапазон с закрытием выше 98000.",
+   "decision_id": "main:2026-09-29",
+   "memory_version": "0fd9df7f99f5",
+   "close_reason": null
   }
  ],
  "halt": null,
  "last_bar": {
-  "BR": 1790956800000,
-  "GOLD": 1790956800000,
-  "SILV": 1790956800000,
-  "Si": 1790956800000,
-  "CNY": 1790956800000,
-  "MIX": 1790956800000,
-  "Eu": 1790956800000,
-  "NG": 1790956800000
+  "BR": 1790960400000,
+  "GOLD": 1790960400000,
+  "SILV": 1790960400000,
+  "Si": 1790960400000,
+  "CNY": 1790960400000,
+  "MIX": 1790960400000,
+  "Eu": 1790960400000,
+  "NG": 1790960400000
  },
  "series_ref": {
   "BR": [
