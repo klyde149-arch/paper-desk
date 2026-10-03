@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1791018041476,
-  "sourceAtMs": 1791017793031,
+  "generatedAtMs": 1791018939709,
+  "sourceAtMs": 1791018693083,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -31,7 +31,7 @@
     "entriesHalt": false,
     "haltReason": "",
     "goUsed": 56153.84,
-    "goBudget": 1416368.42,
+    "goBudget": 1416348.42,
     "accountLiquid": 1466254.42,
     "lastDailyDay": "2026-10-01",
     "pendingSettleRub": 0.0,
@@ -41,7 +41,7 @@
     "riskBudget": {
       "mode": "pilot",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1791018033254,
+      "updatedMs": 1791018933021,
       "capitalRub": 1466254.42,
       "capitalOk": true,
       "capitalReason": "",
@@ -65,13 +65,14 @@
       "dayLimitRub": 29325.09,
       "dayReason": "",
       "unknown": [
-        "card L00069: котировка старше 301 с"
+        "card L00069: котировка старше 1200 с",
+        "card L00070: котировка старше 300 с"
       ],
       "reasons": []
     }
   },
   "broker": {
-    "captured_ms": 1791018033254,
+    "captured_ms": 1791018933021,
     "totals": {
       "portfolio": 1466254.42,
       "currencies": 1466254.42,
@@ -142,7 +143,7 @@
   "operational": {
     "go": {
       "used_rub": 56153.84,
-      "budget_rub": 1416368.42,
+      "budget_rub": 1416348.42,
       "peak_day_rub": 68583.61,
       "capital_peak_rub": 1771706.14,
       "account_liquid_rub": 1466254.42,
@@ -28894,6 +28895,10 @@
     [
       1791017793031,
       728679.98
+    ],
+    [
+      1791018693083,
+      728651.67
     ]
   ],
   "capitalCurve": [
@@ -56851,6 +56856,10 @@
     ],
     [
       1791017793031,
+      1466254.42
+    ],
+    [
+      1791018693083,
       1466254.42
     ]
   ]
