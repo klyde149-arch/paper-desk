@@ -191,7 +191,7 @@
           "risk_pct_account": 0.307,
           "cur_px": 12.736,
           "upnl_rub": -2880.0,
-          "cur_px_ms": 1791038728496,
+          "cur_px_ms": 1791039616755,
           "risk_view": {
             "policy_id": "rf-early-exit-v1",
             "mode": "pilot",
@@ -240,8 +240,8 @@
   "watermarks": {
     "last_daily_day": "2026-10-01",
     "last_hour_ts": 1790978400000,
-    "ops_since": "2026-10-03T13:45:33Z",
-    "last_eq_snap": 1791038133175,
+    "ops_since": "2026-10-03T14:00:32Z",
+    "last_eq_snap": 1791039033222,
     "last_report_day": "2026-10-02",
     "orders_day": "2026-09-30",
     "orders_day_n": 1,
@@ -645,14 +645,14 @@
     "8ab9de01-b09a-408e-b4c9-9bc625e39e21": 1769.0
   },
   "broker": {
-    "captured_ms": 1791038733213,
+    "captured_ms": 1791039632951,
     "totals": {
       "portfolio": 1466254.42,
       "currencies": 1466254.42,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
-      "futures_nominal": -446442.0
+      "futures_nominal": -446462.0
     },
     "expected_yield_pct": -6.72,
     "daily_yield_rub": -56.0,
@@ -666,7 +666,7 @@
         "lots": -20.0,
         "qty": -20.0,
         "avg_px": 12.592,
-        "cur_px": 12.736,
+        "cur_px": 12.737,
         "expected_yield": -2900.0,
         "var_margin": -260.0,
         "var_margin_settled": -260.0
@@ -729,16 +729,16 @@
       "avg_px": 96745.0,
       "lots": -2.0,
       "secid": "EuZ6",
-      "ts": 1791038733213
+      "ts": 1791039632951
     },
     "3580f0a5-5a52-4242-9479-bb67f65477b8": {
       "vm": -260.0,
       "ey": -2900.0,
-      "cur_px": 12.736,
+      "cur_px": 12.737,
       "avg_px": 12.592,
       "lots": -20.0,
       "secid": "CRZ6",
-      "ts": 1791038733213
+      "ts": 1791039632951
     }
   },
   "capital_breakdown": {
@@ -760,13 +760,13 @@
     "rejected_reason": ""
   },
   "broker_pnl_by_card": {
-    "L00070": -2900.0,
-    "L00069": 1769.0
+    "L00069": 1769.0,
+    "L00070": -2900.0
   },
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1791038733213,
+    "updated_ms": 1791039632951,
     "budgets_enforced": true,
     "capital_rub": 1466254.42,
     "capital_ok": true,
@@ -786,7 +786,7 @@
       "CNY": 4501.98
     },
     "unknown": [
-      "card L00069: котировка старше 770 с"
+      "card L00069: котировка старше 1670 с"
     ],
     "day_ok": true,
     "day_pnl_rub": -78.0,
