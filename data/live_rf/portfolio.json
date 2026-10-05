@@ -14,7 +14,7 @@
     "core": {
       "eq_rub": 1540002.206839014,
       "month_start_eq": 1548809.94,
-      "day_start_eq": 1545385.9372390138,
+      "day_start_eq": 1540002.206839014,
       "halt_day": null,
       "positions": [],
       "equity_mtm": 1540002.21
@@ -45,14 +45,14 @@
   "profile_eq": 726574.45,
   "profile_month_start": 730729.95,
   "cur_month": "2026-10",
-  "day_start_eq": 1465596.42,
-  "day_start_date": "2026-10-04",
+  "day_start_eq": 1471253.9,
+  "day_start_date": "2026-10-05",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-10-04",
-    "last_hour_ts": 1791237600000,
-    "ops_since": "2026-10-05T20:15:33Z",
-    "last_eq_snap": 1791234333452,
+    "last_daily_day": "2026-10-05",
+    "last_hour_ts": 1791241200000,
+    "ops_since": "2026-10-05T20:30:33Z",
+    "last_eq_snap": 1791235293405,
     "last_report_day": "2026-10-05",
     "orders_day": "2026-10-05",
     "orders_day_n": 2,
@@ -210,7 +210,7 @@
   "go": {
     "used_rub": 0.0,
     "budget_rub": 1421253.9,
-    "peak_day_rub": 56153.84,
+    "peak_day_rub": 0.0,
     "capital_peak_rub": 1771706.14,
     "account_liquid_rub": 1471253.9,
     "bot_capital_account_rub": 1471253.9,
@@ -224,8 +224,43 @@
     "stocks_deficit": 0,
     "last": "D2 8ab9de01-b09a-408e-b4c9-9bc625e39e21 lots=10"
   },
-  "pending_intents": [],
-  "next_intent_id": 73,
+  "pending_intents": [
+    {
+      "id": "i00073",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "VTBR",
+      "ticker": "",
+      "uid": "",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "602045ce-eb60-ffb2-eb40-638b632cef57",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1791233400000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-10-05",
+      "state_ts": 1791235233375,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 285.612184,
+        "atr": 142.806092,
+        "risk_pct": 0.05,
+        "ref_px": 5585.0,
+        "level": 5552.329095,
+        "sig_key": "core|VTBR|long|2026-10-05|5552.329095",
+        "sig_src": "donchian-close",
+        "sig_ticker": "VBZ6",
+        "note": "donchian close 5585 vs [5121 / 5552.3291]"
+      }
+    }
+  ],
+  "next_intent_id": 74,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 36,
@@ -261,15 +296,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "readiness": {
-    "day": "2026-10-04",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2259936.5,
-    "go_cap_rub": 1061697.32,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1790980173308,
@@ -474,12 +500,21 @@
       }
     ]
   },
+  "readiness": {
+    "day": "2026-10-05",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2113758.74,
+    "go_cap_rub": 1065940.42,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1791234933430,
+    "captured_ms": 1791235833361,
     "totals": {
       "portfolio": 1471253.9,
       "currencies": 1471253.9,
@@ -571,7 +606,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1791234933430,
+    "updated_ms": 1791235833361,
     "budgets_enforced": true,
     "capital_rub": 1471253.9,
     "capital_ok": true,
