@@ -50,9 +50,9 @@
   "peak_eq": 837288.71,
   "watermarks": {
     "last_daily_day": "2026-10-06",
-    "last_hour_ts": 1791327600000,
-    "ops_since": "2026-10-06T21:15:33Z",
-    "last_eq_snap": 1791324033445,
+    "last_hour_ts": 1791331200000,
+    "ops_since": "2026-10-06T21:30:33Z",
+    "last_eq_snap": 1791324993672,
     "last_report_day": "2026-10-06",
     "orders_day": "2026-10-05",
     "orders_day_n": 2,
@@ -76,7 +76,7 @@
         "SILV": "no-signal"
       }
     },
-    "broker_ledger_day": "2026-10-06"
+    "broker_ledger_day": "2026-10-07"
   },
   "fronts": {
     "BR": {
@@ -296,14 +296,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "risk_day": {
-    "day": "2026-10-06",
-    "base_ms": 1791236133473,
-    "vm_by_uid": {},
-    "mom_eq": 350000.0,
-    "e_base": 1471253.9,
-    "fees_est_rub": 0.0
-  },
   "readiness": {
     "day": "2026-10-06",
     "checked_n": 11,
@@ -318,7 +310,7 @@
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1791324933431,
+    "captured_ms": 1791325833444,
     "totals": {
       "portfolio": 1472513.9,
       "currencies": 1472513.9,
@@ -409,8 +401,8 @@
   "broker_pnl_by_card": {},
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
-    "first_ms": 1791152073366,
-    "until_ms": 1791324933431,
+    "first_ms": 1791152973200,
+    "until_ms": 1791325833444,
     "varmargin_rub": -1930.75,
     "fees_rub": -35716.97,
     "fees_other_rub": -4854.23,
@@ -576,18 +568,26 @@
       "17128475407",
       "429445205887"
     ],
-    "updated_ms": 1791324933431,
+    "updated_ms": 1791325833444,
     "last_varmargin_op_ms": 1791234090337
   },
   "pending_settle": {
     "rub": 0.0,
-    "updated_ms": 1791324933431,
+    "updated_ms": 1791325833444,
     "items": []
+  },
+  "risk_day": {
+    "day": "2026-10-07",
+    "base_ms": 1791325833444,
+    "vm_by_uid": {},
+    "mom_eq": 350000.0,
+    "e_base": 1472513.9,
+    "fees_est_rub": 0.0
   },
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1791324933431,
+    "updated_ms": 1791325833444,
     "budgets_enforced": true,
     "capital_rub": 1472513.9,
     "capital_ok": true,
@@ -604,9 +604,9 @@
     "fx_cap_rub": 22087.71,
     "by_asset": {},
     "unknown": [],
-    "day_ok": false,
-    "day_pnl_rub": null,
-    "day_limit_rub": null,
-    "day_reason": "нет проверенной дневной базы"
+    "day_ok": true,
+    "day_pnl_rub": 0.0,
+    "day_limit_rub": 29450.28,
+    "day_reason": ""
   }
 }
