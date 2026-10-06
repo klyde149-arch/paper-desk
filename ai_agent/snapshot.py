@@ -23,9 +23,12 @@ FORMAT = """## Как отвечать
   stop_px и target_px (обязательны), horizon_days, setup (pullback | early_breakout | catalyst),
   reason (до 300 символов), invalidation (что сломает идею). Прежняя заявка по инструменту заменяется.
 - modify: новые stop_px / target_px позиции (стоп только подтягивается) или уровни висящей заявки.
+  tag: event_tighten — если стоп подтягивается из-за предстоящего события; иначе null.
 - close: закрыть позицию по рынку; close_kind (idea_broken | pre_event | take_profit) и reason.
 - cancel: снять висящую заявку. hold: ничего не менять.
-Неиспользуемые поля — null. Цены — в тех же единицах, что бары инструмента."""
+Неиспользуемые поля — null. Цены — в тех же единицах, что бары инструмента.
+skips — отказы войти: по каждой группе с режимом trend, где после вашего ответа нет ни позиции, ни заявки,
+хотя бы одна строка: instrument, side (направление тренда), reason одной строкой. Иначе — пустой список."""
 
 
 def decimals(asset):
@@ -98,6 +101,11 @@ def build(ctx):
         n, C.MAX_POSITIONS, groups, C.MAX_PER_GROUP))
     u.append('Сумма закрытых сделок: %+.2fR (при %.0fR новые входы останавливаются).' % (
         book.closed_sum_r(state), C.HALT_SUM_R))
+    m = ctx.get('mission')
+    if m:
+        u.append('Миссия: закрытых сделок %d; средняя прибыльная %s (цель не ниже +1,5R); входов после прошедшего '
+                 'движения %s (не больше 20%%).' % (m['n'], '%+.2fR' % m['avg_win'] if m.get('avg_win') is not None else '—',
+                                                   '%d%%' % round(m['late_share'] * 100) if m.get('late_share') is not None else '—'))
     u.append('Новые входы: %s.' % ('запрещены — ' + ctx['entries_blocked'] if ctx.get('entries_blocked') else 'разрешены'))
 
     u.append('\n### Позиции\n')

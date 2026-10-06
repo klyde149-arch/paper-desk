@@ -11,7 +11,7 @@ import json
 import os
 import re
 
-from . import budget, llm, memory, tg
+from . import budget, llm, memory, report, review, tg
 from . import config as C
 from . import timeutil as T
 
@@ -98,6 +98,18 @@ def stats_md(trades):
     return '\n'.join(out)
 
 
+def mission_md(ms, miss, silent):
+    late = '—' if ms['late_share'] is None else '%d%%' % round(ms['late_share'] * 100)
+    avg = '—' if ms['avg_win'] is None else '%+.2fR' % ms['avg_win']
+    out = ['- Средняя прибыльная сделка (все сделки с запуска): %s, цель не ниже +1,5R.' % avg,
+           '- Входы после уже прошедшего движения (ER20 ≥ 0,5): %s, не больше 20%%.' % late,
+           '- Упущенные идеи за неделю: %d, сумма %+.2fR (ошибка того же веса, что выбитый стоп).'
+           % (len(miss), sum(r['r'] for r in miss)),
+           '- Тренд пропущен молча (без входа и без причины): %d раз.' % len(silent)]
+    out += ['  - ' + x for x in silent]
+    return chr(10).join(out)
+
+
 def lesson_md(lesson_id, x, day, week):
     cases = '\n'.join('- %s, %s, %s, %s' % (c['date'], c['instrument'], c['decision'],
                                              '%+.2fR' % c['result_r'] if isinstance(c['result_r'], (int, float)) else 'в работе')
@@ -122,6 +134,12 @@ def run(state, cx):
     week = '%d-W%02d' % (y, w)
     if not trades and not any(d.get('accepted') for d in decisions):
         return 'skip', 'за неделю нет ни сделок, ни решений — разбирать нечего'
+    miss = review.missed(decisions, state, cx.P['series'], lo_s)
+    tight = review.tighten_review(trades, cx.P['series'])
+    silent = ['%s %s: %s' % (d['at'], d.get('point'), ', '.join(C.GROUP_RU[g] for g in d['silent_skips']))
+              for d in decisions if d.get('silent_skips')]
+    ms = report._stats(state['trades'], 'r', 'instrument', 'entry_day', cx.P['series'], {})
+    mission = mission_md(ms, miss, silent)
     rules, _ = memory.load_rules(cx.P['memory'])
     lessons_text, _, _ = memory.accepted_lessons(cx.P['memory'])
     system = rules + '\n\n## Принятые уроки\n\n' + (lessons_text or 'Пока нет.') + '\n\n' + INSTRUCTIONS
@@ -134,6 +152,9 @@ def run(state, cx):
     lines += ['', '## Открытые позиции']
     lines += ['%s %s %s, вход %s %s, стоп %s' % (p['instrument'], p['side'], p['setup'], p['entry_at'], p['entry'], p['stop'])
               for p in state['positions']] or ['нет']
+    lines += ['', '## Оценка по миссии (считает код)', mission,
+              '', '## Упущенное: что дали бы неисполненные заявки и отказы', review.missed_md(miss),
+              '', '## Подтяжки стопа перед событиями (event_tighten)', review.tighten_md(tight)]
     lines += ['', '## Решения недели']
     for d in decisions:
         for a in d.get('accepted') or []:
@@ -167,8 +188,10 @@ def run(state, cx):
     rdir = os.path.join(cx.P['memory'], memory.REVIEWS_DIR)
     os.makedirs(rdir, exist_ok=True)
     with open(os.path.join(rdir, 'Неделя %s.md' % week), 'w', encoding='utf-8', newline='\n') as f:
-        f.write('# Неделя %s\n\n## Цифры (считает код)\n\n%s\n\n## Самопроверка агента\n\n%s\n'
-                % (week, stats_md(trades), str(data.get('review') or '').strip()[:4000]))
+        f.write('# Неделя %s\n\n## Цифры (считает код)\n\n%s\n\n%s\n\n### Упущенное\n\n%s\n\n'
+                '### Подтяжки перед событиями\n\n%s\n\n## Самопроверка агента\n\n%s\n'
+                % (week, stats_md(trades), mission, review.missed_md(miss), review.tighten_md(tight),
+                   str(data.get('review') or '').strip()[:4000]))
         if bad:
             f.write('\n## Отброшенные предложения\n\n' + '\n'.join('- ' + b for b in bad) + '\n')
     ldir = os.path.join(cx.P['memory'], memory.LESSONS_DIR)
@@ -184,8 +207,9 @@ def run(state, cx):
             '\n'.join('• %s %s: %s' % (c['date'], c['instrument'], c['decision']) for c in x['cases'])),
             keyboard=[[{'text': '✅ Принять', 'callback_data': 'al:acc:' + lid},
                        {'text': '✖ Отклонить', 'callback_data': 'al:rej:' + lid}]])
-    tg.send('🤖 Агент: недельный разбор %s готов (%s). Предложений уроков: %d%s.'
-            % (week, stats_md(trades).split('\n')[0], len(ok_lessons),
+    tg.send('🤖 Агент: недельный разбор %s готов (%s). Упущено идей: %d (%+.2fR), молчаливых пропусков тренда: %d. '
+            'Предложений уроков: %d%s.'
+            % (week, stats_md(trades).split('\n')[0], len(miss), sum(r['r'] for r in miss), len(silent), len(ok_lessons),
                ' — ждут решения кнопками выше' if ok_lessons else ''))
     return 'ok', {'lessons': len(ok_lessons), 'dropped': bad}
 

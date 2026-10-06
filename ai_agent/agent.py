@@ -179,8 +179,17 @@ def build_messages(state, item, mkt, cx, news_items):
            'state': state, 'rules_text': rules, 'lessons_text': lessons_text,
            'calendar': events.window(cx.cal, now), 'news': news_items,
            'journal_digest': snapshot.journal_digest(state['trades'], read_decisions(cx.P['decisions'])),
-           'entries_blocked': _entries_blocked(state, cx)}
+           'entries_blocked': _entries_blocked(state, cx), 'mission': mission_stats(state, cx.P['series'])}
     return snapshot.build(ctx), allowed, mv, left
+
+
+def mission_stats(state, series_dir):
+    """Показатели миссии по всем закрытым сделкам — агент видит их в каждом вызове."""
+    try:
+        s = report._stats(state['trades'], 'r', 'instrument', 'entry_day', series_dir, {})
+    except Exception:
+        return None
+    return {'n': s['n'], 'avg_win': s['avg_win'], 'late_share': s['late_share']}
 
 
 def run_trade_point(state, item, mkt, cx):
@@ -237,9 +246,16 @@ def run_trade_point(state, item, mkt, cx):
         accepted, rejected = decide.validate(cached['data'], vctx)
     except ValueError as e:
         return 'error', 'ответ модели не прошёл схему: %s' % e, []
+    skips = decide.clean_skips(cached['data'])
+    silent = decide.silent_skips(cached['data'].get('regime'), state, skips, set(allowed), vctx['hourly_ok'],
+                                 entries_blocked=halt, accepted=accepted)
     decision = {'id': key, 'at': T.fmt(now), 'point': point, 'memory_version': cached.get('memory_version', mv),
                 'regime': cached['data'].get('regime'), 'summary': ' '.join(str(cached['data'].get('summary') or '').split())[:300],
-                'accepted': accepted, 'rejected': rejected, 'cost_usd': cached.get('cost_usd')}
+                'accepted': accepted, 'rejected': rejected, 'skips': skips, 'silent_skips': silent,
+                # последний дневной бар ряда на момент решения: после ролла ряд пересчитывается,
+                # по этой отметке review.missed переводит уровни заявок в новые единицы
+                'closes': {a: [mkt[a]['daily'][-1]['day'], mkt[a]['daily'][-1]['c']] for a in C.UNIVERSE if mkt[a]['daily']},
+                'cost_usd': cached.get('cost_usd')}
     if cx.dry:
         return 'dry', decision, []
     append_jsonl(cx.P['decisions'], decision)          # write-ahead: решение записано до применения

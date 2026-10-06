@@ -121,8 +121,10 @@ def position(state, instrument):
     return None
 
 
-def modify_position(state, instrument, stop_px=None, target_px=None, decision_id=None):
-    """Стоп только подтягивается (дальше от цены не отодвигается — молча не принимается)."""
+def modify_position(state, instrument, stop_px=None, target_px=None, decision_id=None, tag=None, at=None):
+    """Стоп только подтягивается (дальше от цены не отодвигается — молча не принимается).
+    tag='event_tighten' — подтяжка перед событием: прежний стоп запоминается, чтобы после выхода
+    сравнить результат с тем, что дал бы старый стоп (report.tighten_review)."""
     p = position(state, instrument)
     ev = []
     if p is None:
@@ -131,7 +133,10 @@ def modify_position(state, instrument, stop_px=None, target_px=None, decision_id
     if stop_px is not None:
         stop_px = round(float(stop_px), R6)
         if sm * (stop_px - p['stop']) > 0:
-            ev.append({'kind': 'stop_moved', 'instrument': instrument, 'from': p['stop'], 'to': stop_px})
+            ev.append({'kind': 'stop_moved', 'instrument': instrument, 'from': p['stop'], 'to': stop_px, 'tag': tag})
+            if tag == 'event_tighten':
+                p.setdefault('tightens', []).append({'at': T.fmt(at) if at else None, 'from': p['stop'], 'to': stop_px,
+                                                     'decision_id': decision_id})
             p['stop'] = stop_px
             p['stop_src'] = 'agent'
         elif stop_px != p['stop']:
@@ -201,6 +206,7 @@ def close_position(state, p, px, at, reason):
         'reason': p.get('reason'), 'invalidation': p.get('invalidation'),
         'decision_id': p.get('decision_id'), 'memory_version': p.get('memory_version'),
         'close_reason': (p.get('pending_close') or {}).get('reason'),
+        'target': p.get('target'), 'tightens': p.get('tightens') or [],
     }
     state['positions'].remove(p)
     state['trades'].append(tr)

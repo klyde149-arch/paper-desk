@@ -104,20 +104,20 @@ class Env:
         return [(start + dt.timedelta(hours=i), px, px, px, px) for i in range(n)]
 
 
-def trade_resp(actions=(), summary='тест'):
+def trade_resp(actions=(), summary='тест', skips=()):
     return {'regime': {'rub': 'range', 'metals': 'trend', 'energy': 'trend', 'index': 'unclear'},
-            'summary': summary, 'actions': list(actions)}
+            'summary': summary, 'actions': list(actions), 'skips': list(skips)}
 
 
 def enter(inst, side='long', order='market', limit=None, stop=None, target=None, setup='pullback', horizon=5):
     return {'instrument': inst, 'action': 'enter', 'side': side, 'order': order, 'limit_px': limit,
             'stop_px': stop, 'target_px': target, 'horizon_days': horizon, 'setup': setup, 'close_kind': None,
-            'reason': 'тестовый вход', 'invalidation': 'уход ниже стопа'}
+            'tag': None, 'reason': 'тестовый вход', 'invalidation': 'уход ниже стопа'}
 
 
 def act(inst, action, **kw):
     base = {'instrument': inst, 'action': action, 'side': None, 'order': None, 'limit_px': None, 'stop_px': None,
-            'target_px': None, 'horizon_days': None, 'setup': None, 'close_kind': None, 'reason': 'тест',
+            'target_px': None, 'horizon_days': None, 'setup': None, 'close_kind': None, 'tag': None, 'reason': 'тест',
             'invalidation': None}
     base.update(kw)
     return base

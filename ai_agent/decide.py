@@ -11,7 +11,10 @@ from . import config as C
 REGIME = ['trend', 'range', 'unclear']
 SETUPS = ['pullback', 'early_breakout', 'catalyst']
 CLOSE_KINDS = ['idea_broken', 'pre_event', 'take_profit']
+TAGS = ['event_tighten']
+GROUPS = ('rub', 'metals', 'energy', 'index')
 MAX_TEXT = 300
+MAX_SKIP_TEXT = 200
 
 
 def _nullable(schema):
@@ -25,12 +28,12 @@ def _enum(values):
 TRADE_SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
-    'required': ['regime', 'summary', 'actions'],
+    'required': ['regime', 'summary', 'actions', 'skips'],
     'properties': {
         'regime': {
             'type': 'object', 'additionalProperties': False,
             'required': ['rub', 'metals', 'energy', 'index'],
-            'properties': {g: _enum(REGIME) for g in ('rub', 'metals', 'energy', 'index')},
+            'properties': {g: _enum(REGIME) for g in GROUPS},
         },
         'summary': {'type': 'string', 'description': 'Картина рынка одной-двумя фразами, до 300 символов'},
         'actions': {
@@ -38,7 +41,7 @@ TRADE_SCHEMA = {
             'items': {
                 'type': 'object', 'additionalProperties': False,
                 'required': ['instrument', 'action', 'side', 'order', 'limit_px', 'stop_px', 'target_px',
-                             'horizon_days', 'setup', 'close_kind', 'reason', 'invalidation'],
+                             'horizon_days', 'setup', 'close_kind', 'tag', 'reason', 'invalidation'],
                 'properties': {
                     'instrument': _enum(C.UNIVERSE),
                     'action': _enum(['enter', 'cancel', 'modify', 'close', 'hold']),
@@ -50,8 +53,22 @@ TRADE_SCHEMA = {
                     'horizon_days': _nullable({'type': 'integer'}),
                     'setup': _nullable(_enum(SETUPS)),
                     'close_kind': _nullable(_enum(CLOSE_KINDS)),
+                    'tag': _nullable(_enum(TAGS)),
                     'reason': {'type': 'string'},
                     'invalidation': _nullable({'type': 'string'}),
+                },
+            },
+        },
+        'skips': {
+            'type': 'array',
+            'description': 'Отказы войти по трендовой группе без позиции и заявки: инструмент, сторона тренда, причина',
+            'items': {
+                'type': 'object', 'additionalProperties': False,
+                'required': ['instrument', 'side', 'reason'],
+                'properties': {
+                    'instrument': _enum(C.UNIVERSE),
+                    'side': _enum(['long', 'short']),
+                    'reason': {'type': 'string'},
                 },
             },
         },
@@ -101,6 +118,8 @@ def validate(resp, ctx):
             reject(a, 'инструмент не входит в эту проверку')
             continue
         a = dict(a)
+        # event_tighten имеет смысл только у подтяжки стопа позиции; в остальных действиях — шум
+        a['tag'] = a.get('tag') if act == 'modify' and a.get('tag') in TAGS else None
         a['reason'] = _txt(a.get('reason'))
         a['invalidation'] = _txt(a.get('invalidation')) or None
         if not a['reason']:
@@ -131,6 +150,46 @@ def validate(resp, ctx):
         else:
             ok.append(a)
     return ok, bad
+
+
+def clean_skips(resp):
+    """Отказы войти из ответа модели: только инструменты универсума, по одному на инструмент."""
+    out, seen = [], set()
+    rows = resp.get('skips') if isinstance(resp, dict) else None
+    for x in rows if isinstance(rows, list) else []:
+        if not isinstance(x, dict) or x.get('instrument') not in C.UNIVERSE or x['instrument'] in seen:
+            continue
+        reason = _txt(x.get('reason'), MAX_SKIP_TEXT)
+        if not reason:
+            continue
+        seen.add(x['instrument'])
+        out.append({'instrument': x['instrument'], 'side': x.get('side') if x.get('side') in ('long', 'short') else None,
+                    'reason': reason})
+    return out
+
+
+def silent_skips(regime, state, skips, allowed, hourly_ok, entries_blocked=None, accepted=()):
+    """Группы, отмеченные trend, где после решения нет ни позиции, ни заявки и нет строки-отказа
+    (правило «тренд нельзя пропустить молча»). accepted — уже проверенные действия этого ответа:
+    вход занимает группу, снятие заявки её освобождает. Не считаются группы, где войти было
+    невозможно: входы запрещены, ни один инструмент группы не входит в проверку или без часовых данных."""
+    if entries_blocked or not isinstance(regime, dict):
+        return []
+    insts = {p['instrument'] for p in state['positions']} | {o['instrument'] for o in state['orders']}
+    for a in accepted:
+        if a['action'] == 'enter':
+            insts.add(a['instrument'])
+        elif a['action'] == 'cancel' and book.position(state, a['instrument']) is None:
+            insts.discard(a['instrument'])
+    busy = {C.GROUP[a] for a in insts}
+    excused = {C.GROUP[x['instrument']] for x in skips}
+    out = []
+    for g in GROUPS:
+        if regime.get(g) != 'trend' or g in busy or g in excused:
+            continue
+        if any(C.GROUP[a] == g and a in allowed and hourly_ok.get(a) for a in C.UNIVERSE):
+            out.append(g)
+    return out
 
 
 def _levels_ok(inst, side, ref, stop, target):
@@ -225,7 +284,8 @@ def apply(state, actions, decided_at, decision_id, memory_version, point):
             ev += book.cancel_order(state, inst, 'решение агента: ' + a['reason'])
         elif act == 'modify':
             if book.position(state, inst) is not None:
-                ev += book.modify_position(state, inst, a.get('stop_px'), a.get('target_px'), decision_id)
+                ev += book.modify_position(state, inst, a.get('stop_px'), a.get('target_px'), decision_id,
+                                           tag=a.get('tag'), at=decided_at)
             else:
                 o = next(o for o in state['orders'] if o['instrument'] == inst)
                 for f in ('limit_px', 'stop_px', 'target_px'):

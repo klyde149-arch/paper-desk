@@ -25,7 +25,7 @@ class LLMError(Exception):
 def _default_mock(messages, schema_name):
     if schema_name == 'trade':
         return {'regime': {'rub': 'unclear', 'metals': 'unclear', 'energy': 'unclear', 'index': 'unclear'},
-                'summary': 'мок: без действий', 'actions': []}
+                'summary': 'мок: без действий', 'actions': [], 'skips': []}
     if schema_name == 'weekly':
         return {'review': 'мок: разбор недели', 'lessons': []}
     return {}

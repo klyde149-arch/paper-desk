@@ -28,7 +28,8 @@ def event_line(e):
     if k == 'trail':
         return '↗ Трейл %s: стоп %s → %s' % (a, px(a, e['from']), px(a, e['to']))
     if k == 'stop_moved':
-        return '↗ Стоп %s: %s → %s' % (a, px(a, e['from']), px(a, e['to']))
+        return '↗ Стоп %s: %s → %s%s' % (a, px(a, e['from']), px(a, e['to']),
+                                         ' (перед событием)' if e.get('tag') == 'event_tighten' else '')
     if k == 'target_moved':
         return '🎯 Цель %s: %s → %s' % (a, px(a, e['from']), px(a, e['to']))
     if k == 'close_requested':
@@ -55,6 +56,10 @@ def point_message(point_label, decision, events_list):
             lines.append(s)
     for r in decision.get('rejected') or []:
         lines.append('⛔ Отклонено %s %s: %s' % (r.get('action'), r.get('instrument'), r['why']))
+    for x in decision.get('skips') or []:
+        lines.append('⏭ Пропуск %s%s: %s' % (x['instrument'], ' ' + SIDE_RU[x['side']] if x.get('side') else '', x['reason']))
+    if decision.get('silent_skips'):
+        lines.append('⚠️ Тренд без входа и без причины: %s' % ', '.join(C.GROUP_RU[g] for g in decision['silent_skips']))
     if len(lines) == 2 and not decision.get('rejected'):
         lines.append('Без изменений.')
     if decision.get('cost_usd') is not None:
@@ -74,6 +79,10 @@ def journal_entry(at, point_label, decision, events_list):
                                             (' Сломается, если: %s' % a['invalidation']) if a.get('invalidation') else ''))
     for r in decision.get('rejected') or []:
         out.append('- отклонено %s %s — %s' % (r.get('action'), r.get('instrument'), r['why']))
+    for x in decision.get('skips') or []:
+        out.append('- пропуск %s%s — %s' % (x['instrument'], ' ' + SIDE_RU[x['side']] if x.get('side') else '', x['reason']))
+    if decision.get('silent_skips'):
+        out.append('- **тренд пропущен молча**: %s' % ', '.join(C.GROUP_RU[g] for g in decision['silent_skips']))
     for e in events_list:
         s = event_line(e)
         if s:
