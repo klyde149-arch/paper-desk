@@ -45,14 +45,14 @@
   "profile_eq": 726574.45,
   "profile_month_start": 730729.95,
   "cur_month": "2026-10",
-  "day_start_eq": 1471253.9,
-  "day_start_date": "2026-10-05",
+  "day_start_eq": 1472513.9,
+  "day_start_date": "2026-10-06",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-10-05",
-    "last_hour_ts": 1791324000000,
-    "ops_since": "2026-10-06T20:15:33Z",
-    "last_eq_snap": 1791321273282,
+    "last_daily_day": "2026-10-06",
+    "last_hour_ts": 1791327600000,
+    "ops_since": "2026-10-06T20:30:33Z",
+    "last_eq_snap": 1791322173407,
     "last_report_day": "2026-10-06",
     "orders_day": "2026-10-05",
     "orders_day_n": 2,
@@ -224,8 +224,43 @@
     "stocks_deficit": 0,
     "last": "D2 8ab9de01-b09a-408e-b4c9-9bc625e39e21 lots=10"
   },
-  "pending_intents": [],
-  "next_intent_id": 74,
+  "pending_intents": [
+    {
+      "id": "i00074",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "VTBR",
+      "ticker": "",
+      "uid": "",
+      "side": "buy",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "f2c43819-7423-42e3-0572-04f4c89879f5",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1791319800000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-10-06",
+      "state_ts": 1791321633482,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 295.857143,
+        "atr": 147.928571,
+        "risk_pct": 0.05,
+        "ref_px": 5700.0,
+        "level": 5604.0,
+        "sig_key": "core|VTBR|long|2026-10-06|5604.000000",
+        "sig_src": "donchian-close",
+        "sig_ticker": "VBZ6",
+        "note": "donchian close 5700 vs [5121 / 5604]"
+      }
+    }
+  ],
+  "next_intent_id": 75,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 36,
@@ -261,15 +296,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "readiness": {
-    "day": "2026-10-05",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2113758.74,
-    "go_cap_rub": 1065940.42,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1790980233366,
@@ -455,12 +481,21 @@
     "e_base": 1471253.9,
     "fees_est_rub": 0.0
   },
+  "readiness": {
+    "day": "2026-10-06",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2177497.22,
+    "go_cap_rub": 1066885.42,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1791321333480,
+    "captured_ms": 1791322233362,
     "totals": {
       "portfolio": 1472513.9,
       "currencies": 1472513.9,
@@ -552,7 +587,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1791321333480,
+    "updated_ms": 1791322233362,
     "budgets_enforced": true,
     "capital_rub": 1472513.9,
     "capital_ok": true,
