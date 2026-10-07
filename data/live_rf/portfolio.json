@@ -45,14 +45,14 @@
   "profile_eq": 726574.45,
   "profile_month_start": 730729.95,
   "cur_month": "2026-10",
-  "day_start_eq": 1472513.9,
-  "day_start_date": "2026-10-06",
+  "day_start_eq": 1466663.9,
+  "day_start_date": "2026-10-07",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-10-06",
-    "last_hour_ts": 1791410400000,
-    "ops_since": "2026-10-07T20:15:33Z",
-    "last_eq_snap": 1791407493390,
+    "last_daily_day": "2026-10-07",
+    "last_hour_ts": 1791414000000,
+    "ops_since": "2026-10-07T20:30:33Z",
+    "last_eq_snap": 1791408393547,
     "last_report_day": "2026-10-07",
     "orders_day": "2026-10-05",
     "orders_day_n": 2,
@@ -224,8 +224,77 @@
     "stocks_deficit": 0,
     "last": "D2 8ab9de01-b09a-408e-b4c9-9bc625e39e21 lots=10"
   },
-  "pending_intents": [],
-  "next_intent_id": 75,
+  "pending_intents": [
+    {
+      "id": "i00075",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "GOLD",
+      "ticker": "",
+      "uid": "",
+      "side": "sell",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "e5320300-3dfe-050b-2baf-23a780d5e9a6",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1791406200000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-10-07",
+      "state_ts": 1791408033352,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 144.47486,
+        "atr": 72.23743,
+        "risk_pct": 0.05,
+        "ref_px": 4164.5,
+        "level": 4171.4,
+        "sig_key": "core|GOLD|short|2026-10-07|4171.400000",
+        "sig_src": "donchian-close",
+        "sig_ticker": "GDZ6",
+        "note": "donchian close 4164.5 vs [4171.4 / 4558.2267]"
+      }
+    },
+    {
+      "id": "i00076",
+      "kind": "entry",
+      "sleeve": "core",
+      "asset": "SILV",
+      "ticker": "",
+      "uid": "",
+      "side": "sell",
+      "lots": 0,
+      "filled_lots": 0,
+      "avg_fill_px": null,
+      "order_key": "9fa09d03-522d-80ac-480e-cb5f83aa2e3f",
+      "broker_order_id": "",
+      "state": "INTENT",
+      "attempts": 0,
+      "t_signal": 1791406200000,
+      "t_post": 0,
+      "t_ack": 0,
+      "t_fill": 0,
+      "created_day": "2026-10-07",
+      "state_ts": 1791408033352,
+      "last_error": "",
+      "ctx": {
+        "stop_dist": 3.640384,
+        "atr": 1.820192,
+        "risk_pct": 0.05,
+        "ref_px": 60.85,
+        "level": 60.87,
+        "sig_key": "core|SILV|short|2026-10-07|60.870000",
+        "sig_src": "donchian-close",
+        "sig_ticker": "SVZ6",
+        "note": "donchian close 60.85 vs [60.87 / 70.7234]"
+      }
+    }
+  ],
+  "next_intent_id": 77,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
     "trades": 36,
@@ -261,15 +330,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "readiness": {
-    "day": "2026-10-06",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2177497.22,
-    "go_cap_rub": 1066885.42,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1791152973200,
@@ -455,12 +515,21 @@
     "e_base": 1472513.9,
     "fees_est_rub": 0.0
   },
+  "readiness": {
+    "day": "2026-10-07",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2221106.46,
+    "go_cap_rub": 1062497.92,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1791407733458,
+    "captured_ms": 1791408633239,
     "totals": {
       "portfolio": 1466663.9,
       "currencies": 1466663.9,
@@ -543,7 +612,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1791407733458,
+    "updated_ms": 1791408633239,
     "budgets_enforced": true,
     "capital_rub": 1466663.9,
     "capital_ok": true,
