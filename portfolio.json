@@ -10,76 +10,34 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  8704.59,
-    "equity_usd":  8620.77,
+    "balance_usd":  8614.94,
+    "equity_usd":  8614.94,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  8637.44,
     "day_start_date_utc":  "2026-10-08",
     "trading_halted":  false,
     "open_positions":  [
-                           {
-                               "id":  "T50",
-                               "symbol":  "BCH-USDT",
-                               "side":  "long",
-                               "qty":  5.6508,
-                               "qty_initial":  5.6508,
-                               "entry_price":  311.933552,
-                               "stop":  296.38,
-                               "stop0":  296.38,
-                               "tp1":  335.26388,
-                               "entry_utc":  "2026-10-03 00:00",
-                               "entry_ts":  1790985635886,
-                               "risk_usd":  87.89,
-                               "notional_usd":  1762.67,
-                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  false,
-                               "fees_usd":  0.96947076360288,
-                               "funding_usd":  2.6565484452000003,
-                               "legs":  [
 
-                                        ],
-                               "mfe_px":  322.38,
-                               "mae_px":  296.88,
-                               "thesis":  {
-                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
-                                              "regime":  "BTC 4h up; BCH-USDT 4h up; F\u0026G 67",
-                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-02 20:00 UTC",
-                                              "indicators":  "RSI 49.9, ATR 2.4% (кэп 3%), фандинг 0.0001/8ч",
-                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
-                                              "riskPlan":  "вход ~311.933552, стоп 296.38 (4.83%), TP1 335.26388 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $87.89",
-                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
-                                              "checks":  {
-                                                             "setupA":  true,
-                                                             "btcFilter":  true,
-                                                             "flatMode":  true,
-                                                             "atrCap":  true,
-                                                             "funding":  true,
-                                                             "fearGreed":  true,
-                                                             "btcMom5d":  true,
-                                                             "atrCapLong":  true
-                                                         }
-                                          }
-                           }
                        ],
     "stats":  {
-                  "closed_trades":  51,
+                  "closed_trades":  52,
                   "wins":  17,
-                  "losses":  34,
-                  "total_fees_usd":  278.05,
-                  "total_funding_usd":  43.39,
-                  "realized_pnl_usd":  -1291.84
+                  "losses":  35,
+                  "total_fees_usd":  279.94,
+                  "total_funding_usd":  46.05,
+                  "realized_pnl_usd":  -1385.12
               },
-    "last_check_utc":  "2026-10-08 04:15",
+    "last_check_utc":  "2026-10-08 04:21",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1791432840000,
+                 "last_1m_ts":  1791433200000,
                  "last_4h_ts":  1791417600000,
                  "halt_day_utc":  null,
                  "soft_dd":  true,
                  "next_trade_id":  53,
                  "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-10-07",
-                 "last_tick_utc":  "2026-10-08 04:15"
+                 "last_tick_utc":  "2026-10-08 04:21"
              }
 }
