@@ -50,9 +50,9 @@
   "peak_eq": 837288.71,
   "watermarks": {
     "last_daily_day": "2026-10-08",
-    "last_hour_ts": 1791532800000,
-    "ops_since": "2026-10-09T06:15:33Z",
-    "last_eq_snap": 1791529773210,
+    "last_hour_ts": 1791536400000,
+    "ops_since": "2026-10-09T06:30:33Z",
+    "last_eq_snap": 1791530673496,
     "last_report_day": "2026-10-08",
     "orders_day": "2026-10-05",
     "orders_day_n": 2,
@@ -224,42 +224,7 @@
     "stocks_deficit": 0,
     "last": "D2 8ab9de01-b09a-408e-b4c9-9bc625e39e21 lots=10"
   },
-  "pending_intents": [
-    {
-      "id": "i00077",
-      "kind": "entry",
-      "sleeve": "core",
-      "asset": "BR",
-      "ticker": "",
-      "uid": "",
-      "side": "buy",
-      "lots": 0,
-      "filled_lots": 0,
-      "avg_fill_px": null,
-      "order_key": "c11dd4c3-a5c5-2724-5c92-2cff0cfc3622",
-      "broker_order_id": "",
-      "state": "INTENT",
-      "attempts": 0,
-      "t_signal": 1791492600000,
-      "t_post": 0,
-      "t_ack": 0,
-      "t_fill": 0,
-      "created_day": "2026-10-08",
-      "state_ts": 1791494433529,
-      "last_error": "",
-      "ctx": {
-        "stop_dist": 9.240188,
-        "atr": 4.620094,
-        "risk_pct": 0.05,
-        "ref_px": 103.92,
-        "level": 103.13,
-        "sig_key": "core|BR|long|2026-10-08|103.130000",
-        "sig_src": "donchian-close",
-        "sig_ticker": "BRX6",
-        "note": "donchian close 103.92 vs [90.5881 / 103.13]"
-      }
-    }
-  ],
+  "pending_intents": [],
   "next_intent_id": 78,
   "run_key": "7902651633384c66b8b72c2234d61b85",
   "stats": {
@@ -495,7 +460,7 @@
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1791530133389,
+    "captured_ms": 1791531033392,
     "totals": {
       "portfolio": 1467383.9,
       "currencies": 1467383.9,
@@ -578,7 +543,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1791530133389,
+    "updated_ms": 1791531033392,
     "budgets_enforced": true,
     "capital_rub": 1467383.9,
     "capital_ok": true,
