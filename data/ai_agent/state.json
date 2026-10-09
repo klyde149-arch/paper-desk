@@ -1,6 +1,6 @@
 {
  "version": 1,
- "equity": 99.08000378610906,
+ "equity": 98.60986958687123,
  "next_id": 24,
  "orders": [
   {
@@ -48,34 +48,6 @@
    "invalidation": "Закрытие дня ниже 12.85 — возврат в сентябрьский диапазон.",
    "order": "limit",
    "decision_id": "evening:2026-10-06",
-   "memory_version": "51eb78f8ca51",
-   "pending_close": null
-  },
-  {
-   "id": "A23",
-   "instrument": "SILV",
-   "side": "short",
-   "setup": "pullback",
-   "entry": 61.19,
-   "entry_at": "2026-10-09 06:00",
-   "entry_day": "2026-10-09",
-   "qty": 4.8591144,
-   "qty_initial": 4.8591144,
-   "stop": 61.25,
-   "initial_stop": 61.25,
-   "stop_src": "initial",
-   "target": 58.0,
-   "best": 61.19,
-   "risk_amt": 0.495548684,
-   "entry_fee": 0.02973292101213636,
-   "fees": 0.0,
-   "realized": 0.0,
-   "rolls": 0,
-   "horizon_days": 7,
-   "reason": "Лимитка 61.10 не исполнилась, откаты держатся ниже 60.51. Переношу на ближнюю структуру: максимум дня 60.49–60.51, стоп над утренним максимумом 61.22. R/R около 3.3.",
-   "invalidation": "Возврат и закрепление выше 61.2 — возврат в диапазон 61–63.",
-   "order": "limit",
-   "decision_id": "evening:2026-10-08",
    "memory_version": "51eb78f8ca51",
    "pending_close": null
   }
@@ -182,18 +154,45 @@
    "close_reason": null,
    "target": 4000.0,
    "tightens": []
+  },
+  {
+   "id": "A23",
+   "instrument": "SILV",
+   "side": "short",
+   "setup": "pullback",
+   "entry_at": "2026-10-09 06:00",
+   "entry_day": "2026-10-09",
+   "entry": 61.19,
+   "initial_stop": 61.25,
+   "exit_at": "2026-10-09 07:00",
+   "exit_px": 61.280625,
+   "exit_reason": "stop",
+   "r": -1.009,
+   "net": -0.4998671202499657,
+   "risk_amt": 0.495548684,
+   "fees": 0.05951,
+   "rolls": 0,
+   "days_held": 0,
+   "horizon_days": 7,
+   "reason": "Лимитка 61.10 не исполнилась, откаты держатся ниже 60.51. Переношу на ближнюю структуру: максимум дня 60.49–60.51, стоп над утренним максимумом 61.22. R/R около 3.3.",
+   "invalidation": "Возврат и закрепление выше 61.2 — возврат в диапазон 61–63.",
+   "decision_id": "evening:2026-10-08",
+   "memory_version": "51eb78f8ca51",
+   "close_reason": null,
+   "target": 58.0,
+   "tightens": []
   }
  ],
  "halt": null,
  "last_bar": {
-  "BR": 1791525600000,
-  "GOLD": 1791525600000,
-  "SILV": 1791525600000,
-  "Si": 1791525600000,
-  "CNY": 1791525600000,
-  "MIX": 1791525600000,
-  "Eu": 1791500400000,
-  "NG": 1791525600000
+  "BR": 1791529200000,
+  "GOLD": 1791529200000,
+  "SILV": 1791529200000,
+  "Si": 1791529200000,
+  "CNY": 1791529200000,
+  "MIX": 1791529200000,
+  "Eu": 1791529200000,
+  "NG": 1791529200000
  },
  "series_ref": {
   "BR": [
