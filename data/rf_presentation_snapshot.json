@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAtMs": 1791911742752,
-  "sourceAtMs": 1791910833584,
+  "generatedAtMs": 1791912641216,
+  "sourceAtMs": 1791911793527,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
@@ -12,10 +12,10 @@
     "capitalModel": "legacy",
     "accountTotal": 1461353.9,
     "userAssets": 0.0,
-    "dayBase": 1461353.9,
+    "dayBase": 1465043.9,
     "dayBaseSource": "broker_daily_yield",
-    "todayAmt": 0.0,
-    "todayPct": 0.0,
+    "todayAmt": -3690.0,
+    "todayPct": -0.25,
     "allTimePct": -2.51,
     "allTimeAmt": -37647.72,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
@@ -41,7 +41,7 @@
     "riskBudget": {
       "mode": "pilot",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1791911733478,
+      "updatedMs": 1791912633504,
       "capitalRub": 1461353.9,
       "capitalOk": true,
       "capitalReason": "",
@@ -66,7 +66,7 @@
     }
   },
   "broker": {
-    "captured_ms": 1791911733478,
+    "captured_ms": 1791912633504,
     "totals": {
       "portfolio": 1461353.9,
       "currencies": 1461353.9,
@@ -75,9 +75,9 @@
       "etf": 0.0,
       "futures_nominal": 0.0
     },
-    "expected_yield_pct": 0.0,
-    "daily_yield_rub": 0.0,
-    "daily_yield_rel_pct": 0.0,
+    "expected_yield_pct": -6.59,
+    "daily_yield_rub": -3690.0,
+    "daily_yield_rel_pct": -0.25,
     "positions": [
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -86,7 +86,7 @@
         "figi": "RUB000UTSTOM",
         "lots": 1173263.9,
         "qty": 1173263.9,
-        "avg_px": 0.0,
+        "avg_px": 1.0,
         "cur_px": 1.0,
         "expected_yield": 0.0,
         "var_margin": 0.0,
@@ -99,9 +99,9 @@
         "figi": "BBG000VHQTD1",
         "lots": 18.0,
         "qty": 1800.0,
-        "avg_px": 0.0,
+        "avg_px": 217.37,
         "cur_px": 160.05,
-        "expected_yield": 0.0,
+        "expected_yield": -103193.0,
         "var_margin": 0.0,
         "var_margin_settled": 0.0
       }
@@ -32314,6 +32314,10 @@
     [
       1791910833584,
       726574.45
+    ],
+    [
+      1791911793527,
+      726574.45
     ]
   ],
   "capitalCurve": [
@@ -63775,6 +63779,10 @@
     ],
     [
       1791910833584,
+      1461353.9
+    ],
+    [
+      1791911793527,
       1461353.9
     ]
   ]
