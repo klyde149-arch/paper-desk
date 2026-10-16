@@ -2905,5 +2905,63 @@
                                       "atrCapLong":  true
                                   }
                    }
+    },
+    {
+        "id":  "T57",
+        "sym":  "SOL-USDT",
+        "side":  "short",
+        "result":  "win",
+        "entryUtc":  "2026-10-12 12:01",
+        "entryDay":  "2026-10-12",
+        "entryTs":  1791806461124,
+        "entry":  110.859732,
+        "qty":  17.077,
+        "exitUtc":  "2026-10-16 07:59",
+        "exitDay":  "2026-10-16",
+        "exitTs":  1792137540000,
+        "exitPx":  106.729363,
+        "exitReason":  "trail-ema20",
+        "legs":  [
+                     {
+                         "part":  "TP1",
+                         "qty":  8.5385,
+                         "price":  107.11083,
+                         "utc":  "2026-10-12 17:41",
+                         "pnl":  32.01
+                     },
+                     {
+                         "part":  "runner",
+                         "qty":  8.5385,
+                         "price":  106.347895,
+                         "utc":  "2026-10-16 07:59",
+                         "pnl":  38.52
+                     }
+                 ],
+        "pnlUsd":  69.08,
+        "rMultiple":  1.62,
+        "riskUsd":  42.68,
+        "fees":  2.04,
+        "funding":  -0.59,
+        "mfePx":  100.617,
+        "maePx":  111.042,
+        "thesis":  {
+                       "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                       "regime":  "BTC 4h down; SOL-USDT 4h down; F\u0026G 69",
+                       "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-12 08:00 UTC",
+                       "indicators":  "RSI 45.7, ATR 1.44% (кэп 3%), фандинг 9.4E-05/8ч",
+                       "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                       "riskPlan":  "вход ~110.859732, стоп 113.359 (2.17%), TP1 107.11083 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $42.68",
+                       "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                       "checks":  {
+                                      "setupA":  true,
+                                      "btcFilter":  true,
+                                      "flatMode":  true,
+                                      "atrCap":  true,
+                                      "funding":  true,
+                                      "fearGreed":  true,
+                                      "btcMom5d":  true,
+                                      "atrCapLong":  true
+                                  }
+                   }
     }
 ]
