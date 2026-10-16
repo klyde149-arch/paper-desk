@@ -10,62 +10,13 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  8621.72,
-    "equity_usd":  8741.96,
+    "balance_usd":  8665.03,
+    "equity_usd":  8741.2,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  8740.48,
     "day_start_date_utc":  "2026-10-16",
     "trading_halted":  false,
     "open_positions":  [
-                           {
-                               "id":  "T54",
-                               "symbol":  "AAVE-USDT",
-                               "side":  "short",
-                               "qty":  3.7198,
-                               "qty_initial":  7.4396,
-                               "entry_price":  170.188928,
-                               "stop":  170.188928,
-                               "stop0":  175.95,
-                               "tp1":  161.54732,
-                               "entry_utc":  "2026-10-10 20:06",
-                               "entry_ts":  1791662773726,
-                               "risk_usd":  42.86,
-                               "notional_usd":  1266.14,
-                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  true,
-                               "fees_usd":  1.0268836983266403,
-                               "funding_usd":  -0.8149928611196402,
-                               "legs":  [
-                                            {
-                                                "part":  "TP1",
-                                                "qty":  3.7198,
-                                                "price":  161.54732,
-                                                "utc":  "2026-10-12 16:54",
-                                                "pnl":  32.15
-                                            }
-                                        ],
-                               "mfe_px":  147.02,
-                               "mae_px":  172.81,
-                               "thesis":  {
-                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
-                                              "regime":  "BTC 4h down; AAVE-USDT 4h down; F\u0026G 64",
-                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-10 16:00 UTC",
-                                              "indicators":  "RSI 46.4, ATR 2.42% (кэп 3%), фандинг 0.0001/8ч",
-                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
-                                              "riskPlan":  "вход ~170.188928, стоп 175.95 (3.46%), TP1 161.54732 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $42.86",
-                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
-                                              "checks":  {
-                                                             "setupA":  true,
-                                                             "btcFilter":  true,
-                                                             "flatMode":  true,
-                                                             "atrCap":  true,
-                                                             "funding":  true,
-                                                             "fearGreed":  true,
-                                                             "btcMom5d":  true,
-                                                             "atrCapLong":  true
-                                                         }
-                                          }
-                           },
                            {
                                "id":  "T55",
                                "symbol":  "ADA-USDT",
@@ -166,24 +117,24 @@
                            }
                        ],
     "stats":  {
-                  "closed_trades":  54,
-                  "wins":  17,
+                  "closed_trades":  55,
+                  "wins":  18,
                   "losses":  37,
-                  "total_fees_usd":  281.6,
-                  "total_funding_usd":  45.84,
-                  "realized_pnl_usd":  -1473.35
+                  "total_fees_usd":  282.95,
+                  "total_funding_usd":  45.03,
+                  "realized_pnl_usd":  -1398.1
               },
-    "last_check_utc":  "2026-10-16 04:00",
+    "last_check_utc":  "2026-10-16 04:06",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1792122900000,
-                 "last_4h_ts":  1792094400000,
+                 "last_1m_ts":  1792123500000,
+                 "last_4h_ts":  1792108800000,
                  "halt_day_utc":  null,
                  "soft_dd":  true,
                  "next_trade_id":  58,
-                 "ticks_since_viz":  1,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-10-15",
-                 "last_tick_utc":  "2026-10-16 04:00"
+                 "last_tick_utc":  "2026-10-16 04:06"
              }
 }
