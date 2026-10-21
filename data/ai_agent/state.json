@@ -14,7 +14,7 @@
    "entry_day": "2026-10-09",
    "qty": 0.170017017,
    "qty_initial": 0.170017017,
-   "stop": 102.3,
+   "stop": 103.4,
    "initial_stop": 99.6,
    "stop_src": "agent",
    "target": 116.0,
@@ -30,7 +30,15 @@
    "order": "limit",
    "decision_id": "main:2026-10-08",
    "memory_version": "51eb78f8ca51",
-   "pending_close": null
+   "pending_close": null,
+   "tightens": [
+    {
+     "at": "2026-10-21 16:35",
+     "from": 102.3,
+     "to": 103.4,
+     "decision_id": "us_open:2026-10-21"
+    }
+   ]
   },
   {
    "id": "A26",
@@ -389,7 +397,8 @@
   "evening:2026-10-20": "2026-10-20 23:35",
   "main:2026-10-20": "2026-10-21 00:21",
   "asia:2026-10-21": "2026-10-21 06:05",
-  "eu_open:2026-10-21": "2026-10-21 10:05"
+  "eu_open:2026-10-21": "2026-10-21 10:05",
+  "us_open:2026-10-21": "2026-10-21 16:35"
  },
  "attempts": {},
  "started_at": "2026-09-28 00:50",
