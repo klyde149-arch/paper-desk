@@ -50,9 +50,9 @@
    "entry_day": "2026-10-12",
    "qty": 5.8054e-05,
    "qty_initial": 5.8054e-05,
-   "stop": 236008.928571,
+   "stop": 240700.0,
    "initial_stop": 234500.0,
-   "stop_src": "trail",
+   "stop_src": "agent",
    "target": 260000.0,
    "best": 250150.0,
    "risk_amt": 0.490429943,
@@ -66,7 +66,15 @@
    "order": "market",
    "decision_id": "main:2026-10-09",
    "memory_version": "9cdc4716211f",
-   "pending_close": null
+   "pending_close": null,
+   "tightens": [
+    {
+     "at": "2026-10-21 23:35",
+     "from": 236008.928571,
+     "to": 240700.0,
+     "decision_id": "evening:2026-10-21"
+    }
+   ]
   },
   {
    "id": "A28",
@@ -399,7 +407,8 @@
   "asia:2026-10-21": "2026-10-21 06:05",
   "eu_open:2026-10-21": "2026-10-21 10:05",
   "us_open:2026-10-21": "2026-10-21 16:35",
-  "event:eia_crude:2026-10-21": "2026-10-21 17:35"
+  "event:eia_crude:2026-10-21": "2026-10-21 17:35",
+  "evening:2026-10-21": "2026-10-21 23:35"
  },
  "attempts": {},
  "started_at": "2026-09-28 00:50",
