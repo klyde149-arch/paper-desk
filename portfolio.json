@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  8634.34,
-    "equity_usd":  8669.97,
+    "balance_usd":  8632.86,
+    "equity_usd":  8668.26,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  8664.81,
     "day_start_date_utc":  "2026-10-25",
@@ -65,6 +65,49 @@
                                                              "atrCapLong":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T62",
+                               "symbol":  "XRP-USDT",
+                               "side":  "short",
+                               "qty":  2066.7254,
+                               "qty_initial":  2066.7254,
+                               "entry_price":  1.30031,
+                               "stop":  1.321285,
+                               "stop0":  1.321285,
+                               "tp1":  1.268847,
+                               "entry_utc":  "2026-10-25 08:11",
+                               "entry_ts":  1792915872853,
+                               "risk_usd":  43.35,
+                               "notional_usd":  2687.38,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  1.4780607989739163,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  1.30031,
+                               "mae_px":  1.30031,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h down; XRP-USDT 4h down; F\u0026G 54",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-25 04:00 UTC",
+                                              "indicators":  "RSI 47.4, ATR 1.52% (кэп 3%), фандинг 0.0001/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~1.30031, стоп 1.321285 (1.52%), TP1 1.268847 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $43.35",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -75,17 +118,17 @@
                   "total_funding_usd":  40.27,
                   "realized_pnl_usd":  -1397.19
               },
-    "last_check_utc":  "2026-10-25 08:06",
+    "last_check_utc":  "2026-10-25 08:11",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1792915500000,
-                 "last_4h_ts":  1792886400000,
+                 "last_1m_ts":  1792915800000,
+                 "last_4h_ts":  1792900800000,
                  "halt_day_utc":  null,
                  "soft_dd":  true,
-                 "next_trade_id":  62,
-                 "ticks_since_viz":  3,
+                 "next_trade_id":  63,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-10-24",
-                 "last_tick_utc":  "2026-10-25 08:06"
+                 "last_tick_utc":  "2026-10-25 08:11"
              }
 }
