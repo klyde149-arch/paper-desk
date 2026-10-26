@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  8633.37,
-    "equity_usd":  8716.6,
+    "balance_usd":  8632.15,
+    "equity_usd":  8706.69,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  8671.02,
     "day_start_date_utc":  "2026-10-26",
@@ -108,6 +108,49 @@
                                                              "atrCapLong":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T63",
+                               "symbol":  "BCH-USDT",
+                               "side":  "short",
+                               "qty":  8.0155,
+                               "qty_initial":  8.0155,
+                               "entry_price":  277.336774,
+                               "stop":  282.77,
+                               "stop0":  282.77,
+                               "tp1":  269.186935,
+                               "entry_utc":  "2026-10-26 04:06",
+                               "entry_ts":  1792987575225,
+                               "risk_usd":  43.55,
+                               "notional_usd":  2222.99,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  1.22264610159835,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  277.336774,
+                               "mae_px":  277.336774,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h down; BCH-USDT 4h down; F\u0026G 50",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-26 00:00 UTC",
+                                              "indicators":  "RSI 47.8, ATR 2.08% (кэп 3%), фандинг 6.2E-05/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~277.336774, стоп 282.77 (2.24%), TP1 269.186935 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $43.55",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -118,17 +161,17 @@
                   "total_funding_usd":  40.27,
                   "realized_pnl_usd":  -1397.19
               },
-    "last_check_utc":  "2026-10-26 04:00",
+    "last_check_utc":  "2026-10-26 04:06",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1792987140000,
-                 "last_4h_ts":  1792958400000,
+                 "last_1m_ts":  1792987500000,
+                 "last_4h_ts":  1792972800000,
                  "halt_day_utc":  null,
                  "soft_dd":  true,
-                 "next_trade_id":  63,
-                 "ticks_since_viz":  3,
+                 "next_trade_id":  64,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-10-25",
-                 "last_tick_utc":  "2026-10-26 04:00"
+                 "last_tick_utc":  "2026-10-26 04:06"
              }
 }
