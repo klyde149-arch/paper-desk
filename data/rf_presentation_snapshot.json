@@ -1,21 +1,21 @@
 {
   "schema": 1,
-  "generatedAtMs": 1793099747975,
-  "sourceAtMs": 1793099433591,
+  "generatedAtMs": 1793100644833,
+  "sourceAtMs": 1793100334066,
   "summary": {
     "mode": "prod",
     "accountId": "2154036525",
-    "capital": 1422653.9,
+    "capital": 1422383.9,
     "peak": 1771706.14,
     "drawdownPct": null,
     "peakStale": true,
     "capitalModel": "legacy",
-    "accountTotal": 1422653.9,
+    "accountTotal": 1422383.9,
     "userAssets": 0.0,
     "dayBase": 1427783.9,
     "dayBaseSource": "broker_daily_yield",
-    "todayAmt": -5130.0,
-    "todayPct": -0.35,
+    "todayAmt": -5400.0,
+    "todayPct": -0.37,
     "allTimePct": -2.58,
     "allTimeAmt": -37647.72,
     "allTimeNote": "результат бота с запуска по данным брокера; пополнений деньгами не было — рост счёта дал перевод ваших бумаг в рубли, поэтому процент здесь оценочный",
@@ -31,8 +31,8 @@
     "entriesHalt": true,
     "haltReason": "HALT_RF_ENTRIES file",
     "goUsed": 0.0,
-    "goBudget": 1372743.9,
-    "accountLiquid": 1422653.9,
+    "goBudget": 1372383.9,
+    "accountLiquid": 1422383.9,
     "lastDailyDay": "2026-10-26",
     "pendingSettleRub": 0.0,
     "pendingSettleTodayRub": 0.0,
@@ -41,21 +41,21 @@
     "riskBudget": {
       "mode": "pilot",
       "policyId": "rf-early-exit-v1",
-      "updatedMs": 1793099733714,
-      "capitalRub": 1422653.9,
+      "updatedMs": 1793100633472,
+      "capitalRub": 1422383.9,
       "capitalOk": true,
       "capitalReason": "",
       "capitalBinding": "verified",
-      "capitalVerifiedRub": 1422653.9,
+      "capitalVerifiedRub": 1422383.9,
       "capitalAllocatedRub": null,
       "budgetsEnforced": true,
       "setAEntries": "off",
       "coreEntries": "live",
       "totalUsedRub": 0.0,
-      "totalCapRub": 42679.62,
+      "totalCapRub": 42671.52,
       "fxLongRub": 0.0,
       "fxShortRub": 0.0,
-      "fxCapRub": 21339.81,
+      "fxCapRub": 21335.76,
       "byAsset": {},
       "dayOk": true,
       "dayPnlRub": 0.0,
@@ -66,18 +66,18 @@
     }
   },
   "broker": {
-    "captured_ms": 1793099733714,
+    "captured_ms": 1793100633472,
     "totals": {
-      "portfolio": 1422653.9,
-      "currencies": 1422653.9,
+      "portfolio": 1422383.9,
+      "currencies": 1422383.9,
       "shares": 0.0,
       "bonds": 0.0,
       "etf": 0.0,
       "futures_nominal": 0.0
     },
-    "expected_yield_pct": -9.06,
-    "daily_yield_rub": -5130.0,
-    "daily_yield_rel_pct": -0.35,
+    "expected_yield_pct": -9.08,
+    "daily_yield_rub": -5400.0,
+    "daily_yield_rel_pct": -0.37,
     "positions": [
       {
         "uid": "a92e2e25-a698-45cc-a781-167cf465257c",
@@ -100,8 +100,8 @@
         "lots": 18.0,
         "qty": 1800.0,
         "avg_px": 217.37,
-        "cur_px": 138.55,
-        "expected_yield": -141893.0,
+        "cur_px": 138.4,
+        "expected_yield": -142163.0,
         "var_margin": 0.0,
         "var_margin_settled": 0.0
       }
@@ -111,12 +111,12 @@
   "operational": {
     "go": {
       "used_rub": 0.0,
-      "budget_rub": 1372743.9,
+      "budget_rub": 1372383.9,
       "peak_day_rub": 0.0,
       "capital_peak_rub": 1771706.14,
-      "account_liquid_rub": 1422653.9,
-      "bot_capital_account_rub": 1422653.9,
-      "bot_capital_rub": 1422653.9
+      "account_liquid_rub": 1422383.9,
+      "bot_capital_account_rub": 1422383.9,
+      "bot_capital_rub": 1422383.9
     },
     "drift": {
       "D2": 1,
@@ -138,13 +138,13 @@
       "signal_mismatch": 0
     },
     "capitalBreakdown": {
-      "currencies": 1422653.9,
+      "currencies": 1422383.9,
       "futures": 0.0,
       "mom_shares": 0.0,
       "user_assets": 0.0,
-      "portfolio_total": 1422653.9,
-      "capital_account": 1422653.9,
-      "capital_legacy": 1422653.9,
+      "portfolio_total": 1422383.9,
+      "capital_account": 1422383.9,
+      "capital_legacy": 1422383.9,
       "model": "legacy"
     },
     "active": {
@@ -37386,6 +37386,10 @@
     [
       1793099433591,
       726574.45
+    ],
+    [
+      1793100334066,
+      726574.45
     ]
   ],
   "capitalCurve": [
@@ -73920,6 +73924,10 @@
     [
       1793099433591,
       1422473.9
+    ],
+    [
+      1793100334066,
+      1422383.9
     ]
   ]
 }
