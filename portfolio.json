@@ -10,8 +10,8 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  8475.87,
-    "equity_usd":  8500.96,
+    "balance_usd":  8474.73,
+    "equity_usd":  8499.23,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  8450.52,
     "day_start_date_utc":  "2026-10-29",
@@ -59,6 +59,92 @@
                                                              "atrCapLong":  true
                                                          }
                                           }
+                           },
+                           {
+                               "id":  "T67",
+                               "symbol":  "ETH-USDT",
+                               "side":  "short",
+                               "qty":  0.487,
+                               "qty_initial":  0.487,
+                               "entry_price":  2303.678689,
+                               "stop":  2390.95,
+                               "stop0":  2390.95,
+                               "tp1":  2172.771722,
+                               "entry_utc":  "2026-10-29 04:06",
+                               "entry_ts":  1793246772561,
+                               "risk_usd":  42.5,
+                               "notional_usd":  1121.89,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  0.61704033684865,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  2303.678689,
+                               "mae_px":  2303.678689,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h down; ETH-USDT 4h down; F\u0026G 51",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-29 00:00 UTC",
+                                              "indicators":  "RSI 40.2, ATR 1.49% (кэп 3%), фандинг 5E-05/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~2303.678689, стоп 2390.95 (3.58%), TP1 2172.771722 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $42.5",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
+                           },
+                           {
+                               "id":  "T68",
+                               "symbol":  "SOL-USDT",
+                               "side":  "short",
+                               "qty":  9.6049,
+                               "qty_initial":  9.6049,
+                               "entry_price":  99.382176,
+                               "stop":  103.807,
+                               "stop0":  103.807,
+                               "tp1":  92.744941,
+                               "entry_utc":  "2026-10-29 04:06",
+                               "entry_ts":  1793246772561,
+                               "risk_usd":  42.5,
+                               "notional_usd":  954.56,
+                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
+                               "tp1_done":  false,
+                               "fees_usd":  0.52500572635739806,
+                               "funding_usd":  0,
+                               "legs":  [
+
+                                        ],
+                               "mfe_px":  99.382176,
+                               "mae_px":  99.382176,
+                               "thesis":  {
+                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                                              "regime":  "BTC 4h down; SOL-USDT 4h down; F\u0026G 51",
+                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-29 00:00 UTC",
+                                              "indicators":  "RSI 40.8, ATR 1.65% (кэп 3%), фандинг 4.5E-05/8ч",
+                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                                              "riskPlan":  "вход ~99.382176, стоп 103.807 (4.18%), TP1 92.744941 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $42.5",
+                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                                              "checks":  {
+                                                             "setupA":  true,
+                                                             "btcFilter":  true,
+                                                             "flatMode":  true,
+                                                             "atrCap":  true,
+                                                             "funding":  true,
+                                                             "fearGreed":  true,
+                                                             "btcMom5d":  true,
+                                                             "atrCapLong":  true
+                                                         }
+                                          }
                            }
                        ],
     "stats":  {
@@ -69,17 +155,17 @@
                   "total_funding_usd":  38.69,
                   "realized_pnl_usd":  -1522.96
               },
-    "last_check_utc":  "2026-10-29 04:00",
+    "last_check_utc":  "2026-10-29 04:06",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1793246340000,
-                 "last_4h_ts":  1793217600000,
+                 "last_1m_ts":  1793246700000,
+                 "last_4h_ts":  1793232000000,
                  "halt_day_utc":  null,
                  "soft_dd":  true,
-                 "next_trade_id":  67,
-                 "ticks_since_viz":  3,
+                 "next_trade_id":  69,
+                 "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-10-28",
-                 "last_tick_utc":  "2026-10-29 04:00"
+                 "last_tick_utc":  "2026-10-29 04:06"
              }
 }
