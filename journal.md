@@ -1678,3 +1678,5 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-11-02 06:00 MSK — РФ АВТО [C2/mom]: ребаланс исполнен; держим: LKOH, TATN, ROSN, GAZP; кэш 0
 
 ## 2026-11-02 06:00 MSK — РФ АВТО [C3b/mom]: ребаланс исполнен; держим: LKOH, TATN, ROSN, GAZP; кэш 0
+
+## 2026-11-02 23:50 MSK — РФ АВТО: ролл BR: BRX6 → BRZ6 (ratio 0.89068)
