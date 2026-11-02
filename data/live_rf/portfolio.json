@@ -50,14 +50,14 @@
   "profile_eq": 726574.45,
   "profile_month_start": 726574.45,
   "cur_month": "2026-11",
-  "day_start_eq": 1407263.9,
-  "day_start_date": "2026-11-01",
+  "day_start_eq": 1416713.9,
+  "day_start_date": "2026-11-02",
   "peak_eq": 837288.71,
   "watermarks": {
-    "last_daily_day": "2026-11-01",
-    "last_hour_ts": 1793656800000,
-    "ops_since": "2026-11-02T20:15:33Z",
-    "last_eq_snap": 1793653713434,
+    "last_daily_day": "2026-11-02",
+    "last_hour_ts": 1793660400000,
+    "ops_since": "2026-11-02T20:30:33Z",
+    "last_eq_snap": 1793654614193,
     "last_report_day": "2026-11-02",
     "orders_day": "2026-10-05",
     "orders_day_n": 2,
@@ -85,10 +85,10 @@
   },
   "fronts": {
     "BR": {
-      "secid": "BRX6",
-      "lasttrade": "2026-11-02",
-      "next": "BRZ6",
-      "next_lasttrade": "2026-12-01"
+      "secid": "BRZ6",
+      "lasttrade": "2026-12-01",
+      "next": "BRF7",
+      "next_lasttrade": "2027-01-04"
     },
     "NG": {
       "secid": "NGX6",
@@ -266,15 +266,6 @@
       "superseded_ms": 1789896273495
     }
   ],
-  "readiness": {
-    "day": "2026-11-01",
-    "checked_n": 11,
-    "total_n": 11,
-    "failed": [],
-    "go_worst_rub": 2244538.2,
-    "go_cap_rub": 1017947.92,
-    "fits": false
-  },
   "broker_ledger": {
     "backfill_id": "v1-2026-09",
     "first_ms": 1793399373308,
@@ -460,12 +451,21 @@
     "e_base": 1407263.9,
     "fees_est_rub": 0.0
   },
+  "readiness": {
+    "day": "2026-11-02",
+    "checked_n": 11,
+    "total_n": 11,
+    "failed": [],
+    "go_worst_rub": 2142858.04,
+    "go_cap_rub": 1025035.42,
+    "fits": false
+  },
   "consec_fail": 0,
   "fail_since_ms": 0,
   "fail_alert_ms": 0,
   "broker_pnl_by_uid": {},
   "broker": {
-    "captured_ms": 1793654133460,
+    "captured_ms": 1793655033474,
     "totals": {
       "portfolio": 1416713.9,
       "currencies": 1416713.9,
@@ -529,7 +529,7 @@
   "risk_budget": {
     "mode": "pilot",
     "policy_id": "rf-early-exit-v1",
-    "updated_ms": 1793654133460,
+    "updated_ms": 1793655033474,
     "budgets_enforced": true,
     "capital_rub": 1416713.9,
     "capital_ok": true,
