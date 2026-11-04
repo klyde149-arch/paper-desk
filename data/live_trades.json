@@ -3487,5 +3487,165 @@
                                       "atrCapLong":  true
                                   }
                    }
+    },
+    {
+        "id":  "T69",
+        "sym":  "XRP-USDT",
+        "side":  "short",
+        "result":  "loss",
+        "entryUtc":  "2026-10-29 20:06",
+        "entryDay":  "2026-10-29",
+        "entryTs":  1793304377211,
+        "entry":  1.26792,
+        "qty":  847.119,
+        "exitUtc":  "2026-11-04 15:00",
+        "exitDay":  "2026-11-04",
+        "exitTs":  1793804400000,
+        "exitPx":  1.318359,
+        "exitReason":  "stop",
+        "legs":  [
+                     {
+                         "part":  "stop",
+                         "qty":  847.119,
+                         "price":  1.318359,
+                         "utc":  "2026-11-04 15:00",
+                         "pnl":  -42.73
+                     }
+                 ],
+        "pnlUsd":  -42.2,
+        "rMultiple":  -1,
+        "riskUsd":  42.17,
+        "fees":  1.2,
+        "funding":  -1.73,
+        "mfePx":  1.2,
+        "maePx":  1.3168,
+        "thesis":  {
+                       "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                       "regime":  "BTC 4h down; XRP-USDT 4h down; F\u0026G 51",
+                       "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-29 16:00 UTC",
+                       "indicators":  "RSI 41.6, ATR 1.65% (кэп 3%), фандинг 0.0001/8ч",
+                       "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                       "riskPlan":  "вход ~1.26792, стоп 1.3177 (2.81%), TP1 1.193249 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $42.17",
+                       "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                       "checks":  {
+                                      "setupA":  true,
+                                      "btcFilter":  true,
+                                      "flatMode":  true,
+                                      "atrCap":  true,
+                                      "funding":  true,
+                                      "fearGreed":  true,
+                                      "btcMom5d":  true,
+                                      "atrCapLong":  true
+                                  }
+                   }
+    },
+    {
+        "id":  "T67",
+        "sym":  "ETH-USDT",
+        "side":  "short",
+        "result":  "loss",
+        "entryUtc":  "2026-10-29 04:06",
+        "entryDay":  "2026-10-29",
+        "entryTs":  1793246772561,
+        "entry":  2303.678689,
+        "qty":  0.487,
+        "exitUtc":  "2026-11-04 15:01",
+        "exitDay":  "2026-11-04",
+        "exitTs":  1793804460000,
+        "exitPx":  2392.145475,
+        "exitReason":  "stop",
+        "legs":  [
+                     {
+                         "part":  "stop",
+                         "qty":  0.487,
+                         "price":  2392.145475,
+                         "utc":  "2026-11-04 15:01",
+                         "pnl":  -43.08
+                     }
+                 ],
+        "pnlUsd":  -43.54,
+        "rMultiple":  -1.02,
+        "riskUsd":  42.5,
+        "fees":  1.26,
+        "funding":  -0.8,
+        "mfePx":  2173.2,
+        "maePx":  2387.26,
+        "thesis":  {
+                       "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                       "regime":  "BTC 4h down; ETH-USDT 4h down; F\u0026G 51",
+                       "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-29 00:00 UTC",
+                       "indicators":  "RSI 40.2, ATR 1.49% (кэп 3%), фандинг 5E-05/8ч",
+                       "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                       "riskPlan":  "вход ~2303.678689, стоп 2390.95 (3.58%), TP1 2172.771722 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $42.5",
+                       "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                       "checks":  {
+                                      "setupA":  true,
+                                      "btcFilter":  true,
+                                      "flatMode":  true,
+                                      "atrCap":  true,
+                                      "funding":  true,
+                                      "fearGreed":  true,
+                                      "btcMom5d":  true,
+                                      "atrCapLong":  true
+                                  }
+                   }
+    },
+    {
+        "id":  "T68",
+        "sym":  "SOL-USDT",
+        "side":  "short",
+        "result":  "win",
+        "entryUtc":  "2026-10-29 04:06",
+        "entryDay":  "2026-10-29",
+        "entryTs":  1793246772561,
+        "entry":  99.382176,
+        "qty":  9.6049,
+        "exitUtc":  "2026-11-04 15:59",
+        "exitDay":  "2026-11-04",
+        "exitTs":  1793807940000,
+        "exitPx":  94.710967,
+        "exitReason":  "trail-ema20",
+        "legs":  [
+                     {
+                         "part":  "TP1",
+                         "qty":  4.80245,
+                         "price":  92.744941,
+                         "utc":  "2026-10-30 00:22",
+                         "pnl":  31.87
+                     },
+                     {
+                         "part":  "runner",
+                         "qty":  4.80245,
+                         "price":  96.676994,
+                         "utc":  "2026-11-04 15:59",
+                         "pnl":  12.99
+                     }
+                 ],
+        "pnlUsd":  44.66,
+        "rMultiple":  1.05,
+        "riskUsd":  42.5,
+        "fees":  1.03,
+        "funding":  -0.82,
+        "mfePx":  89.854,
+        "maePx":  103.129,
+        "thesis":  {
+                       "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
+                       "regime":  "BTC 4h down; SOL-USDT 4h down; F\u0026G 51",
+                       "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-10-29 00:00 UTC",
+                       "indicators":  "RSI 40.8, ATR 1.65% (кэп 3%), фандинг 4.5E-05/8ч",
+                       "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
+                       "riskPlan":  "вход ~99.382176, стоп 103.807 (4.18%), TP1 92.744941 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $42.5",
+                       "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
+                       "checks":  {
+                                      "setupA":  true,
+                                      "btcFilter":  true,
+                                      "flatMode":  true,
+                                      "atrCap":  true,
+                                      "funding":  true,
+                                      "fearGreed":  true,
+                                      "btcMom5d":  true,
+                                      "atrCapLong":  true
+                                  }
+                   }
     }
 ]
