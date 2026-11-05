@@ -12,7 +12,7 @@
                     "core":  {
                                  "equity":  9091.3488961866569,
                                  "month_start_eq":  11257.53,
-                                 "day_start_eq":  9006.5480369387551,
+                                 "day_start_eq":  9091.3488961866569,
                                  "halt_day":  null,
                                  "positions":  [
                                                    {
@@ -34,14 +34,23 @@
                                                        "fees":  0,
                                                        "realized":  0,
                                                        "rolls":  0,
-                                                       "cur":  92550,
-                                                       "upnl":  792.04
+                                                       "cur":  92496,
+                                                       "upnl":  802.44
                                                    }
                                                ],
                                  "pending":  [
-
+                                                 {
+                                                     "kind":  "entry",
+                                                     "sleeve":  "core",
+                                                     "asset":  "COCOA",
+                                                     "side":  "short",
+                                                     "created_day":  "2026-11-05",
+                                                     "stop_dist":  34.928571,
+                                                     "risk_pct":  0.05,
+                                                     "note":  "donchian close 425.2 vs [439.2 / 511.6]"
+                                                 }
                                              ],
-                                 "equity_mtm":  9883.38
+                                 "equity_mtm":  9893.79
                              },
                     "setA":  {
                                  "equity":  8522.32609032123,
@@ -52,12 +61,22 @@
 
                                                ],
                                  "pending":  [
-
+                                                 {
+                                                     "kind":  "entry",
+                                                     "sleeve":  "setA",
+                                                     "asset":  "VTBR",
+                                                     "side":  "long",
+                                                     "created_day":  "2026-11-05",
+                                                     "swing":  5531,
+                                                     "atr":  165.142857,
+                                                     "risk_pct":  0.02,
+                                                     "note":  "setup A pullback"
+                                                 }
                                              ],
                                  "equity_mtm":  8522.33
                              },
                     "mom":  {
-                                "equity":  9501.47,
+                                "equity":  9506.44,
                                 "month_start_eq":  10000,
                                 "cash":  0,
                                 "holdings":  [
@@ -90,14 +109,14 @@
 
                                             ],
                                 "last_rebalance_month":  "2026-11",
-                                "equity_mtm":  9501.47
+                                "equity_mtm":  9506.44
                             }
                 },
-    "profile_eq":  8002.02,
+    "profile_eq":  8013.03,
     "profile_month_start":  9380.94,
     "cur_month":  "2026-11",
-    "day_start_eq":  8203.2,
-    "day_start_date":  "2026-11-04",
+    "day_start_eq":  8002.02,
+    "day_start_date":  "2026-11-05",
     "peak_eq":  14621.65,
     "stats":  {
                   "trades":  27,
