@@ -1703,3 +1703,5 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-11-05 06:00 MSK — РФ АВТО [C2/core]: закрыта R51 GOLD SHORT — +52.25 (atr-trail)
 
 ## 2026-11-05 06:00 MSK — РФ АВТО [C3b/core]: закрыта R52 GOLD SHORT — +83.49 (atr-trail)
+
+## 2026-11-06 03:27 UTC — авто-сводка дня 2026-11-05: equity 8389.19$, P&L дня +0.00$ (+0.00%), позиций 0
