@@ -1785,3 +1785,5 @@ tools/test_live_rf_scenarios.ps1, якорь d4-confirmed не сломан. Т�
 ## 2026-11-20 12:00 MSK — РФ АВТО [C2/setA]: закрыта R59 VTBR LONG — +68.26 (be-stop)
 
 ## 2026-11-20 12:00 MSK — РФ АВТО [C3b/setA]: закрыта R60 VTBR LONG — +125.80 (be-stop)
+
+## 2026-11-20 23:50 MSK — РФ АВТО: ролл COCOA: CCG7 → CCX6 (ratio 0.94119)
