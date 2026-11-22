@@ -10,62 +10,13 @@
                  "max_drawdown_soft_pct":  16,
                  "max_drawdown_hard_pct":  35
              },
-    "balance_usd":  8482.32,
-    "equity_usd":  8833.84,
+    "balance_usd":  8644.33,
+    "equity_usd":  8835.91,
     "peak_equity_usd":  10269.04,
     "day_start_equity_usd":  8851.2,
     "day_start_date_utc":  "2026-11-22",
     "trading_halted":  false,
     "open_positions":  [
-                           {
-                               "id":  "T70",
-                               "symbol":  "OP-USDT",
-                               "side":  "short",
-                               "qty":  5610.97875,
-                               "qty_initial":  11221.9575,
-                               "entry_price":  0.10066,
-                               "stop":  0.10066,
-                               "stop0":  0.104398,
-                               "tp1":  0.095052,
-                               "entry_utc":  "2026-11-09 21:18",
-                               "entry_ts":  1794259095319,
-                               "risk_usd":  41.95,
-                               "notional_usd":  1129.6,
-                               "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
-                               "tp1_done":  true,
-                               "fees_usd":  0.91461406913238874,
-                               "funding_usd":  -1.0924975689034875,
-                               "legs":  [
-                                            {
-                                                "part":  "TP1",
-                                                "qty":  5610.97875,
-                                                "price":  0.095052,
-                                                "utc":  "2026-11-12 10:48",
-                                                "pnl":  31.47
-                                            }
-                                        ],
-                               "mfe_px":  0.06425,
-                               "mae_px":  0.10299,
-                               "thesis":  {
-                                              "setup":  "A — трендовый откат (АВТОВХОД v2, все 6 ворот пройдены)",
-                                              "regime":  "BTC 4h down; OP-USDT 4h down; F\u0026G 29",
-                                              "structure":  "откат к зоне EMA20–50 4h, триггер-бар на закрытии 2026-11-09 16:00 UTC",
-                                              "indicators":  "RSI 46.6, ATR 2.98% (кэп 3%), фандинг 1.3E-05/8ч",
-                                              "trigger":  "закрытый 4h-бар: возврат за EMA20 после отката (сетап A)",
-                                              "riskPlan":  "вход ~0.10066, стоп 0.104398 (2.98%), TP1 0.095052 = 1.5R (закрыть 50%), затем БУ + трейл EMA20 4h; риск $41.95",
-                                              "invalidation":  "касание стопа (по 1m); слом структуры отменяет раннер по закрытию 4h за EMA20",
-                                              "checks":  {
-                                                             "setupA":  true,
-                                                             "btcFilter":  true,
-                                                             "flatMode":  true,
-                                                             "atrCap":  true,
-                                                             "funding":  true,
-                                                             "fearGreed":  true,
-                                                             "btcMom5d":  true,
-                                                             "atrCapLong":  true
-                                                         }
-                                          }
-                           },
                            {
                                "id":  "T71",
                                "symbol":  "APT-USDT",
@@ -83,7 +34,7 @@
                                "runner_plan":  "TP1 1.5R закрыть 50% → стоп в БУ → трейл: выход по закрытию 4h за EMA20",
                                "tp1_done":  true,
                                "fees_usd":  0.88717330991762378,
-                               "funding_usd":  -0.84527924691873,
+                               "funding_usd":  -0.83436863943861006,
                                "legs":  [
                                             {
                                                 "part":  "TP1",
@@ -117,24 +68,24 @@
                            }
                        ],
     "stats":  {
-                  "closed_trades":  70,
-                  "wins":  23,
+                  "closed_trades":  71,
+                  "wins":  24,
                   "losses":  47,
-                  "total_fees_usd":  311.41,
-                  "total_funding_usd":  34.49,
-                  "realized_pnl_usd":  -1580.81
+                  "total_fees_usd":  312.55,
+                  "total_funding_usd":  33.47,
+                  "realized_pnl_usd":  -1387.14
               },
-    "last_check_utc":  "2026-11-22 11:51",
+    "last_check_utc":  "2026-11-22 19:06",
     "auto":  {
                  "schema":  1,
                  "engine":  "v2-combo",
-                 "last_1m_ts":  1795318140000,
-                 "last_4h_ts":  1795276800000,
+                 "last_1m_ts":  1795374300000,
+                 "last_4h_ts":  1795348800000,
                  "halt_day_utc":  null,
                  "soft_dd":  true,
                  "next_trade_id":  73,
                  "ticks_since_viz":  0,
                  "last_daily_summary_day":  "2026-11-21",
-                 "last_tick_utc":  "2026-11-22 11:51"
+                 "last_tick_utc":  "2026-11-22 19:06"
              }
 }
